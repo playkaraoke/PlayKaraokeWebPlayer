@@ -47,19 +47,11 @@ const applauseAudio = el('applause-audio');
 
 const autoplayToggle = el('autoplay-toggle');
 const autoplayDelayInput = el('autoplay-delay-input');
-const autoplayStatus = el('autoplay-status');
-const autoplayDetail = el('autoplay-detail');
-const autoplayIndicatorBtn = el('autoplay-indicator-btn');
-
-const applauseIndicatorBtn = el('applause-indicator-btn');
-const applauseStatus = el('applause-status');
 
 const ambientToggle = el('ambient-toggle');
 const ambientVolumeSlider = el('ambient-volume-slider');
 const ambientVolumePct = el('ambient-volume-pct');
 const ambientAudio = el('ambient-audio');
-const ambientIndicatorBtn = el('ambient-indicator-btn');
-const ambientStatus = el('ambient-status');
 
 const countdownOverlay = el('countdown-overlay');
 const cdNumber = el('cd-number');
@@ -67,13 +59,23 @@ const cdNextTitle = el('cd-next-title');
 const cdSkipBtn = el('cd-skip-btn');
 
 const addMusicBtn = el('add-music-btn');
+const sidebarDropzone = el('sidebar-dropzone');
 const playlistEl = el('playlist');
 const playlistCount = el('playlist-count');
 
+const tabFilaBtn = el('tab-fila-btn');
+const tabBibliotecaBtn = el('tab-biblioteca-btn');
+const tabFilaPanel = el('tab-fila-panel');
+const tabBibliotecaPanel = el('tab-biblioteca-panel');
+
+const librarySearchInput = el('library-search-input');
+const libraryResults = el('library-results');
+const libraryFoldersList = el('library-folders-list');
+const connectFolderBtn = el('connect-folder-btn');
+const libraryUnsupported = el('library-unsupported');
+
 const openSecondBtn = el('open-second-btn');
 const secondScreenStatus = el('second-screen-status');
-const secondScreenIndicatorBtn = el('second-screen-indicator-btn');
-const secondScreenStatusIndicator = el('second-screen-status-indicator');
 
 const quickSecondScreenBtn = el('quick-second-screen-btn');
 const quickAutoplayBtn = el('quick-autoplay-btn');
@@ -199,6 +201,7 @@ function renderPlaylist() {
     hint.textContent = 'Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.';
     playlistEl.appendChild(hint);
     nextBtn.disabled = true;
+    persistPlaylist();
     return;
   }
 
@@ -300,6 +303,7 @@ function renderPlaylist() {
   });
 
   nextBtn.disabled = !hasNext();
+  persistPlaylist();
 }
 
 function moveTrack(index, direction) {
@@ -771,21 +775,16 @@ function checkSilenceForApplause(currentTime, duration, remaining) {
 
 function updateAutoplayIndicator() {
   const on = autoplayToggle.checked;
-  autoplayIndicatorBtn.classList.toggle('on', on);
   quickAutoplayBtn.classList.toggle('on', on);
-  autoplayStatus.innerHTML = `<span class="dot"></span> Autoplay ${on ? 'ligado' : 'desligado'}`;
-  autoplayDetail.classList.toggle('hidden', !on);
   if (on) {
     const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
-    autoplayDetail.innerHTML = `aguarda <b>${delay}s</b> entre músicas`;
+    quickAutoplayBtn.title = `Autoplay ligado — aguarda ${delay}s entre músicas`;
+  } else {
+    quickAutoplayBtn.title = 'Ligar/desligar autoplay';
   }
 }
 autoplayToggle.addEventListener('change', updateAutoplayIndicator);
 autoplayDelayInput.addEventListener('input', updateAutoplayIndicator);
-autoplayIndicatorBtn.addEventListener('click', () => {
-  autoplayToggle.checked = !autoplayToggle.checked;
-  autoplayToggle.dispatchEvent(new Event('change'));
-});
 quickAutoplayBtn.addEventListener('click', () => {
   autoplayToggle.checked = !autoplayToggle.checked;
   autoplayToggle.dispatchEvent(new Event('change'));
@@ -797,6 +796,7 @@ function cancelCountdown() {
     countdownTimerId = null;
   }
   countdownOverlay.classList.add('hidden');
+  broadcastToSecondScreen({ type: 'countdown-end' });
   refreshIdleState();
 }
 
@@ -810,11 +810,13 @@ function startAutoplayCountdownIfNeeded() {
 
   const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
   const nextItem = playlist[currentIndex + 1];
-  cdNextTitle.textContent = [nextItem.artist, nextItem.title].filter(Boolean).join(' — ');
+  const nextTitleText = [nextItem.artist, nextItem.title].filter(Boolean).join(' — ');
+  cdNextTitle.textContent = nextTitleText;
   countdownOverlay.classList.remove('hidden');
   countdownRemaining = delay;
   cdNumber.textContent = String(countdownRemaining);
   refreshIdleState();
+  broadcastToSecondScreen({ type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText });
 
   if (delay <= 0) {
     finishCountdown();
@@ -824,6 +826,7 @@ function startAutoplayCountdownIfNeeded() {
   countdownTimerId = setInterval(() => {
     countdownRemaining -= 1;
     cdNumber.textContent = String(Math.max(0, countdownRemaining));
+    broadcastToSecondScreen({ type: 'countdown-tick', remaining: Math.max(0, countdownRemaining) });
     if (countdownRemaining <= 0) {
       finishCountdown();
     }
@@ -836,15 +839,9 @@ cdSkipBtn.addEventListener('click', finishCountdown);
 
 function updateApplauseIndicator() {
   const on = applauseToggle.checked;
-  applauseIndicatorBtn.classList.toggle('on', on);
   quickApplauseBtn.classList.toggle('on', on);
-  applauseStatus.innerHTML = `<span class="dot"></span> Aplausos ${on ? 'ligados' : 'desligados'}`;
 }
 applauseToggle.addEventListener('change', updateApplauseIndicator);
-applauseIndicatorBtn.addEventListener('click', () => {
-  applauseToggle.checked = !applauseToggle.checked;
-  applauseToggle.dispatchEvent(new Event('change'));
-});
 quickApplauseBtn.addEventListener('click', () => {
   applauseToggle.checked = !applauseToggle.checked;
   applauseToggle.dispatchEvent(new Event('change'));
@@ -1001,17 +998,11 @@ idleImageRemoveBtn.addEventListener('click', () => {
 
 function updateAmbientIndicator() {
   const on = ambientToggle.checked;
-  ambientIndicatorBtn.classList.toggle('on', on);
   quickAmbientBtn.classList.toggle('on', on);
-  ambientStatus.innerHTML = `<span class="dot"></span> Música ambiente ${on ? 'ligada' : 'desligada'}`;
 }
 ambientToggle.addEventListener('change', () => {
   updateAmbientIndicator();
   refreshIdleState();
-});
-ambientIndicatorBtn.addEventListener('click', () => {
-  ambientToggle.checked = !ambientToggle.checked;
-  ambientToggle.dispatchEvent(new Event('change'));
 });
 quickAmbientBtn.addEventListener('click', () => {
   ambientToggle.checked = !ambientToggle.checked;
@@ -1178,8 +1169,6 @@ function updateSecondScreenIndicator() {
   const open = !!(secondScreenWindow && !secondScreenWindow.closed);
   secondScreenStatus.classList.toggle('hidden', !open);
   openSecondBtn.textContent = open ? 'Focar janela ↗' : 'Abrir janela ↗';
-  secondScreenIndicatorBtn.classList.toggle('on', open);
-  secondScreenStatusIndicator.innerHTML = `<span class="dot"></span> Segunda tela ${open ? 'ligada' : 'desligada'}`;
   quickSecondScreenBtn.classList.toggle('on', open);
 }
 
@@ -1223,8 +1212,263 @@ function toggleSecondScreen() {
   }
 }
 
-secondScreenIndicatorBtn.addEventListener('click', toggleSecondScreen);
 quickSecondScreenBtn.addEventListener('click', toggleSecondScreen);
+
+// ---------- Abas da sidebar (Fila / Biblioteca) ----------
+
+function switchSidebarTab(tab) {
+  const isFila = tab === 'fila';
+  tabFilaBtn.classList.toggle('active', isFila);
+  tabBibliotecaBtn.classList.toggle('active', !isFila);
+  tabFilaPanel.classList.toggle('hidden', !isFila);
+  tabBibliotecaPanel.classList.toggle('hidden', isFila);
+}
+tabFilaBtn.addEventListener('click', () => switchSidebarTab('fila'));
+tabBibliotecaBtn.addEventListener('click', () => switchSidebarTab('biblioteca'));
+
+// ---------- Dropzone dedicado (aba Fila) ----------
+
+sidebarDropzone.addEventListener('click', () => fileInput.click());
+sidebarDropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  sidebarDropzone.classList.add('drag-active');
+});
+sidebarDropzone.addEventListener('dragleave', () => {
+  sidebarDropzone.classList.remove('drag-active');
+});
+sidebarDropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  sidebarDropzone.classList.remove('drag-active');
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (files && files.length) addFilesToQueue(files);
+});
+
+// ---------- Biblioteca (indexação de pastas locais) ----------
+
+const library = window.createLibrary({
+  onFoldersChange: renderLibraryFolders,
+  onIndexChange: () => {
+    // Se tiver uma busca ativa, atualiza os resultados com o índice novo.
+    if (librarySearchInput.value.trim()) renderLibraryResults();
+  },
+  onError: (msg) => showError(msg),
+});
+
+if (!library.isSupported()) {
+  libraryUnsupported.classList.remove('hidden');
+  connectFolderBtn.disabled = true;
+}
+
+function renderLibraryFolders() {
+  const folders = library.getConnectedFolders();
+  libraryFoldersList.innerHTML = '';
+
+  folders.forEach((folder) => {
+    const row = document.createElement('div');
+    row.className = 'folder-row';
+
+    const info = document.createElement('div');
+    info.className = 'folder-info';
+    const icon = document.createElement('span');
+    icon.className = 'folder-icon';
+    icon.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-19.5 0v6a2.25 2.25 0 0 0 2.25 2.25h15a2.25 2.25 0 0 0 2.25-2.25v-6m-19.5 0a2.25 2.25 0 0 1 2.25-2.25h15a2.25 2.25 0 0 1 2.25 2.25M4.5 9.75V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M19.5 9.75V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08M15 8.25l-1.5-1.5m0 0-1.5 1.5m1.5-1.5v9"/></svg>';
+
+    const textWrap = document.createElement('div');
+    const nameEl = document.createElement('div');
+    nameEl.className = 'folder-name';
+    nameEl.textContent = folder.name;
+    const countEl = document.createElement('div');
+    if (folder.needsPermission) {
+      countEl.className = 'folder-count warn';
+      countEl.textContent = 'Reconexão necessária';
+    } else if (folder.scanning) {
+      countEl.className = 'folder-count';
+      countEl.textContent = 'Escaneando...';
+    } else {
+      countEl.className = 'folder-count';
+      countEl.textContent = `${folder.fileCount.toLocaleString('pt-BR')} arquivos`;
+    }
+    textWrap.appendChild(nameEl);
+    textWrap.appendChild(countEl);
+
+    info.appendChild(icon);
+    info.appendChild(textWrap);
+    row.appendChild(info);
+
+    if (folder.needsPermission) {
+      const reconnectBtn = document.createElement('button');
+      reconnectBtn.className = 'folder-reconnect-btn';
+      reconnectBtn.textContent = 'Reconectar';
+      reconnectBtn.addEventListener('click', () => library.reconnectFolder(folder.id));
+      row.appendChild(reconnectBtn);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'folder-remove-btn';
+    removeBtn.title = 'Remover pasta';
+    removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+    removeBtn.addEventListener('click', () => library.removeFolder(folder.id));
+    row.appendChild(removeBtn);
+
+    libraryFoldersList.appendChild(row);
+  });
+}
+
+function renderLibraryResults() {
+  const query = librarySearchInput.value;
+  libraryResults.innerHTML = '';
+
+  if (!query.trim()) return;
+
+  const results = library.search(query);
+
+  const label = document.createElement('span');
+  label.className = 'library-result-count';
+  label.textContent = results.length === 0 ? '0 resultados' : `${results.length} resultado${results.length > 1 ? 's' : ''}`;
+  libraryResults.appendChild(label);
+
+  if (results.length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'library-empty-hint';
+    hint.textContent = 'Nada encontrado. Confira se a pasta certa está conectada.';
+    libraryResults.appendChild(hint);
+    return;
+  }
+
+  results.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'search-result';
+
+    const meta = document.createElement('div');
+    meta.className = 'sr-meta';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'sr-title';
+    titleEl.textContent = item.title;
+    const subEl = document.createElement('div');
+    subEl.className = 'sr-sub';
+    const subText = document.createElement('span');
+    subText.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || item.format;
+    const tag = document.createElement('span');
+    tag.className = 'source-tag';
+    tag.textContent = item.folderName;
+    subEl.appendChild(subText);
+    subEl.appendChild(tag);
+    meta.appendChild(titleEl);
+    meta.appendChild(subEl);
+
+    const addBtn = document.createElement('div');
+    addBtn.className = 'sr-add';
+    addBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+
+    row.appendChild(meta);
+    row.appendChild(addBtn);
+    row.addEventListener('click', () => addLibraryItemToQueue(item));
+
+    libraryResults.appendChild(row);
+  });
+}
+
+async function addLibraryItemToQueue(item) {
+  try {
+    const file = await library.getFileForItem(item);
+    const beforeLength = playlist.length;
+    await addFilesToQueue([file]);
+    if (playlist.length > beforeLength) {
+      const newItem = playlist[playlist.length - 1];
+      newItem.librarySource = { folderId: item.folderId, fileName: item.name };
+      persistPlaylist();
+    }
+    switchSidebarTab('fila');
+  } catch (err) {
+    console.error('[App] Erro ao ler arquivo da biblioteca:', err);
+    showError('Não foi possível ler esse arquivo — confira se a pasta/HD ainda está conectado.');
+  }
+}
+
+librarySearchInput.addEventListener('input', renderLibraryResults);
+connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
+
+// ---------- Persistência da fila (sobrevive a um F5 acidental) ----------
+//
+// Só restauramos automaticamente músicas que vieram da Biblioteca — elas
+// têm uma referência viva ao arquivo no disco (via File System Access
+// API), então dá pra "reabrir" sem pedir nada ao usuário. Músicas
+// carregadas manualmente (arrastadas ou pelo seletor de arquivo comum)
+// usam um tipo de referência que o navegador não deixa reabrir sozinho
+// depois de recarregar a página — nesse caso, avisamos que precisam ser
+// adicionadas de novo, em vez de fingir que "restauramos" algo quebrado.
+
+const PLAYLIST_STORAGE_KEY = 'playkaraoke-playlist-v1';
+
+function persistPlaylist() {
+  try {
+    const data = {
+      items: playlist.map(item => ({
+        code: item.code,
+        artist: item.artist,
+        title: item.title,
+        format: item.format,
+        type: item.type,
+        librarySource: item.librarySource || null,
+      })),
+    };
+    localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.warn('[App] Não foi possível salvar a fila:', err);
+  }
+}
+
+async function restorePlaylistFromStorage() {
+  let saved;
+  try {
+    const raw = localStorage.getItem(PLAYLIST_STORAGE_KEY);
+    if (!raw) return;
+    saved = JSON.parse(raw);
+  } catch (err) {
+    return;
+  }
+  if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) return;
+
+  let restoredCount = 0;
+  let droppedCount = 0;
+
+  for (const savedItem of saved.items) {
+    let restored = false;
+    if (savedItem.librarySource) {
+      const found = library.findByFolderAndName(savedItem.librarySource.folderId, savedItem.librarySource.fileName);
+      if (found) {
+        try {
+          const file = await library.getFileForItem(found);
+          playlist.push({
+            id: 'track_' + (++playlistIdCounter),
+            file,
+            code: found.code,
+            artist: found.artist,
+            title: found.title,
+            format: found.format,
+            type: found.type,
+            librarySource: savedItem.librarySource,
+          });
+          restoredCount++;
+          restored = true;
+        } catch (err) {
+          console.warn('[App] Não foi possível reabrir arquivo restaurado:', err);
+        }
+      }
+    }
+    if (!restored) droppedCount++;
+  }
+
+  if (restoredCount > 0) {
+    renderPlaylist();
+  }
+  if (droppedCount > 0) {
+    showError(`${droppedCount} música(s) da fila anterior não foram restauradas automaticamente (eram arquivos avulsos, ou a pasta da Biblioteca ainda não foi reconectada). Adicione-as de novo se precisar.`);
+  }
+}
+
+// Tenta restaurar pastas já conectadas em sessões anteriores (silencioso).
+library.restoreSavedFolders().then(restorePlaylistFromStorage);
 
 // ---------- Atalhos de teclado ----------
 

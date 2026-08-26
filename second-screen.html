@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Play Karaoke — Segunda Tela</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;background:#000;overflow:hidden;}
@@ -78,6 +79,40 @@
   body:hover #fs-btn{ opacity:1; }
   #fs-btn:hover{ background:rgba(40,40,40,0.8); }
   #fs-btn svg{ width:20px;height:20px; }
+
+  #countdown-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.88);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    z-index:5;
+  }
+  #countdown-overlay .cd-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#9a9d9c;
+  }
+  #countdown-overlay .cd-number{
+    font-family:'Montserrat',sans-serif;
+    font-weight:700;
+    font-size:min(18vw, 140px);
+    color:#adc6ff;
+    line-height:1;
+  }
+  #countdown-overlay .cd-next{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:min(4vw, 28px);
+    color:#e5e2e1;
+    text-align:center;
+    padding:0 20px;
+  }
 </style>
 </head>
 <body>
@@ -93,6 +128,12 @@
 <div id="idle-overlay">
   <img id="idle-logo" src="assets/logo.svg" alt=""/>
   <div id="idle-custom-image" class="hidden"></div>
+</div>
+
+<div id="countdown-overlay" class="hidden">
+  <span class="cd-label">Próxima música em</span>
+  <span class="cd-number" id="cd-number">10</span>
+  <span class="cd-next" id="cd-next-title"></span>
 </div>
 
 <button id="fs-btn" title="Tela cheia">

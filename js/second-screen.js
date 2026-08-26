@@ -19,6 +19,9 @@
   const idleOverlay = document.getElementById('idle-overlay');
   const idleLogo = document.getElementById('idle-logo');
   const idleCustomImage = document.getElementById('idle-custom-image');
+  const countdownOverlay = document.getElementById('countdown-overlay');
+  const cdNumber = document.getElementById('cd-number');
+  const cdNextTitle = document.getElementById('cd-next-title');
 
   fsBtn.addEventListener('click', async () => {
     try {
@@ -37,6 +40,7 @@
 
   let mode = null; // 'cdg' | 'video' | null (nada carregado ainda)
   let isPlayingState = false;
+  let countdownActive = false;
   let lastVideoUrl = null;
 
   function applyIdleImage(dataUrl) {
@@ -51,8 +55,15 @@
     }
   }
 
-  /** Decide o que mostrar: canvas/vídeo (se tocando) ou a tela ociosa (logo/imagem). */
+  /** Decide o que mostrar: countdown (prioridade), canvas/vídeo (se tocando), ou a tela ociosa. */
   function updateVisibility() {
+    countdownOverlay.classList.toggle('hidden', !countdownActive);
+    if (countdownActive) {
+      idleOverlay.classList.add('hidden');
+      canvasWrap.classList.add('hidden');
+      videoWrap.classList.add('hidden');
+      return;
+    }
     const showingMedia = isPlayingState && mode !== null;
     idleOverlay.classList.toggle('hidden', showingMedia);
     canvasWrap.classList.toggle('hidden', !showingMedia || mode !== 'cdg');
@@ -117,9 +128,26 @@
         applyIdleImage(msg.dataUrl || null);
         break;
       }
+      case 'countdown-start': {
+        countdownActive = true;
+        cdNumber.textContent = String(msg.remaining);
+        cdNextTitle.textContent = msg.nextTitle || '';
+        updateVisibility();
+        break;
+      }
+      case 'countdown-tick': {
+        cdNumber.textContent = String(msg.remaining);
+        break;
+      }
+      case 'countdown-end': {
+        countdownActive = false;
+        updateVisibility();
+        break;
+      }
       case 'clear': {
         mode = null;
         isPlayingState = false;
+        countdownActive = false;
         updateVisibility();
         break;
       }

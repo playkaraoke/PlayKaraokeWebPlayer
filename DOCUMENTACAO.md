@@ -1,4 +1,4 @@
-# Play Karaoke — Documentação do Projeto (v0.5 — com autenticação e deploy)
+# Play Karaoke — Documentação do Projeto (v1.2 — Biblioteca)
 
 > Este documento existe pra você (ou qualquer IA/desenvolvedor) conseguir
 > entender o projeto do zero e continuar de onde paramos, sem precisar
@@ -66,6 +66,7 @@ karaoke-engine/
     ├── pitch-worklet-processor.js → o processador de pitch em si (AudioWorklet)
     ├── tick-worker.js             → cronômetro em Web Worker (imune a aba em 2º plano)
     ├── file-loader.js             → extrai .cdg/.mp3 do .zip + interpreta nome do arquivo
+    ├── library.js                 → Biblioteca: indexa pastas locais, busca em tempo real
     ├── second-screen.js           → lógica da janela da segunda tela
     └── app.js                     → cola tudo junto: UI, fila, autoplay, ambiente, aplausos
 ```
@@ -111,6 +112,35 @@ fazer isso em qualquer terminal com Node:
 `node -e "console.log(require('crypto').createHash('sha256').update('SUA_SENHA_AQUI').digest('hex'))"`)
 e substitui o valor de `ACCESS_HASH` no script de autenticação, no final
 do `index.html`.
+
+---
+
+## Versionamento (número de versão + Releases do GitHub)
+
+O número da versão atual (ex: `v1.2 · Biblioteca`) aparece **visível no
+rodapé da sidebar**, ao lado da engrenagem de configurações — assim
+sempre dá pra saber o que está rodando sem precisar ir conferir no GitHub.
+
+Pra atualizar: edita o texto direto no `index.html`, dentro de
+`<span id="version-tag">`.
+
+### Por que isso importa: nada nunca se perde
+
+Cada `git commit` já é um "ponto de restauração" permanente — o Git guarda
+isso pra sempre. Mas pra ficar mais fácil de achar "a versão boa" sem
+precisar caçar entre commits, o GitHub tem os **Releases**:
+
+1. Depois de fechar uma rodada grande de mudanças, cria uma Release no
+   site do GitHub (aba "Releases" do repositório → "Draft a new release")
+2. Dá um nome/tag (ex: `v1.2`), escreve uma descrição rápida do que mudou
+3. O GitHub guarda esse "carimbo" permanentemente, com um zip baixável
+   daquele estado exato do projeto
+4. Se um dia precisar voltar: só baixar o zip daquela Release antiga e
+   usar no lugar da versão atual
+
+**Combinado**: a cada rodada de mudanças fechada (tipo essa da Biblioteca),
+além do `git push` normal, também criar uma Release — leva uns 30 segundos
+e vale muito a pena pra conseguir voltar no tempo com facilidade depois.
 
 ---
 
@@ -317,6 +347,75 @@ o app — só volta a ter a limitação de antes nesse cenário específico.
 
 ---
 
+## Biblioteca (indexação de pastas locais / HD externo)
+
+Resolve o fluxo de quem tem um HD/SSD cheio de karaokês (na prática: 2TB+
+organizados por produtora em várias pastas) e quer buscar rapidamente sem
+precisar abrir o Finder/Explorer toda vez.
+
+**Tecnologia**: File System Access API (`showDirectoryPicker()`), nativa
+do navegador. **Só funciona em navegadores baseados em Chromium** (Chrome,
+Edge, Opera) — Safari e Firefox não implementam essa API. O app detecta
+isso automaticamente e mostra um aviso na aba Biblioteca nesse caso, sem
+quebrar o resto do funcionamento.
+
+### Como funciona
+
+1. Usuário clica em "Conectar nova pasta" → escolhe a pasta no seletor
+   nativo do sistema operacional.
+2. O navegador guarda essa permissão (via IndexedDB) — não precisa
+   reconceder acesso toda vez que o app abre. Se a permissão expirar por
+   algum motivo, a pasta aparece marcada como "Reconexão necessária" com
+   um botão pra resolver em um clique.
+3. O app varre a pasta **recursivamente**, catalogando só os **nomes**
+   dos arquivos `.zip`/`.mp4` (nunca lê conteúdo de áudio) — por isso é
+   rápido mesmo em pastas enormes. Cada nome passa pelo mesmo parser de
+   `Código - Artista - Música` já usado no resto do app.
+4. A busca roda inteiramente **em memória** sobre esse índice — instantânea,
+   sem esperar nada de disco a cada tecla digitada.
+5. Ao clicar num resultado, o app lê o arquivo **de verdade** do disco
+   (`handle.getFile()`) — sem rede, sem upload, é leitura local direta —
+   e adiciona à fila normalmente (troca automaticamente pra aba Fila).
+
+### Múltiplas pastas
+
+Dá pra conectar várias pastas ao mesmo tempo (ex: uma por produtora) — a
+busca já sai unificada entre todas, e cada resultado mostra uma etiqueta
+indicando de qual pasta ele veio.
+
+### Arquivo: `js/library.js`
+
+Módulo isolado (não depende do resto do app), expõe `window.createLibrary()`
+que retorna uma instância com: `connectNewFolder()`, `reconnectFolder(id)`,
+`removeFolder(id)`, `restoreSavedFolders()`, `search(query)`,
+`getFileForItem(item)`, `getConnectedFolders()`, `getIndexSize()`,
+`findByFolderAndName(folderId, name)`.
+
+---
+
+## Fila sobrevive a um F5 acidental
+
+A fila (lista de músicas + metadados) é salva automaticamente no
+`localStorage` do navegador toda vez que muda (adiciona, remove, reordena).
+
+**Importante — nem tudo é restaurado igual:**
+- **Músicas que vieram da Biblioteca** são restauradas **automaticamente**
+  depois de um F5/crash, porque têm uma referência viva ao arquivo no
+  disco (via File System Access API) — o app simplesmente reabre o
+  arquivo sozinho.
+- **Músicas carregadas manualmente** (arrastadas ou pelo seletor de
+  arquivo comum) **não conseguem ser restauradas** — o navegador não
+  guarda esse tipo de referência entre recarregamentos de página (é uma
+  limitação da própria plataforma, não do nosso código). Nesse caso, o
+  app avisa quantas músicas não puderam ser restauradas, e você adiciona
+  de novo se precisar.
+- A fila restaurada fica **carregada, mas não tocando** — o usuário
+  precisa clicar em alguma música pra retomar. Isso evita qualquer
+  problema com política de autoplay do navegador (que bloqueia áudio
+  tocando sozinho sem interação do usuário).
+
+---
+
 ## Fila de músicas / Playlist
 
 Ao carregar arquivos (clicando em "Carregar Música" ou soltando na tela),
@@ -495,8 +594,12 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
-- **Arquivos não persistem entre sessões** — decisão consciente do
-  usuário, não um bug. Fechou a aba, precisa carregar de novo.
+- **Persistência da fila é parcial, por decisão técnica** (não escolha
+  arbitrária): músicas da Biblioteca sobrevivem a um F5, músicas manuais
+  não — é limitação real da plataforma (o navegador não permite "lembrar"
+  um arquivo escolhido via seletor comum entre recarregamentos). Ver seção
+  "Fila sobrevive a um F5 acidental" acima antes de prometer mais do que
+  isso pra um cliente.
 - **Cores personalizadas ficam desligadas por padrão** — só afetam CDG,
   não MP4 (já avisado na interface).
 - **Zoom/tamanho de letra foi removido** — tentamos, mas cortava partes
@@ -518,13 +621,27 @@ teste jsdom antes de considerar pronta.
   janela. A correção foi deixar `height:auto`, assim só a largura
   determina o tamanho e a altura segue a proporção 300:216 (CDG) ou 16:9
   (vídeo) automaticamente.
+- **Busca no YouTube foi descartada como funcionalidade do produto** —
+  discutimos, e embutir player do YouTube tecnicamente **bloquearia o
+  ajuste de tom** (restrição de segurança do navegador, sem contorno
+  possível via JS; confirmado por pesquisa). Também foi recusado
+  implementar qualquer forma de baixar vídeo do YouTube pro app (questão
+  de termos de uso/direitos autorais — fora do escopo do que esse projeto
+  vai fazer, independente de enquadramento do pedido).
+- **Biblioteca (Cenário 1) foi escolhida sobre YouTube (Cenário 2)** como
+  prioridade de desenvolvimento — resolve o fluxo real do usuário sem
+  dependência de terceiros nem risco de conteúdo sumir.
 
 ---
 
 ## Ideias discutidas mas não implementadas (pra retomar se quiser)
 
-- Persistência de arquivos entre sessões (IndexedDB) — descartada por
-  preferência do usuário, mas tecnicamente viável se mudar de ideia.
+- **Nome do cantor na fila** — usuário quer, mas vai detalhar como quer
+  antes de implementar. Não fazer sem alinhar de novo.
+- **Log/registro da noite** (o que tocou, quando, quem cantou) — junto
+  com o item do cantor, mesma ressalva.
+- **Configurações em JSON exportável/importável** (presets que o cliente
+  baixa e recarrega depois) — ideia aprovada pro futuro, não pra agora.
 - Modo alternativo de renderização baseado em letra+timestamp (texto
   vetorial de verdade, fonte/cor 100% livres) — adiado, ver acima.
 - Hospedar num domínio próprio — já é possível hoje (é só HTML/JS
