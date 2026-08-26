@@ -399,6 +399,8 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   try {
     const result = await window.loadKaraokeFile(item.file);
     applauseTriggered = false;
+    silenceAccumMs = 0;
+    lastSilenceCheckMs = 0;
     updateMetaBar(item);
     setSemitones(initialSemitones || 0); // cada música começa no tom escolhido (ou original, por padrão)
 
@@ -536,6 +538,8 @@ function resetToEmptyState() {
   applauseAudio.pause();
   applauseAudio.currentTime = 0;
   applauseTriggered = false;
+  silenceAccumMs = 0;
+  lastSilenceCheckMs = 0;
   cancelCountdown();
 
   setStage(null);
@@ -678,21 +682,81 @@ pitchResetBtn.addEventListener('click', () => setSemitones(0));
 
 // ---------- Aplausos automáticos ----------
 
-const APPLAUSE_WINDOW_SEC = 5;
+const APPLAUSE_WINDOW_SEC = 5;       // dispara de qualquer forma nos últimos 5s (regra de segurança)
+const SILENCE_ARM_WINDOW_SEC = 20;   // só passa a "escutar" silêncio nos últimos 20s (evita disparo falso no meio da música)
+const SILENCE_RMS_THRESHOLD = 0.02;  // abaixo disso é considerado "silêncio" (escala 0-1)
+const SILENCE_DURATION_MS = 1200;    // precisa ficar em silêncio por esse tempo seguido pra disparar
+
+let silenceAccumMs = 0;
+let lastSilenceCheckMs = 0;
+
+function triggerApplauseNow() {
+  if (applauseTriggered) return;
+  applauseTriggered = true;
+  applauseAudio.currentTime = 0;
+  applauseAudio.volume = engine.getVolume();
+  applauseAudio.play().catch(err => console.warn('[App] Não foi possível tocar os aplausos:', err));
+}
 
 function checkApplause(currentTime, duration) {
   if (!applauseToggle.checked || !duration) return;
 
   const remaining = duration - currentTime;
+
+  // Regra 1 (sempre ativa): garante que os aplausos disparem o mais tardar
+  // nos últimos 5 segundos do arquivo, mesmo que a detecção de silêncio
+  // não pegue nada (ex: música termina com um acorde forte, sem fade out).
   if (remaining <= APPLAUSE_WINDOW_SEC && remaining > 0) {
-    if (!applauseTriggered) {
-      applauseTriggered = true;
-      applauseAudio.currentTime = 0;
-      applauseAudio.volume = engine.getVolume();
-      applauseAudio.play().catch(err => console.warn('[App] Não foi possível tocar os aplausos:', err));
-    }
-  } else if (remaining > APPLAUSE_WINDOW_SEC && applauseTriggered) {
+    triggerApplauseNow();
+  } else if (remaining > SILENCE_ARM_WINDOW_SEC && applauseTriggered) {
+    // Só reseta quando sai de vez da "janela final" (ex: usuário deu seek
+    // pra trás) — resetar já em "remaining > 5s" cancelaria, por engano,
+    // um disparo legítimo que a Regra 2 (silêncio) já tinha feito mais
+    // cedo, ainda dentro da janela de 20s mas fora da de 5s.
     applauseTriggered = false;
+  }
+
+  // Regra 2 (silêncio real): se a música já emudeceu antes desse ponto —
+  // caso comum quando o arquivo tem alguns segundos de silêncio "morto"
+  // no final — dispara mais cedo, assim que detecta o silêncio de verdade,
+  // em vez de esperar os 5s fixos (que aí sim seriam silêncio demorado).
+  checkSilenceForApplause(currentTime, duration, remaining);
+}
+
+/**
+ * Só funciona se o motor de áudio conseguir "escutar" o sinal de verdade
+ * (CDG sempre; vídeo MP4 só quando o tom estiver roteado pelo pitch
+ * shifter — ver videoPitchRouted). Fora disso, essa checagem não faz nada
+ * e a Regra 1 acima (tempo fixo) continua sendo a única rede de segurança.
+ */
+function checkSilenceForApplause(currentTime, duration, remaining) {
+  if (applauseTriggered) { silenceAccumMs = 0; return; }
+  if (remaining > SILENCE_ARM_WINDOW_SEC || remaining <= 0) { silenceAccumMs = 0; return; }
+  if (mode === 'video' && !videoPitchRouted) return; // sem sinal real pra analisar nesse caso
+
+  const analyser = engine.getAnalyser();
+  if (!analyser) return;
+
+  const now = performance.now();
+  const dt = lastSilenceCheckMs ? Math.min(500, now - lastSilenceCheckMs) : 0;
+  lastSilenceCheckMs = now;
+
+  const data = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(data);
+  let sumSquares = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = (data[i] - 128) / 128;
+    sumSquares += v * v;
+  }
+  const rms = Math.sqrt(sumSquares / data.length);
+
+  if (rms < SILENCE_RMS_THRESHOLD) {
+    silenceAccumMs += dt;
+    if (silenceAccumMs >= SILENCE_DURATION_MS) {
+      triggerApplauseNow();
+    }
+  } else {
+    silenceAccumMs = 0;
   }
 }
 

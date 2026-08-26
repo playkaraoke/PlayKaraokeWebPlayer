@@ -399,6 +399,26 @@ class AudioEngine extends EventTarget {
     return this._volume;
   }
 
+  /**
+   * Retorna um AnalyserNode "grampeado" na saída de áudio (sem interferir
+   * no som), pra quem quiser analisar o volume em tempo real — usado pra
+   * detectar silêncio perto do fim da música. Funciona pra CDG sempre;
+   * pra vídeo MP4, só funciona se o vídeo estiver roteado pelo pitch
+   * shifter (ver attachVideoElement) — se não estiver, retorna o analyser
+   * mesmo assim, mas ele não vai captar nada do vídeo (fica "mudo").
+   */
+  getAnalyser() {
+    this._ensureContext();
+    if (!this._analyser) {
+      this._analyser = this.audioCtx.createAnalyser();
+      this._analyser.fftSize = 512;
+      this._analyser.smoothingTimeConstant = 0.4;
+      // Conecta em PARALELO ao destino (não substitui, só "escuta").
+      this.gainNode.connect(this._analyser);
+    }
+    return this._analyser;
+  }
+
   getCurrentTime() {
     if (this._backend === 'worklet') {
       if (!this._playing) return this._pausedOffset;
@@ -418,7 +438,17 @@ class AudioEngine extends EventTarget {
     return this._playing;
   }
 
+  // IMPORTANTE: usamos setInterval aqui, não requestAnimationFrame.
+  // O navegador pausa (ou reduz muito) o rAF quando a aba não está em
+  // primeiro plano — por exemplo, se você abre outra aba do Chrome, ou
+  // até ao interagir com a janela da segunda tela. O áudio em si continua
+  // tocando normalmente (Web Audio não depende de rAF), mas a atualização
+  // da letra no CDG e o envio de tempo pra segunda tela ficavam presos
+  // nesse loop de rAF — por isso a segunda tela "congelava" mesmo com a
+  // música tocando. setInterval continua rodando (o navegador pode
+  // desacelerar um pouco em segundo plano, mas nunca pausa de vez).
   _startTicking() {
+    const TICK_INTERVAL_MS = 16; // ~60x/segundo quando a aba está em primeiro plano
     const tick = () => {
       if (!this._playing) return;
       const currentTime = this.getCurrentTime();
@@ -427,14 +457,13 @@ class AudioEngine extends EventTarget {
       for (let i = 0; i < this._timeUpdateCallbacks.length; i++) {
         this._timeUpdateCallbacks[i](currentTime, duration);
       }
-      this._rafId = requestAnimationFrame(tick);
     };
-    this._rafId = requestAnimationFrame(tick);
+    this._rafId = setInterval(tick, TICK_INTERVAL_MS);
   }
 
   _stopTicking() {
     if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
+      clearInterval(this._rafId);
       this._rafId = null;
     }
   }
