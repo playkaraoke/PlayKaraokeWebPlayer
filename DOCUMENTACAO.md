@@ -132,6 +132,79 @@ Como é GitHub Pages servindo arquivos estáticos, não tem passo de build —
 o que está no repositório é exatamente o que fica no ar (leva alguns
 minutos pra propagar depois do push).
 
+### Onde o projeto está localmente (nesta máquina)
+
+```
+/Volumes/SSD2TB/Karaokes/Produtoras/PlayKaraoke/WebPlayer PlayKaraoke
+```
+
+Repara que o nome da pasta tem **espaço** (`WebPlayer PlayKaraoke`) — no
+Terminal, sempre que for referenciar esse caminho, coloca entre aspas
+(`"..."`), senão o Terminal interpreta como dois argumentos separados e
+dá erro.
+
+### Movendo a pasta do projeto pra outro lugar
+
+O vínculo com o GitHub fica guardado **dentro da própria pasta**, numa
+pastinha escondida chamada `.git` — não depende de onde a pasta está no
+seu computador. Então dá pra mover ou renomear a pasta à vontade (pelo
+Finder ou pelo Terminal) sem quebrar nada.
+
+Pelo Terminal, o comando é `mv` (move/renomeia):
+
+```bash
+mkdir -p "/caminho/completo/da/pasta/destino"
+mv /caminho/atual/da/pasta "/caminho/completo/da/pasta/destino/Nome Novo"
+```
+
+O `mkdir -p` garante que as pastas intermediárias existam antes (senão o
+`mv` falha por não achar o destino).
+
+**Se o destino for um SSD/HD externo**: o Terminal só consegue mexer nele
+enquanto o disco estiver conectado — isso não é uma limitação do Git, é
+só o disco precisar estar plugado mesmo.
+
+### Confirmando que a conexão com o GitHub sobreviveu à mudança
+
+Depois de mover, entra na pasta nova e roda:
+
+```bash
+cd "/caminho/completo/da/pasta/destino/Nome Novo"
+pwd
+ls
+git status
+git remote -v
+```
+
+O que cada linha deve mostrar se estiver tudo certo:
+- `pwd` → o caminho novo, confirmando que você está na pasta certa
+- `ls` → a lista de arquivos do projeto (`index.html`, `js/`, `assets/`, etc.) — se aparecer tudo, nada ficou pra trás
+- `git status` → precisa aparecer `On branch main` (não pode aparecer
+  `fatal: not a git repository`)
+- `git remote -v` → precisa mostrar o link do GitHub
+  (`https://github.com/playkaraoke/PlayKaraokeWebPlayer.git`), tanto pra
+  `fetch` quanto pra `push`
+
+Se todas essas saídas baterem, pode seguir usando `git add` / `commit` /
+`push` normalmente a partir dessa pasta nova, sem precisar clonar de novo.
+
+### Se der "fatal: not a git repository" (pasta sem vínculo nenhum)
+
+Isso acontece quando os arquivos foram parar numa pasta que **nunca** foi
+conectada ao Git pelo terminal (por exemplo, extraindo um zip direto numa
+pasta nova, em vez de mover a pasta que já tinha o `.git`). Nesse caso,
+não tem como "consertar" a pasta atual — o jeito mais seguro é clonar uma
+cópia nova, já conectada, e trazer os arquivos mais recentes pra dentro
+dela:
+
+```bash
+git clone https://github.com/playkaraoke/PlayKaraokeWebPlayer.git "pasta-nova-conectada"
+```
+
+Depois copia (ou arrasta pelo Finder) os arquivos atualizados pra dentro
+dessa pasta recém-clonada, e segue com `git add` / `commit` / `push`
+normalmente a partir dela.
+
 ---
 
 ## Formato CDG — o que é e como funciona
