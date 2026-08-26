@@ -34,6 +34,97 @@
   }
   .hidden{display:none !important;}
 
+  /* ===================== AUTH OVERLAY ===================== */
+  #auth-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(10,10,10,0.95);
+    backdrop-filter:blur(24px);
+    -webkit-backdrop-filter:blur(24px);
+    z-index:99999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:opacity 0.3s ease, visibility 0.3s ease;
+  }
+  #auth-overlay.unlocked{
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+  }
+  #auth-card{
+    background:var(--surface-container-low);
+    border:1px solid var(--outline-variant);
+    border-radius:16px;
+    padding:36px 32px;
+    width:100%;
+    max-width:360px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.8);
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  #auth-card img{
+    width:160px;
+    margin:0 auto 4px auto;
+    display:block;
+  }
+  #auth-card h2{
+    font-family:'Syne',sans-serif;
+    font-size:20px;
+    font-weight:800;
+    margin:0;
+    color:var(--on-surface);
+  }
+  #auth-card p{
+    font-size:13px;
+    color:var(--on-surface-variant);
+    margin:0;
+    line-height:1.4;
+  }
+  #auth-form{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    margin-top:8px;
+  }
+  #auth-password{
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:14px;
+    outline:none;
+    font-family:'Inter',sans-serif;
+    text-align:center;
+    transition:border-color 0.15s ease;
+  }
+  #auth-password:focus{
+    border-color:var(--primary-bright);
+  }
+  #auth-submit-btn{
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    border:none;
+    color:#0a0a0a;
+    font-size:13px;
+    font-weight:700;
+    padding:12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    transition:transform 0.1s ease;
+  }
+  #auth-submit-btn:hover{
+    transform:scale(1.02);
+  }
+  #auth-error{
+    font-size:12px;
+    color:var(--error);
+    margin-top:2px;
+  }
+
   /* ===================== SIDEBAR ===================== */
   #sidebar{
     width:300px;
@@ -886,6 +977,20 @@
 </head>
 <body>
 
+<!-- Modal de Autenticação -->
+<div id="auth-overlay">
+  <div id="auth-card">
+    <img src="assets/logo.svg" alt="Play Karaoke"/>
+    <h2>Acesso Restrito</h2>
+    <p>Digite a senha para acessar o console do operador</p>
+    <form id="auth-form" onsubmit="return false;">
+      <input type="password" id="auth-password" placeholder="Senha de acesso" autocomplete="current-password" autofocus required />
+      <button type="submit" id="auth-submit-btn">Entrar</button>
+      <div id="auth-error" class="hidden">Senha incorreta. Tente novamente.</div>
+    </form>
+  </div>
+</div>
+
 <div id="sidebar">
   <div id="logo-area">
     <img src="assets/logo.svg" alt="Play Karaoke"/>
@@ -919,7 +1024,7 @@
 
   <div id="sidebar-footer">
     <button id="settings-btn" title="Configurações">
-      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
     </button>
   </div>
 </div>
@@ -1133,6 +1238,46 @@
 <script src="js/cdg-player.js"></script>
 <script src="js/file-loader.js"></script>
 <script type="module" src="js/app.js"></script>
+
+<!-- Script de Autenticação com o seu Hash -->
+<script>
+  (function() {
+    const ACCESS_HASH = 'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53';
+
+    async function calculateSHA256(str) {
+      const buffer = new TextEncoder().encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    const overlay = document.getElementById('auth-overlay');
+    const form = document.getElementById('auth-form');
+    const passwordInput = document.getElementById('auth-password');
+    const errorMsg = document.getElementById('auth-error');
+
+    if (sessionStorage.getItem('playkaraoke_auth') === 'true') {
+      overlay.classList.add('unlocked');
+    }
+
+    form.addEventListener('submit', async () => {
+      const inputPass = passwordInput.value.trim();
+      if (!inputPass) return;
+
+      const hash = await calculateSHA256(inputPass);
+      if (hash === ACCESS_HASH) {
+        sessionStorage.setItem('playkaraoke_auth', 'true');
+        overlay.classList.add('unlocked');
+        errorMsg.classList.add('hidden');
+      } else {
+        errorMsg.classList.remove('hidden');
+        passwordInput.value = '';
+        passwordInput.focus();
+      }
+    });
+  })();
+</script>
+
 <script>
   const seekBar = document.getElementById('seek-bar');
   function updateFill(){
