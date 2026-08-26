@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Play Karaoke — Player CDG + MP4</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  :root{
+    --surface:#131313;
+    --surface-container-lowest:#0e0e0e;
+    --surface-container-low:#1c1b1b;
+    --surface-container:#201f1f;
+    --surface-container-high:#2a2a2a;
+    --on-surface:#e5e2e1;
+    --on-surface-variant:#9a9d9c;
+    --outline-variant:#33322f;
+    --primary:#4d8eff;
+    --primary-bright:#adc6ff;
+    --secondary:#ddb7ff;
+    --tertiary:#4edea3;
+    --error:#ff6b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--surface-container-lowest);
+    color:var(--on-surface);
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+  .hidden{display:none !important;}
+
+  /* ===================== SIDEBAR ===================== */
+  #sidebar{
+    width:300px;
+    min-width:300px;
+    height:100vh;
+    background:var(--surface);
+    border-right:1px solid var(--outline-variant);
+    display:flex;
+    flex-direction:column;
+  }
+  #logo-area{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:4px;
+    padding:20px 16px 16px 16px;
+    border-bottom:1px solid var(--outline-variant);
+  }
+  #logo-area img{ width:100%; height:auto; display:block; }
+  #logo-area .brand-sub{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--on-surface-variant);
+    letter-spacing:0.12em;
+  }
+
+  #playlist-header{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+    padding:16px;
+  }
+  #playlist-header .playlist-count{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  #add-music-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    width:100%;
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    border:none;
+    color:#0a0a0a;
+    font-size:13px;
+    font-weight:700;
+    padding:11px 14px;
+    border-radius:10px;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    box-shadow:0 0 20px rgba(77,142,255,0.25);
+    transition:transform 0.1s ease;
+  }
+  #add-music-btn:hover{ transform:scale(1.02); }
+  #add-music-btn svg{ width:16px;height:16px; }
+
+  #playlist{
+    flex:1;
+    overflow-y:auto;
+    padding:0 10px 10px 10px;
+  }
+  #playlist-empty-hint{
+    padding:16px 10px;
+    font-size:12px;
+    color:var(--on-surface-variant);
+    line-height:1.5;
+    text-align:center;
+  }
+  .playlist-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 10px;
+    border-radius:8px;
+    margin-bottom:3px;
+    border:1px solid transparent;
+    cursor:pointer;
+  }
+  .playlist-item:hover{ background:var(--surface-container); }
+  .playlist-item.active{
+    background:var(--surface-container-high);
+    border-color:var(--primary);
+  }
+  .playlist-item.dragging{ opacity:0.4; }
+  .playlist-item.drag-over-top{ border-top:2px solid var(--primary-bright); }
+  .playlist-item.drag-over-bottom{ border-bottom:2px solid var(--primary-bright); }
+  .playlist-item .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    width:16px;
+    flex-shrink:0;
+    text-align:center;
+  }
+  .playlist-item.active .num{ color:var(--primary-bright); }
+  .playlist-item .meta{ min-width:0; flex:1; }
+  .playlist-item .song-title{
+    font-size:13px;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .playlist-item .song-sub{
+    font-size:11px;
+    color:var(--on-surface-variant);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .playlist-item .remove-btn{
+    color:var(--on-surface-variant);
+    flex-shrink:0;
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:6px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    opacity:0;
+  }
+  .playlist-item:hover .remove-btn{ opacity:1; }
+  .playlist-item .remove-btn:hover{ background:var(--surface-container-high); color:var(--error); }
+  .playlist-item .remove-btn svg{ width:14px;height:14px; }
+
+  .playlist-item .reorder-btns{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    flex-shrink:0;
+    opacity:0;
+  }
+  .playlist-item:hover .reorder-btns{ opacity:1; }
+  .playlist-item .reorder-btn{
+    width:18px;height:14px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:3px;
+    background:none;
+    border:none;
+    color:var(--on-surface-variant);
+    cursor:pointer;
+    padding:0;
+  }
+  .playlist-item .reorder-btn:hover{ background:var(--surface-container-high); color:var(--primary-bright); }
+  .playlist-item .reorder-btn:disabled{ opacity:0.25; cursor:not-allowed; }
+  .playlist-item .reorder-btn:disabled:hover{ background:none; color:var(--on-surface-variant); }
+  .playlist-item .reorder-btn svg{ width:12px;height:12px; }
+
+  #feature-toggles{
+    padding:10px 16px;
+    border-top:1px solid var(--outline-variant);
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .feature-toggle{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:1px;
+    width:100%;
+    background:none;
+    border:none;
+    padding:6px 4px;
+    border-radius:6px;
+    cursor:pointer;
+    text-align:left;
+    font-family:'Inter',sans-serif;
+  }
+  .feature-toggle:hover{ background:var(--surface-container); }
+  .feature-toggle .status-line{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:var(--on-surface-variant);
+  }
+  .feature-toggle.on .status-line{ color:var(--tertiary); }
+  .feature-toggle .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:currentColor;
+    flex-shrink:0;
+  }
+  .feature-toggle .detail-line{
+    font-size:11px;
+    color:var(--on-surface-variant);
+    padding-left:12px;
+  }
+  .feature-toggle .detail-line b{ color:var(--tertiary); }
+
+  #sidebar-footer{
+    padding:12px 16px;
+    border-top:1px solid var(--outline-variant);
+  }
+  #settings-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;height:36px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    border-radius:8px;
+    cursor:pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  #settings-btn:hover{
+    border-color:var(--primary-bright);
+    background:var(--surface-container-high);
+  }
+  #settings-btn.active{
+    border-color:var(--primary-bright);
+    color:var(--primary-bright);
+  }
+  #settings-btn svg{ width:18px;height:18px; }
+
+  /* ===================== MAIN ===================== */
+  #main{
+    flex:1;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:var(--surface-container-lowest);
+    min-width:0;
+  }
+
+  #banners{
+    position:fixed;
+    top:16px;
+    left:calc(50% + 150px);
+    transform:translateX(-50%);
+    z-index:50;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:center;
+  }
+  .banner{
+    padding:10px 18px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:500;
+  }
+  .banner.error{
+    background:#3a1414;
+    border:1px solid var(--error);
+    color:#ffb4ab;
+  }
+  .banner.loading{
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+  }
+
+  #stage{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    min-height:0;
+    position:relative;
+  }
+  #stage-empty{
+    width:100%;
+    max-width:640px;
+    height:100%;
+    max-height:420px;
+    border:2px dashed var(--outline-variant);
+    border-radius:16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    cursor:pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    text-align:center;
+    padding:32px;
+  }
+  #stage-empty:hover, #stage-empty.drag-active{
+    border-color:var(--primary-bright);
+    background:rgba(77,142,255,0.05);
+  }
+  #stage-empty svg{
+    width:56px;height:56px;
+    color:var(--primary-bright);
+    opacity:0.8;
+  }
+  #stage-empty h2{
+    font-family:'Syne',sans-serif;
+    font-weight:800;
+    font-size:24px;
+    margin:0;
+  }
+  #stage-empty p{
+    color:var(--on-surface-variant);
+    font-size:14px;
+    margin:0;
+    max-width:380px;
+    line-height:1.5;
+  }
+  #stage-empty .formats{
+    display:flex;
+    gap:8px;
+    margin-top:4px;
+  }
+  .badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    padding:4px 10px;
+    border-radius:999px;
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface-variant);
+  }
+  #stage-canvas-wrap, #stage-video-wrap{
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  #cdg-canvas{
+    width:100%;
+    height:100%;
+    max-width:min(100%, calc((100vh - 220px) * 300 / 216));
+    aspect-ratio: 300 / 216;
+    border-radius:12px;
+    box-shadow: 0 0 40px rgba(77,142,255,0.15);
+    background:#000;
+    image-rendering: auto;
+  }
+  #stage-canvas-wrap:fullscreen{
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #stage-canvas-wrap:fullscreen #cdg-canvas{
+    max-width:min(100vw, calc(100vh * 300 / 216));
+    max-height:min(100vh, calc(100vw * 216 / 300));
+    width:auto;
+    height:auto;
+    border-radius:0;
+    box-shadow:none;
+  }
+  #fullscreen-btn{
+    position:absolute;
+    bottom:16px;
+    right:16px;
+    width:38px;height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(20,20,20,0.6);
+    backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:8px;
+    color:var(--on-surface);
+    cursor:pointer;
+    opacity:0;
+    transition:opacity 0.15s ease;
+  }
+  #stage-canvas-wrap:hover #fullscreen-btn,
+  #stage-canvas-wrap:fullscreen #fullscreen-btn{
+    opacity:1;
+  }
+  #fullscreen-btn:hover{ background:rgba(40,40,40,0.8); }
+  #fullscreen-btn svg{ width:18px;height:18px; }
+  #video-el{
+    width:100%;
+    height:100%;
+    max-width:min(100%, calc((100vh - 220px) * 16 / 9));
+    aspect-ratio: 16/9;
+    border-radius:12px;
+    background:#000;
+  }
+
+  #countdown-overlay{
+    position:absolute;
+    inset:24px;
+    background:rgba(0,0,0,0.85);
+    border-radius:12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    z-index:10;
+  }
+  #countdown-overlay .cd-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  #countdown-overlay .cd-number{
+    font-family:'Syne',sans-serif;
+    font-weight:800;
+    font-size:64px;
+    color:var(--primary-bright);
+    line-height:1;
+  }
+  #countdown-overlay .cd-next{
+    font-size:14px;
+    color:var(--on-surface);
+    margin-bottom:10px;
+    text-align:center;
+    padding:0 20px;
+  }
+  #countdown-overlay #cd-skip-btn{
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    font-size:12px;
+    padding:7px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  #countdown-overlay #cd-skip-btn:hover{ border-color:var(--primary-bright); }
+
+  #idle-overlay{
+    position:absolute;
+    inset:0;
+    background:#000;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:5;
+  }
+  #idle-logo{
+    width:35%;
+    max-width:260px;
+    opacity:0.5;
+  }
+  #idle-custom-image{
+    position:absolute;
+    inset:0;
+    background-size:cover;
+    background-position:center;
+    border-radius:12px;
+  }
+
+  /* ===================== MODAL DE INFO DA MÚSICA ===================== */
+  #track-modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+  }
+  #track-modal{
+    background:var(--surface-container-low);
+    border:1px solid var(--outline-variant);
+    border-radius:16px;
+    padding:24px;
+    width:100%;
+    max-width:420px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  #track-modal-header{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+  }
+  .tm-field{ display:flex; flex-direction:column; gap:2px; }
+  .tm-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  .tm-value{ font-size:13px; font-weight:600; }
+  #tm-title{
+    font-family:'Syne',sans-serif;
+    font-weight:800;
+    font-size:20px;
+    margin:0;
+    color:var(--primary-bright);
+  }
+  #tm-pitch-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:10px;
+    padding:10px 14px;
+  }
+  .pitch-mini-btn{
+    width:28px;height:28px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    border-radius:6px;
+    cursor:pointer;
+    font-size:16px;
+    font-weight:700;
+  }
+  .pitch-mini-btn:hover{ border-color:var(--primary-bright); color:var(--primary-bright); }
+  #tm-pitch-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    font-weight:700;
+    color:var(--tertiary);
+    min-width:28px;
+    text-align:center;
+  }
+  #track-modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+  }
+  .card-btn.primary{
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    color:#0a0a0a;
+    border:none;
+    font-weight:700;
+  }
+
+  /* ===================== SETTINGS PANEL ===================== */
+  #settings-panel{
+    padding:16px 24px;
+    border-top:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .settings-row{
+    display:flex;
+    align-items:center;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .color-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-size:12px;
+    color:var(--on-surface-variant);
+  }
+  .color-field input[type=color]{
+    width:56px;height:32px;
+    border:1px solid var(--outline-variant);
+    border-radius:6px;
+    background:none;
+    cursor:pointer;
+    padding:0;
+  }
+  .settings-label{
+    font-size:13px;
+    color:var(--on-surface-variant);
+  }
+  .settings-hint{
+    font-size:12px;
+    color:var(--on-surface-variant);
+    line-height:1.5;
+    margin:0;
+    max-width:640px;
+  }
+  .switch-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .switch-label input[type=checkbox]{
+    width:16px;height:16px;
+    accent-color: var(--primary);
+    cursor:pointer;
+  }
+  .delay-input{
+    width:52px;
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    border-radius:6px;
+    padding:4px 8px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    font-weight:700;
+    color:var(--tertiary);
+    text-align:center;
+  }
+  .settings-card-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:8px;
+    padding:12px 16px;
+    flex-wrap:wrap;
+  }
+  .settings-card-row .desc{ font-size:12px; color:var(--on-surface-variant); max-width:460px; }
+  .settings-card-row .title-row{ display:flex; align-items:center; gap:8px; margin-bottom:2px; }
+  .settings-card-row .title-row span:first-child{ font-size:13px;font-weight:600; }
+  .new-badge{
+    background:var(--tertiary); color:#04342c; font-family:'JetBrains Mono',monospace;
+    font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px;
+  }
+  .settings-card-row .card-btn{
+    background:var(--surface-container-high);
+    border:1px solid var(--primary-bright);
+    color:var(--primary-bright);
+    font-size:12px;
+    padding:7px 16px;
+    border-radius:8px;
+    white-space:nowrap;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .settings-card-row .card-btn:hover{ background:var(--surface-container); }
+  .settings-card-row .card-btn.secondary{
+    border-color:var(--outline-variant);
+    color:var(--on-surface-variant);
+  }
+  #second-screen-status{
+    font-size:11px;
+    color:var(--tertiary);
+    font-family:'JetBrains Mono',monospace;
+  }
+  #idle-image-filename{
+    font-size:11px;
+    color:var(--tertiary);
+    font-family:'JetBrains Mono',monospace;
+    margin-top:2px;
+  }
+
+  /* ===================== TRACK META BAR ===================== */
+  #track-meta-bar{
+    padding:10px 24px;
+    border-top:1px solid var(--outline-variant);
+    background:var(--surface-container-low);
+    display:flex;
+    align-items:center;
+    gap:28px;
+    flex-wrap:wrap;
+  }
+  .meta-field{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .meta-field.song{ flex:1; min-width:120px; overflow:hidden; }
+  .meta-field .meta-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  .meta-field .meta-value{
+    font-size:14px;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .meta-field.song .meta-value{
+    font-family:'Syne',sans-serif;
+    font-weight:800;
+    font-size:16px;
+    color:var(--primary-bright);
+  }
+  .meta-field.format .meta-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--tertiary);
+  }
+
+  /* ===================== FOOTER (transporte) ===================== */
+  #footer{
+    background:rgba(28,27,27,0.85);
+    backdrop-filter: blur(20px);
+    border-top:1px solid rgba(255,255,255,0.08);
+    padding:14px 24px 18px 24px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  #seek-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  #seek-row span{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    min-width:36px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    height:5px;
+    border-radius:999px;
+    background:var(--surface-container-high);
+    flex:1;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 0 8px rgba(0,0,0,0.5);
+    margin-top:0;
+  }
+  #seek-bar{
+    background: linear-gradient(90deg, var(--primary) var(--fill,0%), var(--surface-container-high) var(--fill,0%));
+  }
+  #controls-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:24px;
+  }
+  #transport{
+    display:flex;
+    align-items:center;
+    gap:16px;
+  }
+  #play-btn{
+    width:52px;height:52px;
+    border-radius:50%;
+    border:none;
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:0 0 20px rgba(77,142,255,0.3);
+    transition:transform 0.1s ease;
+  }
+  #play-btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+    box-shadow:none;
+  }
+  #play-btn:not(:disabled):hover{ transform:scale(1.05); }
+  #play-btn svg{ width:22px;height:22px; color:#0a0a0a; }
+
+  #next-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;height:36px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    border-radius:50%;
+    cursor:pointer;
+  }
+  #next-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  #next-btn:not(:disabled):hover{ border-color:var(--primary-bright); }
+  #next-btn svg{ width:18px;height:18px; }
+
+  .side-controls{
+    display:flex;
+    align-items:center;
+    gap:24px;
+  }
+  .control-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .control-group svg{ width:18px;height:18px; color:var(--on-surface-variant); flex-shrink:0; }
+  .control-group input[type=range]{ width:100px; }
+  .control-group .volume-pct{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--on-surface-variant);
+    min-width:34px;
+  }
+
+  #pitch-group{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:10px;
+    padding:6px 12px;
+  }
+  #pitch-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    letter-spacing:0.04em;
+  }
+  #pitch-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    font-weight:700;
+    color:var(--tertiary);
+    min-width:28px;
+    text-align:center;
+  }
+  #pitch-down-btn, #pitch-up-btn{
+    width:26px;height:26px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    border-radius:6px;
+    cursor:pointer;
+    font-size:16px;
+    font-weight:700;
+    line-height:1;
+    padding:0;
+  }
+  #pitch-down-btn:hover, #pitch-up-btn:hover{
+    border-color:var(--primary-bright);
+    color:var(--primary-bright);
+  }
+  #pitch-down-btn:disabled, #pitch-up-btn:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+  #pitch-reset-btn{
+    background:none;
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface-variant);
+    font-size:11px;
+    padding:3px 8px;
+    border-radius:6px;
+    cursor:pointer;
+    font-family:'JetBrains Mono',monospace;
+  }
+  #pitch-reset-btn:hover{ color:var(--on-surface); border-color:var(--on-surface-variant); }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="logo-area">
+    <img src="assets/logo.svg" alt="Play Karaoke"/>
+    <div class="brand-sub">PLAYER CDG &amp; MP4</div>
+  </div>
+
+  <div id="playlist-header">
+    <span class="playlist-count" id="playlist-count">Fila (0)</span>
+    <button id="add-music-btn">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      Carregar Música
+    </button>
+  </div>
+
+  <div id="playlist">
+    <p id="playlist-empty-hint">Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.</p>
+  </div>
+
+  <div id="feature-toggles">
+    <button class="feature-toggle" id="autoplay-indicator-btn" type="button">
+      <span class="status-line" id="autoplay-status"><span class="dot"></span> Autoplay desligado</span>
+      <span class="detail-line hidden" id="autoplay-detail"></span>
+    </button>
+    <button class="feature-toggle" id="applause-indicator-btn" type="button">
+      <span class="status-line" id="applause-status"><span class="dot"></span> Aplausos desligados</span>
+    </button>
+    <button class="feature-toggle" id="ambient-indicator-btn" type="button">
+      <span class="status-line" id="ambient-status"><span class="dot"></span> Música ambiente desligada</span>
+    </button>
+  </div>
+
+  <div id="sidebar-footer">
+    <button id="settings-btn" title="Configurações">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="main">
+
+  <div id="banners">
+    <div id="error-banner" class="banner error hidden"></div>
+    <div id="loading-banner" class="banner loading hidden">Carregando arquivo…</div>
+  </div>
+
+  <div id="stage">
+    <div id="stage-empty">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/></svg>
+      <h2>Solte um arquivo de karaokê aqui</h2>
+      <p>Arraste um ou mais .ZIP (MP3+G) ou .MP4 — ou clique para escolher arquivos do seu computador.</p>
+      <div class="formats">
+        <span class="badge">ZIP · CDG</span>
+        <span class="badge">MP4</span>
+      </div>
+    </div>
+
+    <div id="stage-canvas-wrap" class="hidden">
+      <canvas id="cdg-canvas" width="900" height="648"></canvas>
+      <button id="fullscreen-btn" title="Tela cheia">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+      </button>
+    </div>
+
+    <div id="stage-video-wrap" class="hidden">
+      <video id="video-el" controls="false"></video>
+    </div>
+
+    <div id="countdown-overlay" class="hidden">
+      <span class="cd-label">Próxima música em</span>
+      <span class="cd-number" id="cd-number">10</span>
+      <span class="cd-next" id="cd-next-title"></span>
+      <button id="cd-skip-btn">Pular espera ▶</button>
+    </div>
+
+    <div id="idle-overlay" class="hidden">
+      <img id="idle-logo" src="assets/logo.svg" alt=""/>
+      <div id="idle-custom-image" class="hidden"></div>
+    </div>
+  </div>
+
+  <div id="track-modal-backdrop" class="hidden">
+    <div id="track-modal">
+      <div id="track-modal-header">
+        <div class="tm-field">
+          <span class="tm-label">Código</span>
+          <span class="tm-value" id="tm-code">—</span>
+        </div>
+        <div class="tm-field">
+          <span class="tm-label">Artista</span>
+          <span class="tm-value" id="tm-artist">—</span>
+        </div>
+        <div class="tm-field">
+          <span class="tm-label">Formato</span>
+          <span class="tm-value" id="tm-format">—</span>
+        </div>
+      </div>
+      <h3 id="tm-title">Nome da música</h3>
+
+      <div id="tm-pitch-row">
+        <span class="tm-label">Tom inicial</span>
+        <button id="tm-pitch-down-btn" class="pitch-mini-btn">−</button>
+        <span id="tm-pitch-value">0</span>
+        <button id="tm-pitch-up-btn" class="pitch-mini-btn">+</button>
+      </div>
+
+      <div id="track-modal-actions">
+        <button id="tm-cancel-btn" class="card-btn secondary">Cancelar</button>
+        <button id="tm-play-btn" class="card-btn primary">Tocar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-panel" class="hidden">
+    <div class="settings-row">
+      <label class="switch-label">
+        <input type="checkbox" id="custom-colors-toggle"/>
+        <span>Aplicar esquema de cores personalizado <span class="settings-label">(somente em CDG)</span></span>
+      </label>
+    </div>
+    <div id="color-pickers" class="settings-row">
+      <label class="color-field">
+        <span>Fundo</span>
+        <input type="color" id="color-background" value="#0e0e0e"/>
+      </label>
+      <label class="color-field">
+        <span>Texto</span>
+        <input type="color" id="color-text" value="#ffffff"/>
+      </label>
+      <label class="color-field">
+        <span>Destaque (sincronia)</span>
+        <input type="color" id="color-highlight" value="#4d8eff"/>
+      </label>
+    </div>
+
+    <div class="settings-row">
+      <label class="switch-label">
+        <input type="checkbox" id="applause-toggle"/>
+        <span>Aplausos automáticos nos últimos 5 segundos</span>
+      </label>
+    </div>
+
+    <div class="settings-row">
+      <label class="switch-label">
+        <input type="checkbox" id="autoplay-toggle"/>
+        <span>Autoplay da fila</span>
+      </label>
+      <span class="settings-label">esperar</span>
+      <input type="number" id="autoplay-delay-input" class="delay-input" min="0" max="60" value="10"/>
+      <span class="settings-label">segundos antes da próxima</span>
+    </div>
+
+    <div class="settings-row">
+      <label class="switch-label">
+        <input type="checkbox" id="ambient-toggle"/>
+        <span>Música ambiente (toca quando não há música em reprodução)</span>
+      </label>
+      <span class="settings-label">volume</span>
+      <input type="range" id="ambient-volume-slider" min="0" max="100" value="30" style="width:90px;"/>
+      <span class="settings-label" id="ambient-volume-pct">30%</span>
+    </div>
+
+    <div id="second-screen-row" class="settings-card-row">
+      <div>
+        <div class="title-row"><span>Segunda tela</span><span class="new-badge">NOVO</span></div>
+        <div class="desc">Abre a letra numa janela separada, sem os controles — arraste pro seu segundo monitor e coloque em tela cheia.</div>
+        <div id="second-screen-status" class="hidden">● Janela aberta e sincronizada</div>
+      </div>
+      <button id="open-second-btn" class="card-btn">Abrir janela ↗</button>
+    </div>
+
+    <div id="idle-image-row" class="settings-card-row">
+      <div>
+        <div class="title-row"><span>Imagem de fundo (tela ociosa)</span></div>
+        <div class="desc">Enquanto nada está tocando, mostra essa imagem no lugar da logo — em ambas as telas. Ideal 1920×1080px.</div>
+        <div id="idle-image-filename" class="hidden"></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="idle-image-remove-btn" class="card-btn secondary hidden">Remover</button>
+        <button id="idle-image-upload-btn" class="card-btn">Escolher imagem</button>
+      </div>
+    </div>
+    <input type="file" id="idle-image-input" accept="image/*" class="hidden"/>
+  </div>
+
+  <div id="track-meta-bar">
+    <div class="meta-field">
+      <span class="meta-label">Código</span>
+      <span class="meta-value" id="meta-code">—</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">Artista</span>
+      <span class="meta-value" id="meta-artist">—</span>
+    </div>
+    <div class="meta-field song">
+      <span class="meta-label">Música</span>
+      <span class="meta-value" id="meta-song">Nenhuma música carregada</span>
+    </div>
+    <div class="meta-field format">
+      <span class="meta-label">Formato</span>
+      <span class="meta-value" id="meta-format"></span>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div id="seek-row">
+      <span id="time-current">0:00</span>
+      <input type="range" id="seek-bar" min="0" max="1000" value="0"/>
+      <span id="time-duration">0:00</span>
+    </div>
+
+    <div id="controls-row">
+      <div id="transport">
+        <button id="play-btn" disabled>
+          <svg id="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="pause-icon" fill="currentColor" viewBox="0 0 24 24" class="hidden"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+        </button>
+        <button id="next-btn" disabled title="Próxima música">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 5v14l8-7-8-7zM16 5v14h2V5h-2z"/></svg>
+        </button>
+      </div>
+
+      <div class="side-controls">
+        <div class="control-group">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
+          <input type="range" id="volume-slider" min="0" max="100" value="90"/>
+          <span class="volume-pct" id="volume-pct">90%</span>
+        </div>
+
+        <div id="pitch-group">
+          <span id="pitch-label">TOM</span>
+          <button id="pitch-down-btn" title="Diminuir um semitom">−</button>
+          <span id="pitch-value">0</span>
+          <button id="pitch-up-btn" title="Aumentar um semitom">+</button>
+          <button id="pitch-reset-btn" title="Resetar tom">RESET</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".zip,.mp4" multiple class="hidden"/>
+<audio id="applause-audio" src="assets/aplausos.mp3" preload="auto"></audio>
+<audio id="ambient-audio" preload="auto"></audio>
+
+<script src="js/cdg-player.js"></script>
+<script src="js/file-loader.js"></script>
+<script type="module" src="js/app.js"></script>
+<script>
+  const seekBar = document.getElementById('seek-bar');
+  function updateFill(){
+    const pct = seekBar.max > 0 ? (seekBar.value / seekBar.max) * 100 : 0;
+    seekBar.style.setProperty('--fill', pct + '%');
+  }
+  seekBar.addEventListener('input', updateFill);
+  new MutationObserver(updateFill).observe(seekBar, { attributes: true, attributeFilter: ['value'] });
+  setInterval(updateFill, 200);
+</script>
+
+</body>
+</html>

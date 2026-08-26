@@ -1,0 +1,1130 @@
+import { AudioEngine } from './audio-engine.js';
+
+const el = (id) => document.getElementById(id);
+
+// ---------- Elementos ----------
+
+const dropZone = el('stage-empty');
+const fileInput = el('file-input');
+const stageEmpty = el('stage-empty');
+const stageCanvasWrap = el('stage-canvas-wrap');
+const stageVideoWrap = el('stage-video-wrap');
+const cdgCanvas = el('cdg-canvas');
+const videoEl = el('video-el');
+const fullscreenBtn = el('fullscreen-btn');
+
+const metaCode = el('meta-code');
+const metaArtist = el('meta-artist');
+const metaSong = el('meta-song');
+const metaFormat = el('meta-format');
+
+const playBtn = el('play-btn');
+const playIcon = el('play-icon');
+const pauseIcon = el('pause-icon');
+const nextBtn = el('next-btn');
+const seekBar = el('seek-bar');
+const timeCurrent = el('time-current');
+const timeDuration = el('time-duration');
+
+const volumeSlider = el('volume-slider');
+const volumePct = el('volume-pct');
+const pitchDownBtn = el('pitch-down-btn');
+const pitchUpBtn = el('pitch-up-btn');
+const pitchValue = el('pitch-value');
+const pitchResetBtn = el('pitch-reset-btn');
+
+const errorBanner = el('error-banner');
+const loadingBanner = el('loading-banner');
+
+const settingsBtn = el('settings-btn');
+const settingsPanel = el('settings-panel');
+const customColorsToggle = el('custom-colors-toggle');
+const colorBackground = el('color-background');
+const colorText = el('color-text');
+const colorHighlight = el('color-highlight');
+const applauseToggle = el('applause-toggle');
+const applauseAudio = el('applause-audio');
+
+const autoplayToggle = el('autoplay-toggle');
+const autoplayDelayInput = el('autoplay-delay-input');
+const autoplayStatus = el('autoplay-status');
+const autoplayDetail = el('autoplay-detail');
+const autoplayIndicatorBtn = el('autoplay-indicator-btn');
+
+const applauseIndicatorBtn = el('applause-indicator-btn');
+const applauseStatus = el('applause-status');
+
+const ambientToggle = el('ambient-toggle');
+const ambientVolumeSlider = el('ambient-volume-slider');
+const ambientVolumePct = el('ambient-volume-pct');
+const ambientAudio = el('ambient-audio');
+const ambientIndicatorBtn = el('ambient-indicator-btn');
+const ambientStatus = el('ambient-status');
+
+const countdownOverlay = el('countdown-overlay');
+const cdNumber = el('cd-number');
+const cdNextTitle = el('cd-next-title');
+const cdSkipBtn = el('cd-skip-btn');
+
+const addMusicBtn = el('add-music-btn');
+const playlistEl = el('playlist');
+const playlistCount = el('playlist-count');
+
+const openSecondBtn = el('open-second-btn');
+const secondScreenStatus = el('second-screen-status');
+
+const idleOverlay = el('idle-overlay');
+const idleLogo = el('idle-logo');
+const idleCustomImage = el('idle-custom-image');
+const idleImageInput = el('idle-image-input');
+const idleImageUploadBtn = el('idle-image-upload-btn');
+const idleImageRemoveBtn = el('idle-image-remove-btn');
+const idleImageFilename = el('idle-image-filename');
+
+const trackModalBackdrop = el('track-modal-backdrop');
+const tmCode = el('tm-code');
+const tmArtist = el('tm-artist');
+const tmFormat = el('tm-format');
+const tmTitle = el('tm-title');
+const tmPitchDownBtn = el('tm-pitch-down-btn');
+const tmPitchUpBtn = el('tm-pitch-up-btn');
+const tmPitchValue = el('tm-pitch-value');
+const tmCancelBtn = el('tm-cancel-btn');
+const tmPlayBtn = el('tm-play-btn');
+
+// ---------- Motores ----------
+
+const engine = new AudioEngine();
+const cdgPlayer = new CDGPlayer(cdgCanvas);
+
+// O motor de áudio em thread separada (AudioWorklet) é o padrão — deixa o
+// desenho da letra bem mais fluido, já que o processamento de áudio não
+// compete mais pela mesma thread. Se não for suportado no navegador, cai
+// sozinho pro motor padrão (ScriptProcessorNode) sem quebrar nada.
+engine.setPreferredBackend('worklet');
+engine.addEventListener('backendchange', (e) => {
+  if (e.detail.fallback) {
+    console.warn('[App] Motor de thread separada não disponível aqui, usando o padrão. Motivo:', e.detail.reason);
+  }
+});
+
+// CDG sempre renderiza suavizado — o formato é nativamente 300x216px (TV
+// dos anos 90), então "nítido" só deixava tudo visivelmente quadriculado
+// sem ganho real de qualidade.
+cdgPlayer.setRenderMode('smooth');
+
+// Cores personalizadas ficam DESLIGADAS por padrão — o usuário liga
+// explicitamente no painel de configurações se quiser recolorir.
+cdgPlayer.setCustomColors(null);
+
+// ---------- Estado ----------
+
+let mode = null; // 'cdg' | 'video'
+let seeking = false;
+let applauseTriggered = false; // evita disparar os aplausos mais de uma vez por música
+
+let playlist = []; // { id, file, code, artist, title, format, type }
+let playlistIdCounter = 0;
+let currentIndex = -1;
+
+let countdownTimerId = null;
+let countdownRemaining = 0;
+
+let customIdleImageDataUrl = null; // imagem de fundo custom pra tela ociosa (base64), ou null = usa a logo
+let modalTrackIndex = -1; // índice da música que o modal de info está mostrando
+let modalPitchValue = 0;
+let dragFromIndex = -1; // índice sendo arrastado na reordenação por drag&drop
+let videoPitchRouted = false; // true se o <video> atual está passando pelo pitch shifter
+
+// ---------- Utilidades ----------
+
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.classList.remove('hidden');
+  setTimeout(() => errorBanner.classList.add('hidden'), 5000);
+}
+
+function showLoading(show) {
+  loadingBanner.classList.toggle('hidden', !show);
+}
+
+function setStage(newMode) {
+  mode = newMode;
+  stageEmpty.classList.toggle('hidden', !!mode);
+  stageCanvasWrap.classList.toggle('hidden', mode !== 'cdg');
+  stageVideoWrap.classList.toggle('hidden', mode !== 'video');
+}
+
+function updateMetaBar(item) {
+  if (!item) {
+    metaCode.textContent = '—';
+    metaArtist.textContent = '—';
+    metaSong.textContent = 'Nenhuma música carregada';
+    metaFormat.textContent = '';
+    return;
+  }
+  metaCode.textContent = item.code || '—';
+  metaArtist.textContent = item.artist || '—';
+  metaSong.textContent = item.title;
+  metaFormat.textContent = item.format;
+}
+
+// ---------- Playlist ----------
+
+function hasNext() {
+  return currentIndex >= 0 && currentIndex < playlist.length - 1;
+}
+
+function renderPlaylist() {
+  playlistCount.textContent = `Fila (${playlist.length})`;
+  playlistEl.innerHTML = '';
+
+  if (playlist.length === 0) {
+    const hint = document.createElement('p');
+    hint.id = 'playlist-empty-hint';
+    hint.textContent = 'Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.';
+    playlistEl.appendChild(hint);
+    nextBtn.disabled = true;
+    return;
+  }
+
+  playlist.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'playlist-item' + (i === currentIndex ? ' active' : '');
+    row.draggable = true;
+    row.dataset.index = String(i);
+
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = i === currentIndex ? '▶' : String(i + 1);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'song-title';
+    titleEl.textContent = item.title;
+    const subEl = document.createElement('div');
+    subEl.className = 'song-sub';
+    subEl.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || item.format;
+    meta.appendChild(titleEl);
+    meta.appendChild(subEl);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn';
+    removeBtn.title = 'Remover da fila';
+    removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeFromPlaylist(i);
+    });
+
+    const reorderBtns = document.createElement('div');
+    reorderBtns.className = 'reorder-btns';
+    const upBtn = document.createElement('button');
+    upBtn.className = 'reorder-btn';
+    upBtn.title = 'Mover pra cima';
+    upBtn.disabled = i === 0;
+    upBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5"/></svg>';
+    upBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveTrack(i, -1);
+    });
+    const downBtn = document.createElement('button');
+    downBtn.className = 'reorder-btn';
+    downBtn.title = 'Mover pra baixo';
+    downBtn.disabled = i === playlist.length - 1;
+    downBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>';
+    downBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveTrack(i, 1);
+    });
+    reorderBtns.appendChild(upBtn);
+    reorderBtns.appendChild(downBtn);
+
+    row.appendChild(num);
+    row.appendChild(meta);
+    row.appendChild(reorderBtns);
+    row.appendChild(removeBtn);
+    row.addEventListener('click', () => openTrackModal(i));
+
+    // ---- Drag & drop pra reordenar ----
+    row.addEventListener('dragstart', (e) => {
+      dragFromIndex = i;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(i)); } catch (err) {}
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.playlist-item').forEach(el => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      dragFromIndex = -1;
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (dragFromIndex === -1 || dragFromIndex === i) return;
+      const rect = row.getBoundingClientRect();
+      const isTopHalf = (e.clientY - rect.top) < rect.height / 2;
+      row.classList.toggle('drag-over-top', isTopHalf);
+      row.classList.toggle('drag-over-bottom', !isTopHalf);
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+      if (dragFromIndex === -1 || dragFromIndex === i) return;
+      const rect = row.getBoundingClientRect();
+      const isTopHalf = (e.clientY - rect.top) < rect.height / 2;
+      const targetIndex = isTopHalf ? i : i + 1;
+      reorderTrack(dragFromIndex, targetIndex);
+    });
+
+    playlistEl.appendChild(row);
+  });
+
+  nextBtn.disabled = !hasNext();
+}
+
+function moveTrack(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= playlist.length) return;
+  [playlist[index], playlist[newIndex]] = [playlist[newIndex], playlist[index]];
+  if (currentIndex === index) currentIndex = newIndex;
+  else if (currentIndex === newIndex) currentIndex = index;
+  renderPlaylist();
+}
+
+/** Move o item de `fromIndex` pra posição `toIndex` (estilo drag&drop, onde toIndex já considera a inserção). */
+function reorderTrack(fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex + 1 === toIndex) return; // não muda nada
+  const [moved] = playlist.splice(fromIndex, 1);
+  let insertAt = toIndex;
+  if (fromIndex < toIndex) insertAt -= 1; // compensa o item removido antes do alvo
+  playlist.splice(insertAt, 0, moved);
+
+  if (currentIndex === fromIndex) {
+    currentIndex = insertAt;
+  } else if (fromIndex < currentIndex && insertAt >= currentIndex) {
+    currentIndex -= 1;
+  } else if (fromIndex > currentIndex && insertAt <= currentIndex) {
+    currentIndex += 1;
+  }
+
+  renderPlaylist();
+}
+
+function removeFromPlaylist(index) {
+  if (index < 0 || index >= playlist.length) return;
+  playlist.splice(index, 1);
+
+  if (index === currentIndex) {
+    // A música removida era a que estava tocando/selecionada agora.
+    cancelCountdown();
+    if (playlist.length === 0) {
+      currentIndex = -1;
+      resetToEmptyState();
+      return;
+    }
+    const nextIndex = Math.min(index, playlist.length - 1);
+    selectTrack(nextIndex, { autoplay: false });
+    return;
+  }
+
+  if (index < currentIndex) {
+    currentIndex -= 1;
+  }
+  renderPlaylist();
+}
+
+async function addFilesToQueue(files) {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+
+  const wasEmpty = playlist.length === 0;
+  let firstNewIndex = -1;
+  let skippedAny = false;
+
+  for (const file of list) {
+    const lower = file.name.toLowerCase();
+    const isZip = lower.endsWith('.zip');
+    const isMp4 = lower.endsWith('.mp4');
+    if (!isZip && !isMp4) {
+      skippedAny = true;
+      continue;
+    }
+    const parsed = window.parseKaraokeFilename(file.name);
+    const item = {
+      id: 'track_' + (++playlistIdCounter),
+      file,
+      code: parsed.code,
+      artist: parsed.artist,
+      title: parsed.title,
+      format: isMp4 ? 'MP4' : 'MP3+G',
+      type: isMp4 ? 'video' : 'cdg',
+    };
+    if (firstNewIndex === -1) firstNewIndex = playlist.length;
+    playlist.push(item);
+  }
+
+  renderPlaylist();
+
+  if (skippedAny) {
+    showError('Alguns arquivos foram ignorados: só .zip (MP3+G) e .mp4 são suportados.');
+  }
+
+  if (wasEmpty && firstNewIndex !== -1) {
+    await selectTrack(firstNewIndex, { autoplay: false });
+  }
+}
+
+async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: false, initialSemitones: 0 }) {
+  if (index < 0 || index >= playlist.length) return;
+  cancelCountdown();
+
+  currentIndex = index;
+  renderPlaylist();
+
+  const item = playlist[index];
+  showLoading(true);
+  try {
+    const result = await window.loadKaraokeFile(item.file);
+    applauseTriggered = false;
+    updateMetaBar(item);
+    setSemitones(initialSemitones || 0); // cada música começa no tom escolhido (ou original, por padrão)
+
+    if (result.type === 'cdg') {
+      cdgPlayer.load(result.cdgBuffer);
+      await engine.loadArrayBuffer(result.audioBuffer);
+      setStage('cdg');
+      timeDuration.textContent = formatTime(engine.getDuration());
+      seekBar.max = String(Math.floor(engine.getDuration() * 1000));
+      seekBar.value = '0';
+      broadcastToSecondScreen({
+        type: 'init-cdg',
+        cdgBuffer: result.cdgBuffer,
+        colors: getActiveColors(),
+        meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
+      });
+    } else if (result.type === 'video') {
+      videoEl.src = result.videoBlobUrl;
+      setStage('video');
+      videoEl.load();
+
+      // Tenta rotear o áudio do vídeo pelo mesmo pitch shifter usado no
+      // CDG — só funciona no motor de thread separada (worklet); se caiu
+      // pro motor antigo, o vídeo toca normal, sem ajuste de tom.
+      const pitchOk = await engine.ensureVideoPitchSupport();
+      videoPitchRouted = pitchOk && engine.attachVideoElement(videoEl);
+      if (!videoPitchRouted) {
+        console.warn('[App] Ajuste de tom não disponível pra esse vídeo neste navegador.');
+      }
+      pitchDownBtn.title = videoPitchRouted || mode !== 'video'
+        ? 'Diminuir um semitom'
+        : 'Ajuste de tom indisponível pra vídeo neste navegador';
+      pitchUpBtn.title = pitchDownBtn.title;
+
+      broadcastToSecondScreen({
+        type: 'init-video',
+        videoUrl: result.videoBlobUrl,
+        meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
+      });
+    }
+
+    playBtn.disabled = false;
+    settingsBtn.classList.remove('hidden');
+
+    if (autoplay) {
+      if (mode === 'cdg') {
+        await engine.play();
+      } else if (mode === 'video') {
+        await videoEl.play();
+        updatePlayIcon();
+      }
+    }
+    refreshIdleState();
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Não foi possível carregar essa música.');
+  } finally {
+    showLoading(false);
+  }
+}
+
+function playNextInQueue() {
+  if (hasNext()) selectTrack(currentIndex + 1, { autoplay: true });
+}
+
+nextBtn.addEventListener('click', playNextInQueue);
+
+// ---------- Modal de informações da música (abre ao clicar na fila) ----------
+
+function updateTmPitchLabel() {
+  const sign = modalPitchValue > 0 ? '+' : '';
+  tmPitchValue.textContent = `${sign}${modalPitchValue}`;
+  tmPitchDownBtn.disabled = modalPitchValue <= -12;
+  tmPitchUpBtn.disabled = modalPitchValue >= 12;
+}
+
+function openTrackModal(index) {
+  const item = playlist[index];
+  if (!item) return;
+  modalTrackIndex = index;
+
+  const isActive = index === currentIndex;
+  modalPitchValue = isActive ? currentSemitones : 0;
+
+  tmCode.textContent = item.code || '—';
+  tmArtist.textContent = item.artist || '—';
+  tmFormat.textContent = item.format;
+  tmTitle.textContent = item.title;
+  tmPlayBtn.textContent = isActive ? 'Aplicar tom' : 'Tocar';
+  updateTmPitchLabel();
+
+  trackModalBackdrop.classList.remove('hidden');
+}
+
+function closeTrackModal() {
+  trackModalBackdrop.classList.add('hidden');
+  modalTrackIndex = -1;
+}
+
+tmPitchDownBtn.addEventListener('click', () => {
+  modalPitchValue = Math.max(-12, modalPitchValue - 1);
+  updateTmPitchLabel();
+});
+tmPitchUpBtn.addEventListener('click', () => {
+  modalPitchValue = Math.min(12, modalPitchValue + 1);
+  updateTmPitchLabel();
+});
+tmCancelBtn.addEventListener('click', closeTrackModal);
+trackModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === trackModalBackdrop) closeTrackModal();
+});
+tmPlayBtn.addEventListener('click', () => {
+  const index = modalTrackIndex;
+  const semitones = modalPitchValue;
+  const isActive = index === currentIndex;
+  closeTrackModal();
+  if (isActive) {
+    setSemitones(semitones);
+  } else {
+    selectTrack(index, { autoplay: true, initialSemitones: semitones });
+  }
+});
+
+// ---------- Reset (fila vazia) ----------
+
+function resetToEmptyState() {
+  engine.stop();
+  if (mode === 'video') {
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+  }
+  cdgPlayer.reset();
+  cdgPlayer.clearScreen();
+  applauseAudio.pause();
+  applauseAudio.currentTime = 0;
+  applauseTriggered = false;
+  cancelCountdown();
+
+  setStage(null);
+  updateMetaBar(null);
+  timeCurrent.textContent = '0:00';
+  timeDuration.textContent = '0:00';
+  seekBar.value = '0';
+
+  playBtn.disabled = true;
+  settingsBtn.classList.remove('active');
+  settingsPanel.classList.add('hidden');
+  updatePlayIcon();
+  renderPlaylist();
+  refreshIdleState();
+
+  broadcastToSecondScreen({ type: 'clear' });
+}
+
+// ---------- Carregar arquivos (botão / drop / input) ----------
+
+addMusicBtn.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  addFilesToQueue(fileInput.files);
+  fileInput.value = '';
+});
+
+// IMPORTANTE: o navegador, por padrão, abre/toca qualquer arquivo solto
+// sobre a página (fora de um drop-target específico) em vez de deixar o
+// nosso JS tratar o evento. Por isso precisamos interceptar 'dragover' e
+// 'drop' em TODA a janela (não só na caixa pontilhada), chamando
+// preventDefault() sempre — mesmo quando o arquivo é solto fora da caixa —
+// para o navegador nunca assumir o controle.
+
+['dragenter', 'dragover', 'drop'].forEach(evt => {
+  window.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, false);
+});
+
+['dragenter', 'dragover'].forEach(evt =>
+  window.addEventListener(evt, () => {
+    dropZone.classList.add('drag-active');
+  })
+);
+['dragleave', 'drop'].forEach(evt =>
+  window.addEventListener(evt, (e) => {
+    if (evt === 'drop' || e.relatedTarget === null) {
+      dropZone.classList.remove('drag-active');
+    }
+  })
+);
+
+window.addEventListener('drop', (e) => {
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (files && files.length) addFilesToQueue(files);
+});
+
+// ---------- Transporte (play/pause/seek) ----------
+
+function updatePlayIcon() {
+  const playing = mode === 'video' ? !videoEl.paused : engine.isPlaying();
+  playIcon.classList.toggle('hidden', playing);
+  pauseIcon.classList.toggle('hidden', !playing);
+}
+
+playBtn.addEventListener('click', async () => {
+  try {
+    if (mode === 'cdg') {
+      if (engine.isPlaying()) {
+        engine.pause();
+      } else {
+        await engine.play();
+      }
+    } else if (mode === 'video') {
+      if (videoEl.paused) {
+        await videoEl.play();
+      } else {
+        videoEl.pause();
+      }
+      updatePlayIcon();
+    }
+  } catch (err) {
+    console.error('Erro ao dar play:', err);
+    showError('Não foi possível iniciar a reprodução: ' + (err.message || err));
+  }
+});
+
+seekBar.addEventListener('input', () => {
+  seeking = true;
+  timeCurrent.textContent = formatTime(Number(seekBar.value) / 1000);
+});
+seekBar.addEventListener('change', () => {
+  const sec = Number(seekBar.value) / 1000;
+  if (mode === 'cdg') {
+    engine.seekTo(sec);
+    cdgPlayer.update(sec);
+  } else if (mode === 'video') {
+    videoEl.currentTime = sec;
+  }
+  seeking = false;
+});
+
+// ---------- Volume ----------
+
+volumeSlider.addEventListener('input', () => {
+  const pct = Number(volumeSlider.value);
+  const vol = pct / 100;
+  engine.setVolume(vol);
+  // Se o vídeo está passando pelo pitch shifter, o volume já é aplicado
+  // ali (gainNode) — setar videoEl.volume TAMBÉM multiplicaria o volume
+  // duas vezes. Só controlamos videoEl.volume direto quando ele NÃO está
+  // roteado (tocando o áudio nativo dele mesmo).
+  videoEl.volume = videoPitchRouted ? 1 : vol;
+  volumePct.textContent = pct + '%';
+});
+volumePct.textContent = volumeSlider.value + '%';
+
+// ---------- Pitch (tom) ----------
+
+let currentSemitones = 0;
+
+function updatePitchLabel(semitones) {
+  const sign = semitones > 0 ? '+' : '';
+  pitchValue.textContent = `${sign}${semitones}`;
+  pitchDownBtn.disabled = semitones <= -12;
+  pitchUpBtn.disabled = semitones >= 12;
+}
+
+function setSemitones(semitones) {
+  currentSemitones = Math.max(-12, Math.min(12, semitones));
+  engine.setPitchSemitones(currentSemitones);
+  updatePitchLabel(currentSemitones);
+}
+
+pitchDownBtn.addEventListener('click', () => setSemitones(currentSemitones - 1));
+pitchUpBtn.addEventListener('click', () => setSemitones(currentSemitones + 1));
+pitchResetBtn.addEventListener('click', () => setSemitones(0));
+
+// ---------- Aplausos automáticos ----------
+
+const APPLAUSE_WINDOW_SEC = 5;
+
+function checkApplause(currentTime, duration) {
+  if (!applauseToggle.checked || !duration) return;
+
+  const remaining = duration - currentTime;
+  if (remaining <= APPLAUSE_WINDOW_SEC && remaining > 0) {
+    if (!applauseTriggered) {
+      applauseTriggered = true;
+      applauseAudio.currentTime = 0;
+      applauseAudio.volume = engine.getVolume();
+      applauseAudio.play().catch(err => console.warn('[App] Não foi possível tocar os aplausos:', err));
+    }
+  } else if (remaining > APPLAUSE_WINDOW_SEC && applauseTriggered) {
+    applauseTriggered = false;
+  }
+}
+
+// ---------- Autoplay da fila (com contagem regressiva) ----------
+
+function updateAutoplayIndicator() {
+  const on = autoplayToggle.checked;
+  autoplayIndicatorBtn.classList.toggle('on', on);
+  autoplayStatus.innerHTML = `<span class="dot"></span> Autoplay ${on ? 'ligado' : 'desligado'}`;
+  autoplayDetail.classList.toggle('hidden', !on);
+  if (on) {
+    const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
+    autoplayDetail.innerHTML = `aguarda <b>${delay}s</b> entre músicas`;
+  }
+}
+autoplayToggle.addEventListener('change', updateAutoplayIndicator);
+autoplayDelayInput.addEventListener('input', updateAutoplayIndicator);
+autoplayIndicatorBtn.addEventListener('click', () => {
+  autoplayToggle.checked = !autoplayToggle.checked;
+  autoplayToggle.dispatchEvent(new Event('change'));
+});
+
+function cancelCountdown() {
+  if (countdownTimerId) {
+    clearInterval(countdownTimerId);
+    countdownTimerId = null;
+  }
+  countdownOverlay.classList.add('hidden');
+  refreshIdleState();
+}
+
+function finishCountdown() {
+  cancelCountdown();
+  playNextInQueue();
+}
+
+function startAutoplayCountdownIfNeeded() {
+  if (!autoplayToggle.checked || !hasNext()) return;
+
+  const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
+  const nextItem = playlist[currentIndex + 1];
+  cdNextTitle.textContent = [nextItem.artist, nextItem.title].filter(Boolean).join(' — ');
+  countdownOverlay.classList.remove('hidden');
+  countdownRemaining = delay;
+  cdNumber.textContent = String(countdownRemaining);
+  refreshIdleState();
+
+  if (delay <= 0) {
+    finishCountdown();
+    return;
+  }
+
+  countdownTimerId = setInterval(() => {
+    countdownRemaining -= 1;
+    cdNumber.textContent = String(Math.max(0, countdownRemaining));
+    if (countdownRemaining <= 0) {
+      finishCountdown();
+    }
+  }, 1000);
+}
+
+cdSkipBtn.addEventListener('click', finishCountdown);
+
+// ---------- Aplausos: indicador clicável ----------
+
+function updateApplauseIndicator() {
+  const on = applauseToggle.checked;
+  applauseIndicatorBtn.classList.toggle('on', on);
+  applauseStatus.innerHTML = `<span class="dot"></span> Aplausos ${on ? 'ligados' : 'desligados'}`;
+}
+applauseToggle.addEventListener('change', updateApplauseIndicator);
+applauseIndicatorBtn.addEventListener('click', () => {
+  applauseToggle.checked = !applauseToggle.checked;
+  applauseToggle.dispatchEvent(new Event('change'));
+});
+
+// ---------- Música ambiente (toca quando nada mais está tocando) ----------
+
+const AMBIENT_TRACKS = [
+  'assets/ambient/blues.mp3',
+  'assets/ambient/afrobeat.mp3',
+  'assets/ambient/jazz.mp3',
+  'assets/ambient/reggae.mp3',
+  'assets/ambient/pop.mp3',
+];
+
+let ambientActive = false; // true = tocando (ou em fade), controlado por updateAmbientState()
+let ambientCurrentTrackIndex = -1;
+let ambientFadeIntervalId = null;
+
+function getAmbientTargetVolume() {
+  return Number(ambientVolumeSlider.value) / 100;
+}
+
+function fadeAudioTo(audioEl, targetVolume, durationMs, onComplete) {
+  if (ambientFadeIntervalId) {
+    clearInterval(ambientFadeIntervalId);
+    ambientFadeIntervalId = null;
+  }
+  const steps = 24;
+  const stepMs = Math.max(16, durationMs / steps);
+  const startVolume = audioEl.volume;
+  let step = 0;
+  ambientFadeIntervalId = setInterval(() => {
+    step += 1;
+    const t = Math.min(1, step / steps);
+    audioEl.volume = startVolume + (targetVolume - startVolume) * t;
+    if (t >= 1) {
+      clearInterval(ambientFadeIntervalId);
+      ambientFadeIntervalId = null;
+      if (onComplete) onComplete();
+    }
+  }, stepMs);
+}
+
+function pickRandomAmbientTrack(excludeIndex) {
+  if (AMBIENT_TRACKS.length <= 1) return 0;
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * AMBIENT_TRACKS.length);
+  } while (idx === excludeIndex);
+  return idx;
+}
+
+function startAmbient() {
+  if (ambientActive) return;
+  ambientActive = true;
+
+  if (ambientCurrentTrackIndex === -1) {
+    ambientCurrentTrackIndex = pickRandomAmbientTrack(-1);
+    ambientAudio.src = AMBIENT_TRACKS[ambientCurrentTrackIndex];
+  }
+  ambientAudio.volume = 0;
+  ambientAudio.play().catch(err => console.warn('[App] Não foi possível tocar a música ambiente:', err));
+  fadeAudioTo(ambientAudio, getAmbientTargetVolume(), 1200);
+}
+
+function stopAmbient() {
+  if (!ambientActive) return;
+  ambientActive = false;
+  fadeAudioTo(ambientAudio, 0, 800, () => {
+    ambientAudio.pause();
+  });
+}
+
+ambientAudio.addEventListener('ended', () => {
+  if (!ambientActive) return;
+  // Troca pra outra faixa aleatória (evitando repetir a mesma) e continua.
+  ambientCurrentTrackIndex = pickRandomAmbientTrack(ambientCurrentTrackIndex);
+  ambientAudio.src = AMBIENT_TRACKS[ambientCurrentTrackIndex];
+  ambientAudio.volume = getAmbientTargetVolume();
+  ambientAudio.play().catch(() => {});
+});
+
+function isAnythingPlaying() {
+  if (mode === 'cdg') return engine.isPlaying();
+  if (mode === 'video') return !videoEl.paused;
+  return false;
+}
+
+function updateAmbientState() {
+  if (!ambientToggle.checked) {
+    stopAmbient();
+    return;
+  }
+  if (isAnythingPlaying()) {
+    stopAmbient();
+  } else {
+    startAmbient();
+  }
+}
+
+/** Chamado sempre que o estado de "tocando/parado" muda — atualiza música
+ * ambiente e o overlay de tela ociosa juntos, já que os dois dependem
+ * exatamente da mesma condição. */
+function refreshIdleState() {
+  updateAmbientState();
+  updateIdleOverlay();
+}
+
+function updateIdleOverlay() {
+  const idle = mode !== null && !isAnythingPlaying();
+  idleOverlay.classList.toggle('hidden', !idle);
+  broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
+}
+
+// ---------- Imagem de fundo customizada pra tela ociosa ----------
+
+function applyIdleImage() {
+  if (customIdleImageDataUrl) {
+    idleLogo.classList.add('hidden');
+    idleCustomImage.classList.remove('hidden');
+    idleCustomImage.style.backgroundImage = `url(${customIdleImageDataUrl})`;
+  } else {
+    idleLogo.classList.remove('hidden');
+    idleCustomImage.classList.add('hidden');
+    idleCustomImage.style.backgroundImage = '';
+  }
+}
+
+idleImageUploadBtn.addEventListener('click', () => idleImageInput.click());
+idleImageInput.addEventListener('change', () => {
+  const file = idleImageInput.files && idleImageInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    customIdleImageDataUrl = reader.result;
+    applyIdleImage();
+    idleImageFilename.textContent = file.name;
+    idleImageFilename.classList.remove('hidden');
+    idleImageRemoveBtn.classList.remove('hidden');
+    broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
+  };
+  reader.onerror = () => showError('Não foi possível ler essa imagem.');
+  reader.readAsDataURL(file);
+  idleImageInput.value = '';
+});
+idleImageRemoveBtn.addEventListener('click', () => {
+  customIdleImageDataUrl = null;
+  applyIdleImage();
+  idleImageFilename.classList.add('hidden');
+  idleImageRemoveBtn.classList.add('hidden');
+  broadcastToSecondScreen({ type: 'idle-image', dataUrl: null });
+});
+
+function updateAmbientIndicator() {
+  const on = ambientToggle.checked;
+  ambientIndicatorBtn.classList.toggle('on', on);
+  ambientStatus.innerHTML = `<span class="dot"></span> Música ambiente ${on ? 'ligada' : 'desligada'}`;
+}
+ambientToggle.addEventListener('change', () => {
+  updateAmbientIndicator();
+  refreshIdleState();
+});
+ambientIndicatorBtn.addEventListener('click', () => {
+  ambientToggle.checked = !ambientToggle.checked;
+  ambientToggle.dispatchEvent(new Event('change'));
+});
+ambientVolumeSlider.addEventListener('input', () => {
+  const pct = Number(ambientVolumeSlider.value);
+  ambientVolumePct.textContent = pct + '%';
+  // Se já estiver tocando (fora de fade), ajusta o volume na hora.
+  if (ambientActive && !ambientFadeIntervalId) {
+    ambientAudio.volume = pct / 100;
+  }
+});
+
+// ---------- Loop de renderização do CDG + sync da UI ----------
+
+engine.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); });
+engine.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
+engine.addEventListener('ended', () => {
+  updatePlayIcon();
+  startAutoplayCountdownIfNeeded();
+  refreshIdleState();
+});
+engine.addEventListener('error', (e) => {
+  showError('Erro de áudio: ' + e.detail.message);
+});
+
+let lastUiUpdate = 0;
+let lastBroadcastTime = 0;
+const UI_UPDATE_INTERVAL_MS = 150; // ~6-7x/seg é mais que suficiente pra uma barra de progresso
+const BROADCAST_INTERVAL_MS = 33; // ~30x/seg pra segunda tela, fluido sem exagerar em mensagens
+
+engine.onTimeUpdate((currentTime, duration) => {
+  // O canvas do CDG atualiza SEMPRE, a taxa cheia (essencial pra fluidez da letra).
+  cdgPlayer.update(currentTime);
+  checkApplause(currentTime, duration);
+
+  const now = performance.now();
+  if (now - lastBroadcastTime >= BROADCAST_INTERVAL_MS) {
+    lastBroadcastTime = now;
+    broadcastToSecondScreen({ type: 'time', currentTime, duration });
+  }
+
+  if (seeking) return;
+
+  if (now - lastUiUpdate < UI_UPDATE_INTERVAL_MS) return;
+  lastUiUpdate = now;
+
+  seekBar.value = String(Math.floor(currentTime * 1000));
+  timeCurrent.textContent = formatTime(currentTime);
+  if (duration) timeDuration.textContent = formatTime(duration);
+});
+
+videoEl.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); });
+videoEl.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
+videoEl.addEventListener('ended', () => {
+  updatePlayIcon();
+  startAutoplayCountdownIfNeeded();
+  refreshIdleState();
+});
+videoEl.addEventListener('timeupdate', () => {
+  if (mode !== 'video') return;
+  checkApplause(videoEl.currentTime, videoEl.duration || 0);
+  broadcastToSecondScreen({ type: 'time', currentTime: videoEl.currentTime, duration: videoEl.duration || 0 });
+  if (seeking) return;
+  seekBar.max = String(Math.floor((videoEl.duration || 0) * 1000));
+  seekBar.value = String(Math.floor(videoEl.currentTime * 1000));
+  timeCurrent.textContent = formatTime(videoEl.currentTime);
+  timeDuration.textContent = formatTime(videoEl.duration || 0);
+});
+
+// ---------- Painel de configurações (esquema de cores) ----------
+
+settingsBtn.addEventListener('click', () => {
+  const isOpen = !settingsPanel.classList.contains('hidden');
+  settingsPanel.classList.toggle('hidden', isOpen);
+  settingsBtn.classList.toggle('active', !isOpen);
+});
+
+function getActiveColors() {
+  if (!customColorsToggle.checked) return null;
+  return {
+    background: colorBackground.value,
+    text: colorText.value,
+    highlight: colorHighlight.value,
+  };
+}
+
+function applyCustomColors() {
+  cdgPlayer.setCustomColors(getActiveColors());
+  broadcastToSecondScreen({ type: 'colors', colors: getActiveColors() });
+}
+
+customColorsToggle.addEventListener('change', applyCustomColors);
+[colorBackground, colorText, colorHighlight].forEach(input => {
+  input.addEventListener('input', applyCustomColors);
+});
+
+// ---------- Tela cheia (CDG) ----------
+
+fullscreenBtn.addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await stageCanvasWrap.requestFullscreen();
+    }
+  } catch (err) {
+    console.error('Erro ao entrar/sair de tela cheia:', err);
+  }
+});
+
+// ---------- Segunda tela (janela separada / segundo monitor) ----------
+
+let secondScreenWindow = null;
+let secondScreenChannel = null;
+let secondScreenPollId = null;
+
+function ensureSecondScreenChannel() {
+  if (!secondScreenChannel && 'BroadcastChannel' in window) {
+    secondScreenChannel = new BroadcastChannel('playkaraoke-second-screen');
+    secondScreenChannel.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'ready') {
+        sendCurrentStateToSecondScreen();
+      }
+    });
+  }
+  return secondScreenChannel;
+}
+
+function broadcastToSecondScreen(message) {
+  if (!secondScreenWindow || secondScreenWindow.closed) return;
+  const channel = ensureSecondScreenChannel();
+  if (channel) channel.postMessage(message);
+}
+
+function sendCurrentStateToSecondScreen() {
+  broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
+  broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
+
+  if (currentIndex < 0 || !playlist[currentIndex]) return;
+  broadcastToSecondScreen({ type: 'colors', colors: getActiveColors() });
+  if (mode === 'cdg') {
+    // Reenvia o estado atual pra popup que acabou de abrir/recarregar.
+    // Precisamos re-extrair o arquivo já que não guardamos o buffer em cache.
+    window.loadKaraokeFile(playlist[currentIndex].file).then(result => {
+      if (result.type === 'cdg') {
+        broadcastToSecondScreen({
+          type: 'init-cdg',
+          cdgBuffer: result.cdgBuffer,
+          colors: getActiveColors(),
+          meta: playlist[currentIndex],
+        });
+      }
+    }).catch(() => {});
+  } else if (mode === 'video' && videoEl.src) {
+    broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: playlist[currentIndex] });
+  }
+}
+
+openSecondBtn.addEventListener('click', () => {
+  if (secondScreenWindow && !secondScreenWindow.closed) {
+    secondScreenWindow.focus();
+    return;
+  }
+  ensureSecondScreenChannel();
+  secondScreenWindow = window.open('second-screen.html', 'playkaraoke-second-screen', 'width=960,height=540');
+  secondScreenStatus.classList.remove('hidden');
+  openSecondBtn.textContent = 'Focar janela ↗';
+
+  if (secondScreenPollId) clearInterval(secondScreenPollId);
+  secondScreenPollId = setInterval(() => {
+    if (secondScreenWindow && secondScreenWindow.closed) {
+      secondScreenStatus.classList.add('hidden');
+      openSecondBtn.textContent = 'Abrir janela ↗';
+      secondScreenWindow = null;
+      clearInterval(secondScreenPollId);
+      secondScreenPollId = null;
+    }
+  }, 1000);
+});
+
+// ---------- Atalhos de teclado ----------
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    playBtn.click();
+  }
+});
+
+// Estado inicial
+setStage(null);
+updateMetaBar(null);
+updatePitchLabel(0);
+updateAutoplayIndicator();
+updateApplauseIndicator();
+updateAmbientIndicator();
+ambientVolumePct.textContent = ambientVolumeSlider.value + '%';
+applyIdleImage();
+updateIdleOverlay();
+renderPlaylist();
