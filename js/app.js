@@ -72,6 +72,13 @@ const playlistCount = el('playlist-count');
 
 const openSecondBtn = el('open-second-btn');
 const secondScreenStatus = el('second-screen-status');
+const secondScreenIndicatorBtn = el('second-screen-indicator-btn');
+const secondScreenStatusIndicator = el('second-screen-status-indicator');
+
+const quickSecondScreenBtn = el('quick-second-screen-btn');
+const quickAutoplayBtn = el('quick-autoplay-btn');
+const quickApplauseBtn = el('quick-applause-btn');
+const quickAmbientBtn = el('quick-ambient-btn');
 
 const idleOverlay = el('idle-overlay');
 const idleLogo = el('idle-logo');
@@ -765,6 +772,7 @@ function checkSilenceForApplause(currentTime, duration, remaining) {
 function updateAutoplayIndicator() {
   const on = autoplayToggle.checked;
   autoplayIndicatorBtn.classList.toggle('on', on);
+  quickAutoplayBtn.classList.toggle('on', on);
   autoplayStatus.innerHTML = `<span class="dot"></span> Autoplay ${on ? 'ligado' : 'desligado'}`;
   autoplayDetail.classList.toggle('hidden', !on);
   if (on) {
@@ -775,6 +783,10 @@ function updateAutoplayIndicator() {
 autoplayToggle.addEventListener('change', updateAutoplayIndicator);
 autoplayDelayInput.addEventListener('input', updateAutoplayIndicator);
 autoplayIndicatorBtn.addEventListener('click', () => {
+  autoplayToggle.checked = !autoplayToggle.checked;
+  autoplayToggle.dispatchEvent(new Event('change'));
+});
+quickAutoplayBtn.addEventListener('click', () => {
   autoplayToggle.checked = !autoplayToggle.checked;
   autoplayToggle.dispatchEvent(new Event('change'));
 });
@@ -825,10 +837,15 @@ cdSkipBtn.addEventListener('click', finishCountdown);
 function updateApplauseIndicator() {
   const on = applauseToggle.checked;
   applauseIndicatorBtn.classList.toggle('on', on);
+  quickApplauseBtn.classList.toggle('on', on);
   applauseStatus.innerHTML = `<span class="dot"></span> Aplausos ${on ? 'ligados' : 'desligados'}`;
 }
 applauseToggle.addEventListener('change', updateApplauseIndicator);
 applauseIndicatorBtn.addEventListener('click', () => {
+  applauseToggle.checked = !applauseToggle.checked;
+  applauseToggle.dispatchEvent(new Event('change'));
+});
+quickApplauseBtn.addEventListener('click', () => {
   applauseToggle.checked = !applauseToggle.checked;
   applauseToggle.dispatchEvent(new Event('change'));
 });
@@ -985,6 +1002,7 @@ idleImageRemoveBtn.addEventListener('click', () => {
 function updateAmbientIndicator() {
   const on = ambientToggle.checked;
   ambientIndicatorBtn.classList.toggle('on', on);
+  quickAmbientBtn.classList.toggle('on', on);
   ambientStatus.innerHTML = `<span class="dot"></span> Música ambiente ${on ? 'ligada' : 'desligada'}`;
 }
 ambientToggle.addEventListener('change', () => {
@@ -992,6 +1010,10 @@ ambientToggle.addEventListener('change', () => {
   refreshIdleState();
 });
 ambientIndicatorBtn.addEventListener('click', () => {
+  ambientToggle.checked = !ambientToggle.checked;
+  ambientToggle.dispatchEvent(new Event('change'));
+});
+quickAmbientBtn.addEventListener('click', () => {
   ambientToggle.checked = !ambientToggle.checked;
   ambientToggle.dispatchEvent(new Event('change'));
 });
@@ -1150,27 +1172,59 @@ function sendCurrentStateToSecondScreen() {
   }
 }
 
-openSecondBtn.addEventListener('click', () => {
+openSecondBtn.addEventListener('click', toggleSecondScreen);
+
+function updateSecondScreenIndicator() {
+  const open = !!(secondScreenWindow && !secondScreenWindow.closed);
+  secondScreenStatus.classList.toggle('hidden', !open);
+  openSecondBtn.textContent = open ? 'Focar janela ↗' : 'Abrir janela ↗';
+  secondScreenIndicatorBtn.classList.toggle('on', open);
+  secondScreenStatusIndicator.innerHTML = `<span class="dot"></span> Segunda tela ${open ? 'ligada' : 'desligada'}`;
+  quickSecondScreenBtn.classList.toggle('on', open);
+}
+
+function openSecondScreen() {
   if (secondScreenWindow && !secondScreenWindow.closed) {
     secondScreenWindow.focus();
     return;
   }
   ensureSecondScreenChannel();
   secondScreenWindow = window.open('second-screen.html', 'playkaraoke-second-screen', 'width=960,height=540');
-  secondScreenStatus.classList.remove('hidden');
-  openSecondBtn.textContent = 'Focar janela ↗';
+  updateSecondScreenIndicator();
 
   if (secondScreenPollId) clearInterval(secondScreenPollId);
   secondScreenPollId = setInterval(() => {
     if (secondScreenWindow && secondScreenWindow.closed) {
-      secondScreenStatus.classList.add('hidden');
-      openSecondBtn.textContent = 'Abrir janela ↗';
       secondScreenWindow = null;
+      updateSecondScreenIndicator();
       clearInterval(secondScreenPollId);
       secondScreenPollId = null;
     }
   }, 1000);
-});
+}
+
+function closeSecondScreen() {
+  if (secondScreenWindow && !secondScreenWindow.closed) {
+    secondScreenWindow.close();
+  }
+  secondScreenWindow = null;
+  if (secondScreenPollId) {
+    clearInterval(secondScreenPollId);
+    secondScreenPollId = null;
+  }
+  updateSecondScreenIndicator();
+}
+
+function toggleSecondScreen() {
+  if (secondScreenWindow && !secondScreenWindow.closed) {
+    closeSecondScreen();
+  } else {
+    openSecondScreen();
+  }
+}
+
+secondScreenIndicatorBtn.addEventListener('click', toggleSecondScreen);
+quickSecondScreenBtn.addEventListener('click', toggleSecondScreen);
 
 // ---------- Atalhos de teclado ----------
 
@@ -1188,6 +1242,7 @@ updatePitchLabel(0);
 updateAutoplayIndicator();
 updateApplauseIndicator();
 updateAmbientIndicator();
+updateSecondScreenIndicator();
 ambientVolumePct.textContent = ambientVolumeSlider.value + '%';
 applyIdleImage();
 updateIdleOverlay();

@@ -455,7 +455,7 @@
   }
   #cdg-canvas{
     width:100%;
-    height:100%;
+    height:auto;
     max-width:min(100%, calc((100vh - 220px) * 300 / 216));
     aspect-ratio: 300 / 216;
     border-radius:12px;
@@ -502,7 +502,7 @@
   #fullscreen-btn svg{ width:18px;height:18px; }
   #video-el{
     width:100%;
-    height:100%;
+    height:auto;
     max-width:min(100%, calc((100vh - 220px) * 16 / 9));
     aspect-ratio: 16/9;
     border-radius:12px;
@@ -973,6 +973,41 @@
     font-family:'JetBrains Mono',monospace;
   }
   #pitch-reset-btn:hover{ color:var(--on-surface); border-color:var(--on-surface-variant); }
+
+  #quick-toggles-row{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .quick-toggle-pill{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface-variant);
+    font-size:11px;
+    font-weight:500;
+    padding:5px 11px;
+    border-radius:999px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    white-space:nowrap;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .quick-toggle-pill:hover{ border-color:var(--primary-bright); }
+  .quick-toggle-pill.on{
+    color:var(--tertiary);
+    border-color:var(--tertiary);
+    background:rgba(78,222,163,0.08);
+  }
+  .quick-toggle-pill .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:currentColor;
+    flex-shrink:0;
+    opacity:0.5;
+  }
+  .quick-toggle-pill.on .dot{ opacity:1; }
 </style>
 </head>
 <body>
@@ -1010,6 +1045,9 @@
   </div>
 
   <div id="feature-toggles">
+    <button class="feature-toggle" id="second-screen-indicator-btn" type="button">
+      <span class="status-line" id="second-screen-status-indicator"><span class="dot"></span> Segunda tela desligada</span>
+    </button>
     <button class="feature-toggle" id="autoplay-indicator-btn" type="button">
       <span class="status-line" id="autoplay-status"><span class="dot"></span> Autoplay desligado</span>
       <span class="detail-line hidden" id="autoplay-detail"></span>
@@ -1227,6 +1265,21 @@
           <button id="pitch-reset-btn" title="Resetar tom">RESET</button>
         </div>
       </div>
+    </div>
+
+    <div id="quick-toggles-row">
+      <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" title="Abrir/fechar a segunda tela">
+        <span class="dot"></span> Segunda Tela
+      </button>
+      <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Ligar/desligar autoplay">
+        <span class="dot"></span> Autoplay
+      </button>
+      <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Ligar/desligar aplausos automáticos">
+        <span class="dot"></span> Aplausos
+      </button>
+      <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Ligar/desligar música ambiente">
+        <span class="dot"></span> Ambiente
+      </button>
     </div>
   </div>
 </div>

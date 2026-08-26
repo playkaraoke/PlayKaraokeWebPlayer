@@ -321,6 +321,21 @@ sistema "rearma" e os aplausos podem disparar de novo depois.
 
 Tem indicador clicável na barra lateral também, igual o autoplay.
 
+## Acesso rápido (barra de controles + indicadores da sidebar)
+
+Autoplay, aplausos, música ambiente e segunda tela têm **três pontos de
+controle sincronizados** entre si (ligar em qualquer um liga nos outros
+dois automaticamente):
+1. O checkbox correspondente no painel de configurações
+2. O indicador clicável na barra lateral (embaixo da fila)
+3. Um "pill" (botão arredondado compacto) na barra de controles do
+   rodapé, pra não precisar abrir configurações nem olhar a barra lateral
+
+Pra segunda tela especificamente, esses três pontos também **abrem e
+fecham** a janela (não só mostram estado) — clicar em qualquer um dos
+três com a janela fechada abre ela; clicar com ela aberta, fecha de
+verdade (`window.close()`).
+
 ---
 
 ## Música ambiente
@@ -424,6 +439,12 @@ teste jsdom antes de considerar pronta.
 - **A senha de acesso é só um filtro leve, não segurança real** — decisão
   consciente, dado que o projeto é 100% estático (sem servidor). Ver seção
   "Tela de senha" acima antes de assumir que algo sensível está protegido.
+- **Bug de distorção do CDG/vídeo corrigido**: o CSS tinha `width:100%` e
+  `height:100%` ao mesmo tempo no canvas/vídeo, o que ignora a
+  `aspect-ratio` e estica a imagem pra preencher qualquer formato de
+  janela. A correção foi deixar `height:auto`, assim só a largura
+  determina o tamanho e a altura segue a proporção 300:216 (CDG) ou 16:9
+  (vídeo) automaticamente.
 
 ---
 
