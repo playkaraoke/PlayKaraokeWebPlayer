@@ -64,6 +64,7 @@ karaoke-engine/
     ├── cdg-player.js              → parser + renderizador do formato CDG
     ├── audio-engine.js            → motor de áudio (playback + pitch shift)
     ├── pitch-worklet-processor.js → o processador de pitch em si (AudioWorklet)
+    ├── tick-worker.js             → cronômetro em Web Worker (imune a aba em 2º plano)
     ├── file-loader.js             → extrai .cdg/.mp3 do .zip + interpreta nome do arquivo
     ├── second-screen.js           → lógica da janela da segunda tela
     └── app.js                     → cola tudo junto: UI, fila, autoplay, ambiente, aplausos
@@ -215,17 +216,31 @@ vídeo MP4** (a biblioteca não foi feita pra aceitar uma fonte de áudio "ao
 vivo" como um elemento `<video>`, só buffers decodificados). Nesse caso o
 vídeo toca normalmente, só sem ajuste de tom.
 
-### Detalhe técnico importante: por que `setInterval` e não `requestAnimationFrame`
+### Detalhe técnico importante: por que o cronômetro roda numa Web Worker
 O loop que atualiza a letra na tela e manda o tempo atual pra segunda tela
-usa `setInterval`, **não** `requestAnimationFrame`. Isso foi uma correção
-de bug: o navegador pausa (ou reduz muito) o `requestAnimationFrame`
-quando a aba não está em primeiro plano (ex: você abre outra aba, ou
-interage com a janela da segunda tela) — isso fazia a segunda tela
-"congelar" mesmo com o áudio tocando normalmente (Web Audio não depende de
-`requestAnimationFrame`, só a parte visual dependia). `setInterval`
-continua rodando em segundo plano (o navegador pode desacelerar um pouco,
-mas nunca pausa de vez), então a segunda tela nunca mais deveria travar
-por causa disso.
+roda dentro de uma **Web Worker** (`js/tick-worker.js`) — uma thread
+totalmente separada da página. Isso passou por duas rodadas de correção:
+
+1. Primeiro trocamos `requestAnimationFrame` por `setInterval`, porque o
+   navegador **pausa completamente** o rAF quando a aba não está em
+   primeiro plano.
+2. Só que mesmo `setInterval` sofre **desaceleração** do navegador nessa
+   mesma situação (cai de ~60x/segundo pra ~1x/segundo) — o suficiente pra
+   parecer "travado", mesmo sem estar 100% parado. Isso ainda deixava a
+   letra do CDG grudada quando a aba principal perdia o foco (trocando de
+   aba, ou dando foco na janela da segunda tela — inclusive em tela
+   cheia).
+
+A solução definitiva foi mover esse cronômetro pra dentro de uma **Web
+Worker**: como ela roda numa thread de execução verdadeiramente separada
+da página, a política de desaceleração de aba em segundo plano do
+navegador **não se aplica a ela** — o timer de dentro da worker continua
+na taxa normal (~60x/segundo) não importa se a aba está em primeiro ou
+segundo plano.
+
+Tem um fallback: se por algum motivo a Worker falhar ao carregar (raro),
+o motor de áudio cai automaticamente pro `setInterval` normal, sem quebrar
+o app — só volta a ter a limitação de antes nesse cenário específico.
 
 ---
 

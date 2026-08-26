@@ -438,18 +438,20 @@ class AudioEngine extends EventTarget {
     return this._playing;
   }
 
-  // IMPORTANTE: usamos setInterval aqui, não requestAnimationFrame.
-  // O navegador pausa (ou reduz muito) o rAF quando a aba não está em
-  // primeiro plano — por exemplo, se você abre outra aba do Chrome, ou
-  // até ao interagir com a janela da segunda tela. O áudio em si continua
-  // tocando normalmente (Web Audio não depende de rAF), mas a atualização
-  // da letra no CDG e o envio de tempo pra segunda tela ficavam presos
-  // nesse loop de rAF — por isso a segunda tela "congelava" mesmo com a
-  // música tocando. setInterval continua rodando (o navegador pode
-  // desacelerar um pouco em segundo plano, mas nunca pausa de vez).
+  // IMPORTANTE: o cronômetro que dispara o desenho da letra e o envio de
+  // tempo pra segunda tela roda dentro de uma Web Worker (tick-worker.js),
+  // não com setInterval/requestAnimationFrame direto aqui na thread
+  // principal. Descobrimos que mesmo setInterval sofre desaceleração do
+  // navegador quando a aba não está em primeiro plano (cai pra ~1x por
+  // segundo em vez de ~60x) — o suficiente pra parecer "travado" mesmo
+  // sem estar 100% parado. Web Workers rodam numa thread verdadeiramente
+  // separada, e essa política de desaceleração do navegador não se aplica
+  // a elas — por isso o timer de dentro da worker continua na taxa normal
+  // mesmo com a aba em segundo plano ou a segunda tela em foco/tela cheia.
   _startTicking() {
-    const TICK_INTERVAL_MS = 16; // ~60x/segundo quando a aba está em primeiro plano
-    const tick = () => {
+    const TICK_INTERVAL_MS = 16; // ~60x/segundo
+
+    const onTick = () => {
       if (!this._playing) return;
       const currentTime = this.getCurrentTime();
       const duration = this.getDuration();
@@ -458,10 +460,38 @@ class AudioEngine extends EventTarget {
         this._timeUpdateCallbacks[i](currentTime, duration);
       }
     };
-    this._rafId = setInterval(tick, TICK_INTERVAL_MS);
+
+    if (!this._tickWorker && !this._tickWorkerFailed) {
+      try {
+        this._tickWorker = new Worker('js/tick-worker.js');
+        this._tickWorker.onmessage = onTick;
+        this._tickWorker.onerror = (err) => {
+          console.warn('[AudioEngine] tick-worker falhou, caindo pro setInterval normal:', err);
+          this._tickWorkerFailed = true;
+          try { this._tickWorker.terminate(); } catch (e) {}
+          this._tickWorker = null;
+          this._stopTicking();
+          this._startTicking(); // reinicia já usando o fallback
+        };
+      } catch (err) {
+        console.warn('[AudioEngine] Não foi possível criar a tick-worker, usando setInterval normal:', err);
+        this._tickWorkerFailed = true;
+      }
+    }
+
+    if (this._tickWorker) {
+      this._tickWorker.postMessage({ command: 'start', intervalMs: TICK_INTERVAL_MS });
+    } else {
+      // Fallback: sem Web Worker disponível, roda na thread principal mesmo
+      // (sofre a desaceleração em segundo plano, mas não quebra o app).
+      this._rafId = setInterval(onTick, TICK_INTERVAL_MS);
+    }
   }
 
   _stopTicking() {
+    if (this._tickWorker) {
+      this._tickWorker.postMessage({ command: 'stop' });
+    }
     if (this._rafId) {
       clearInterval(this._rafId);
       this._rafId = null;
