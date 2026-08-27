@@ -221,17 +221,29 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
 
   /** Busca no índice em memória. Retorna até MAX_SEARCH_RESULTS itens. */
   /**
+   * Remove acentos/diacríticos pra comparação (ex: "ê"->"e", "ã"->"a").
+   * Usa a normalização Unicode NFD, que separa a letra do acento, e
+   * depois descarta os acentos (intervalo de "combining diacritical
+   * marks"). Assim "Você" e "voce" batem na busca.
+   */
+  function stripAccents(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /**
    * Busca por múltiplas palavras: cada palavra digitada precisa aparecer
    * em algum lugar (título, artista ou código), em qualquer ordem — não
    * precisa ser uma frase exata. Assim "planta certeza" acha "Planta e
    * Raiz - Com Certeza", mesmo as palavras não sendo vizinhas no nome.
+   * Também ignora acentos dos dois lados da comparação, então "voce" acha
+   * "Você" sem precisar digitar o acento certinho.
    */
   function search(query) {
-    const words = (query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const words = stripAccents((query || '').trim().toLowerCase()).split(/\s+/).filter(Boolean);
     if (words.length === 0) return [];
     const results = [];
     for (const item of libraryIndex) {
-      const haystack = [item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase();
+      const haystack = stripAccents([item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase());
       if (words.every(word => haystack.includes(word))) {
         results.push(item);
         if (results.length >= MAX_SEARCH_RESULTS) break;

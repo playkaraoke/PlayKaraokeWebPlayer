@@ -376,7 +376,10 @@ quebrar o resto do funcionamento.
    **múltiplas palavras** (não frase exata): digitar "planta certeza" acha
    "Planta e Raiz - Com Certeza" mesmo as palavras não sendo vizinhas —
    basta que todas apareçam em algum lugar (título, artista ou código),
-   em qualquer ordem.
+   em qualquer ordem. Também **ignora acentos**: buscar "avioes" (sem
+   acento) encontra "Aviões" normalmente — usa `String.normalize('NFD')`
+   pra separar letra de acento e descarta o acento antes de comparar, dos
+   dois lados (tanto o que foi digitado quanto o que está indexado).
 5. Ao clicar num resultado, o app lê o arquivo **de verdade** do disco
    (`handle.getFile()`) — sem rede, sem upload, é leitura local direta —
    e adiciona à fila normalmente (troca automaticamente pra aba Fila).
@@ -607,6 +610,20 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Mistério não resolvido: engrenagem de configurações não aparece
+  colorida** (deveria ter o gradiente roxo/rosa, aparece branca/cinza pro
+  usuário). Investigação extensa já feita: confirmado que o CSS no
+  arquivo está correto (`#settings-btn{ background:linear-gradient(...) }`),
+  confirmado que não é cache local (testado em aba anônima), confirmado
+  que a URL acessada é a certa, confirmado que o código-fonte publicado
+  no GitHub tem o CSS certo (visto direto pelo visualizador de arquivo do
+  GitHub, não just o Pages). Não foi possível ainda testar em janela
+  "Convidado" do Chrome (zero extensões) — hipótese mais provável agora é
+  alguma extensão do navegador do usuário sobrescrevendo estilos
+  (modo escuro forçado, ferramenta de contraste/acessibilidade, etc.),
+  já que sua barra de extensões é bem carregada. **Não mexer de novo no
+  CSS desse botão até esse teste ser feito** — o código já está correto.
+
 - **Bug do modal "Aplicar tom" — esclarecido e corrigido**: o problema
   reportado inicialmente ("clicar Aplicar tom dá play sem querer") na
   verdade era sobre um cenário diferente do que eu tinha testado: com uma
@@ -669,13 +686,6 @@ teste jsdom antes de considerar pronta.
 ---
 
 ## Ideias discutidas mas não implementadas (pra retomar se quiser)
-
-- **Busca ignorando acentos** (na Biblioteca) — usuário quer buscar
-  "voce e coracao" e encontrar "Você é Meu Coração", sem precisar digitar
-  os acentos certinhos. Tecnicamente simples (normalizar tanto a busca
-  quanto o índice removendo acentos via `String.prototype.normalize('NFD')`
-  + regex pra tirar os diacríticos antes de comparar) — **aprovado, mas
-  explicitamente pedido pra não implementar ainda**, esperando confirmação.
 
 - **Nome do cantor na fila** — usuário quer, mas vai detalhar como quer
   antes de implementar. Não fazer sem alinhar de novo.

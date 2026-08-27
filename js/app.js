@@ -72,6 +72,7 @@ const tabFilaPanel = el('tab-fila-panel');
 const tabBibliotecaPanel = el('tab-biblioteca-panel');
 
 const librarySearchInput = el('library-search-input');
+const librarySearchClearBtn = el('library-search-clear-btn');
 const libraryResults = el('library-results');
 const libraryFoldersList = el('library-folders-list');
 const connectFolderBtn = el('connect-folder-btn');
@@ -230,6 +231,14 @@ function renderPlaylist() {
     meta.appendChild(titleEl);
     meta.appendChild(subEl);
 
+    let nowPlayingBadge = null;
+    if (i === currentIndex) {
+      const playingNow = mode !== null && (mode === 'video' ? !videoEl.paused : engine.isPlaying());
+      nowPlayingBadge = document.createElement('span');
+      nowPlayingBadge.className = 'now-playing-badge' + (playingNow ? '' : ' hidden');
+      nowPlayingBadge.textContent = 'TOCANDO';
+    }
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
     removeBtn.title = 'Remover da fila';
@@ -264,6 +273,7 @@ function renderPlaylist() {
 
     row.appendChild(num);
     row.appendChild(meta);
+    if (nowPlayingBadge) row.appendChild(nowPlayingBadge);
     row.appendChild(reorderBtns);
     row.appendChild(removeBtn);
     row.addEventListener('click', () => openTrackModal(i));
@@ -647,6 +657,9 @@ function updatePlayIcon() {
   const playing = mode === 'video' ? !videoEl.paused : engine.isPlaying();
   playIcon.classList.toggle('hidden', playing);
   pauseIcon.classList.toggle('hidden', !playing);
+
+  const badge = playlistEl.querySelector('.now-playing-badge');
+  if (badge) badge.classList.toggle('hidden', !playing);
 }
 
 playBtn.addEventListener('click', async () => {
@@ -1357,6 +1370,7 @@ function renderLibraryFolders() {
 function renderLibraryResults() {
   const query = librarySearchInput.value;
   libraryResults.innerHTML = '';
+  librarySearchClearBtn.classList.toggle('hidden', !query.trim());
 
   if (!query.trim()) return;
 
@@ -1426,6 +1440,11 @@ async function addLibraryItemToQueue(item) {
 }
 
 librarySearchInput.addEventListener('input', renderLibraryResults);
+librarySearchClearBtn.addEventListener('click', () => {
+  librarySearchInput.value = '';
+  renderLibraryResults();
+  librarySearchInput.focus();
+});
 connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
 
 // ---------- Persistência da fila (sobrevive a um F5 acidental) ----------
