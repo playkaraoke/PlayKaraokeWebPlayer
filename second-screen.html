@@ -113,6 +113,37 @@
     text-align:center;
     padding:0 20px;
   }
+  #cd-singer-highlight{
+    background:rgba(255,255,255,0.06);
+    border:1px solid #4d8eff;
+    border-radius:16px;
+    padding:20px 32px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    margin:8px 0;
+  }
+  .cd-singer-position{
+    font-family:'JetBrains Mono',monospace;
+    font-size:min(2vw,13px);
+    color:#4edea3;
+    letter-spacing:0.1em;
+  }
+  #cd-singer-name-display{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:min(5vw,32px);
+    color:#e5e2e1;
+  }
+  #cd-singer-song-display{
+    font-size:min(3vw,18px);
+    color:#adc6ff;
+  }
+  #cd-upcoming-list{ display:flex; flex-direction:column; gap:4px; max-width:60vw; }
+  .cd-upcoming-row{
+    display:flex; align-items:center; gap:10px;
+    font-size:min(2.2vw,14px);
+    color:#9a9d9c;
+  }
+  .cd-upcoming-row .name{ font-weight:600; color:#e5e2e1; }
 </style>
 </head>
 <body>
@@ -134,6 +165,13 @@
   <span class="cd-label">Próxima música em</span>
   <span class="cd-number" id="cd-number">10</span>
   <span class="cd-next" id="cd-next-title"></span>
+
+  <div id="cd-singer-highlight" class="hidden">
+    <span class="cd-singer-position" id="cd-singer-position">#1 · CANTOR DA VEZ</span>
+    <div id="cd-singer-name-display">—</div>
+    <div id="cd-singer-song-display">—</div>
+  </div>
+  <div id="cd-upcoming-list"></div>
 </div>
 
 <button id="fs-btn" title="Tela cheia">

@@ -22,6 +22,10 @@
   const countdownOverlay = document.getElementById('countdown-overlay');
   const cdNumber = document.getElementById('cd-number');
   const cdNextTitle = document.getElementById('cd-next-title');
+  const cdSingerHighlight = document.getElementById('cd-singer-highlight');
+  const cdSingerNameDisplay = document.getElementById('cd-singer-name-display');
+  const cdSingerSongDisplay = document.getElementById('cd-singer-song-display');
+  const cdUpcomingList = document.getElementById('cd-upcoming-list');
 
   fsBtn.addEventListener('click', async () => {
     try {
@@ -77,6 +81,49 @@
 
   const channel = new BroadcastChannel('playkaraoke-second-screen');
 
+  function renderCountdownContent(msg) {
+    if (!msg.singerMode) {
+      cdSingerHighlight.classList.add('hidden');
+      cdUpcomingList.innerHTML = '';
+      cdNextTitle.classList.remove('hidden');
+      cdNextTitle.textContent = msg.nextTitle || '';
+      return;
+    }
+
+    cdNextTitle.classList.add('hidden');
+    const display = msg.display || { upcoming: true, titles: true, counter: true };
+    cdNumber.classList.toggle('hidden', !display.counter);
+    cdSingerHighlight.classList.remove('hidden');
+    cdSingerNameDisplay.textContent = (msg.singer && msg.singer.name) || '—';
+    if (msg.singer && msg.singer.song && display.titles) {
+      cdSingerSongDisplay.classList.remove('hidden');
+      cdSingerSongDisplay.textContent = [msg.singer.song.title, msg.singer.song.artist].filter(Boolean).join(' — ');
+    } else {
+      cdSingerSongDisplay.classList.add('hidden');
+    }
+
+    cdUpcomingList.innerHTML = '';
+    if (display.upcoming && Array.isArray(msg.upcoming)) {
+      msg.upcoming.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.className = 'cd-upcoming-row';
+        const num = document.createElement('span');
+        num.textContent = `#${i + 2}`;
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = s.name;
+        row.appendChild(num);
+        row.appendChild(name);
+        if (display.titles && s.song) {
+          const songText = document.createElement('span');
+          songText.textContent = '— ' + [s.song.title, s.song.artist].filter(Boolean).join(' / ');
+          row.appendChild(songText);
+        }
+        cdUpcomingList.appendChild(row);
+      });
+    }
+  }
+
   channel.addEventListener('message', (e) => {
     const msg = e.data;
     if (!msg || !msg.type) return;
@@ -131,7 +178,7 @@
       case 'countdown-start': {
         countdownActive = true;
         cdNumber.textContent = String(msg.remaining);
-        cdNextTitle.textContent = msg.nextTitle || '';
+        renderCountdownContent(msg);
         updateVisibility();
         break;
       }

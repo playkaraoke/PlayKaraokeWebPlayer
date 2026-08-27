@@ -465,7 +465,21 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
+    gap:8px;
   }
+  #end-show-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    font-weight:700;
+    color:var(--error);
+    background:none;
+    border:1px solid var(--error);
+    border-radius:6px;
+    padding:6px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  #end-show-btn:hover{ background:rgba(255,107,107,0.1); }
   #version-tag{
     font-family:'JetBrains Mono',monospace;
     font-size:10.5px;
@@ -704,6 +718,170 @@
   }
   #countdown-overlay #cd-skip-btn:hover{ border-color:var(--primary-bright); }
 
+  #cd-singer-highlight{
+    background:var(--surface-container);
+    border:1px solid var(--primary);
+    border-radius:12px;
+    padding:16px 24px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    margin:4px 0;
+  }
+  .cd-singer-position{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--tertiary);
+    letter-spacing:0.08em;
+  }
+  #cd-singer-name-display{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:20px;
+    color:var(--on-surface);
+  }
+  #cd-singer-song-display{
+    font-size:13px;
+    color:var(--primary-bright);
+  }
+  #cd-singer-tone-display{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    margin-top:4px;
+  }
+  #cd-upcoming-list{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    max-width:340px;
+    width:100%;
+  }
+  .cd-upcoming-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:var(--on-surface-variant);
+    padding:4px 8px;
+  }
+  .cd-upcoming-row .num{ font-family:'JetBrains Mono',monospace; color:var(--on-surface-variant); }
+  .cd-upcoming-row .name{ font-weight:600; color:var(--on-surface); }
+
+  /* ===================== GERENCIAR CANTORES ===================== */
+  #manage-singers-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:105;
+  }
+  #manage-singers-modal{
+    background:var(--surface-container-low);
+    border:1px solid var(--outline-variant);
+    border-radius:16px;
+    width:100%; max-width:900px; height:80vh;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  #manage-singers-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; border-bottom:1px solid var(--outline-variant); flex-shrink:0;
+  }
+  #manage-singers-header h3{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:17px; margin:0; }
+  #manage-singers-header button, #show-report-header button{
+    width:28px;height:28px; display:flex;align-items:center;justify-content:center;
+    background:var(--surface-container-high); border:none; color:var(--on-surface-variant);
+    border-radius:6px; cursor:pointer;
+  }
+  #manage-singers-header svg, #show-report-header svg{ width:14px;height:14px; }
+  #manage-singers-body{ flex:1; display:flex; min-height:0; }
+  #manage-singers-left{
+    width:320px; flex-shrink:0; border-right:1px solid var(--outline-variant);
+    padding:16px; display:flex; flex-direction:column; gap:10px; overflow-y:auto;
+  }
+  #manage-singers-list{ display:flex; flex-direction:column; gap:6px; }
+  .manage-singer-row{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface-container); border:1px solid var(--outline-variant);
+    border-radius:8px; padding:8px 10px; cursor:pointer;
+  }
+  .manage-singer-row.selected{ border-color:var(--primary-bright); }
+  .manage-singer-row .pos{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--on-surface-variant); width:16px; }
+  .manage-singer-row .info{ flex:1; min-width:0; }
+  .manage-singer-row .name-line{ display:flex; align-items:center; gap:6px; }
+  .manage-singer-row .name{ font-size:13px; font-weight:600; color:var(--on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .manage-singer-row .count{ font-size:10.5px; color:var(--on-surface-variant); }
+  .manage-singer-row .status-dot{ width:6px;height:6px;border-radius:50%; background:var(--tertiary); flex-shrink:0; }
+  .manage-singer-row.paused .status-dot{ background:var(--on-surface-variant); }
+  .manage-singer-row .reorder-mini{ display:flex; flex-direction:column; gap:1px; }
+  .manage-singer-row .reorder-mini button{ width:16px;height:12px; background:none; border:none; color:var(--on-surface-variant); cursor:pointer; font-size:9px; padding:0; }
+  .manage-singer-row .row-actions{ display:flex; gap:4px; }
+  .manage-singer-row .row-actions button{ width:22px;height:22px; background:var(--surface-container-high); border:none; border-radius:5px; color:var(--on-surface-variant); cursor:pointer; font-size:11px; }
+  .manage-singer-row .row-actions button:hover{ color:var(--on-surface); }
+  #manage-singers-right{ flex:1; padding:20px; overflow-y:auto; }
+  #manage-singers-empty{ color:var(--on-surface-variant); font-size:13px; text-align:center; padding:40px 0; }
+  #detail-singer-name{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:19px; margin:0 0 14px 0; }
+  #detail-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--outline-variant); margin-bottom:14px; }
+  .detail-tab{
+    background:none; border:none; padding:8px 4px; margin-right:16px;
+    font-size:13px; color:var(--on-surface-variant); cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .detail-tab.active{ color:var(--primary-bright); border-bottom-color:var(--primary-bright); }
+  #detail-queue-list, #detail-history-list{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .detail-song-row{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface-container); border:1px solid var(--outline-variant);
+    border-radius:8px; padding:8px 12px;
+  }
+  .detail-song-row .info{ flex:1; min-width:0; }
+  .detail-song-row .title{ font-size:12.5px; font-weight:600; color:var(--on-surface); }
+  .detail-song-row .sub{ font-size:11px; color:var(--on-surface-variant); }
+  .detail-song-row .tone-controls{ display:flex; align-items:center; gap:4px; }
+  .detail-song-row .tone-controls button{ width:20px;height:20px; background:var(--surface-container-high); border:none; border-radius:5px; color:var(--on-surface); cursor:pointer; font-size:11px; }
+  .detail-song-row .tone-val{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--tertiary); min-width:22px; text-align:center; }
+  .detail-song-row .remove-song-btn{ width:20px;height:20px; background:none; border:none; color:var(--on-surface-variant); cursor:pointer; }
+  #detail-add-song-search{ margin-top:10px; }
+  #detail-song-search-box{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface-container); border:1px solid var(--outline-variant);
+    border-radius:8px; padding:8px 12px; margin-bottom:8px;
+  }
+  #detail-song-search-box input{ flex:1; background:none; border:none; outline:none; color:var(--on-surface); font-size:12.5px; }
+  .empty-hint-small{ font-size:11.5px; color:var(--on-surface-variant); padding:6px 0; }
+
+  /* ===================== ENCERRAR SHOW ===================== */
+  #end-show-confirm-backdrop, #show-report-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:120;
+  }
+  #end-show-confirm-modal{
+    background:var(--surface-container-low); border:1px solid var(--outline-variant);
+    border-radius:16px; padding:24px; max-width:380px; width:100%;
+  }
+  #end-show-confirm-modal h3{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:17px; margin:0 0 10px 0; }
+  #end-show-confirm-modal p{ font-size:13px; color:var(--on-surface-variant); line-height:1.5; margin:0 0 20px 0; }
+  #end-show-confirm-actions{ display:flex; justify-content:flex-end; gap:10px; }
+
+  #show-report-modal{
+    background:var(--surface-container-low); border:1px solid var(--outline-variant);
+    border-radius:16px; width:100%; max-width:760px; max-height:85vh;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  #show-report-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--outline-variant); flex-shrink:0; }
+  #show-report-header h3{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:17px; margin:0; }
+  #show-report-cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:20px 24px; flex-shrink:0; }
+  .report-card{
+    background:var(--surface-container); border:1px solid var(--outline-variant);
+    border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:4px;
+  }
+  .report-card-label{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--on-surface-variant); letter-spacing:0.5px; }
+  .report-card-value{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:16px; color:var(--primary-bright); }
+  #show-report-table-wrap{ flex:1; overflow-y:auto; padding:0 24px; }
+  #show-report-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  #show-report-table th{ text-align:left; padding:8px 10px; color:var(--on-surface-variant); font-family:'JetBrains Mono',monospace; font-size:10px; border-bottom:1px solid var(--outline-variant); position:sticky; top:0; background:var(--surface-container-low); }
+  #show-report-table td{ padding:8px 10px; border-bottom:1px solid var(--outline-variant); color:var(--on-surface); }
+  #show-report-actions{ display:flex; justify-content:flex-end; gap:10px; padding:18px 24px; border-top:1px solid var(--outline-variant); flex-shrink:0; }
+
   #idle-overlay{
     position:absolute;
     inset:0;
@@ -798,6 +976,137 @@
     min-width:28px;
     text-align:center;
   }
+  /* ===================== RODADA DE CANTORES ===================== */
+  #current-singer-card{
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:12px;
+    padding:18px;
+    margin-top:12px;
+  }
+  #current-singer-empty{ font-size:12.5px; color:var(--on-surface-variant); text-align:center; padding:20px 0; }
+  .singer-position-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.1em;
+    color:var(--tertiary);
+  }
+  #current-singer-name{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:20px;
+    color:var(--on-surface);
+    margin-top:4px;
+  }
+  #current-singer-song{
+    font-size:13px;
+    color:var(--primary-bright);
+    margin-top:4px;
+  }
+  #current-singer-waiting{ margin-top:12px; }
+  #current-singer-waiting p{
+    font-size:12px;
+    color:#f5a623;
+    margin:0 0 10px 0;
+  }
+  #skip-singer-btn{
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    font-size:12px;
+    padding:7px 14px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .upcoming-singer-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 4px;
+    border-bottom:1px solid var(--outline-variant);
+  }
+  .upcoming-singer-row .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    width:18px;
+  }
+  .upcoming-singer-row .info{ flex:1; min-width:0; }
+  .upcoming-singer-row .name{ font-size:12.5px; font-weight:600; color:var(--on-surface); }
+  .upcoming-singer-row .song{ font-size:11px; color:var(--on-surface-variant); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .upcoming-singer-row .paused-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    color:var(--on-surface-variant);
+    border:1px solid var(--outline-variant);
+    border-radius:6px;
+    padding:2px 6px;
+  }
+
+  /* ===================== MODAL ESCOLHER CANTOR ===================== */
+  #singer-picker-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:110;
+  }
+  #singer-picker-modal{
+    background:var(--surface-container-low);
+    border:1px solid var(--outline-variant);
+    border-radius:16px;
+    padding:24px;
+    width:100%;
+    max-width:400px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  #singer-picker-modal h3{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:17px;
+    margin:0;
+    color:var(--on-surface);
+  }
+  .singer-picker-filename{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    margin:-8px 0 0 0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #singer-picker-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .singer-picker-option{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:8px;
+    padding:10px 14px;
+    cursor:pointer;
+    font-size:13px;
+    color:var(--on-surface);
+  }
+  .singer-picker-option:hover{ border-color:var(--primary-bright); }
+  .singer-picker-option .count{ font-size:11px; color:var(--on-surface-variant); }
+  #singer-picker-new-row{ display:flex; gap:8px; }
+  #singer-picker-new-row input{
+    flex:1;
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:8px;
+    padding:9px 12px;
+    color:var(--on-surface);
+    font-size:13px;
+    outline:none;
+  }
+  #singer-picker-actions{ display:flex; justify-content:flex-end; }
+
   #track-modal-actions{
     display:flex;
     justify-content:flex-end;
@@ -1265,6 +1574,23 @@
     <div id="playlist">
       <p id="playlist-empty-hint">Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.</p>
     </div>
+
+    <div id="singer-round-view" class="hidden">
+      <div id="current-singer-card">
+        <div id="current-singer-empty">Nenhum cantor na rodada ainda.</div>
+        <div id="current-singer-content" class="hidden">
+          <span class="singer-position-label">CANTOR DA VEZ</span>
+          <div id="current-singer-name">—</div>
+          <div id="current-singer-song">—</div>
+          <div id="current-singer-waiting" class="hidden">
+            <p>Aguardando seleção de música</p>
+            <button id="skip-singer-btn">Pular cantor</button>
+          </div>
+        </div>
+      </div>
+      <div class="library-section-label" style="margin:16px 0 8px 0;">Próximos na rodada</div>
+      <div id="upcoming-singers-list"></div>
+    </div>
   </div>
 
   <div id="tab-biblioteca-panel" class="hidden">
@@ -1296,6 +1622,7 @@
     <button id="settings-btn" title="Configurações">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
     </button>
+    <button id="end-show-btn" class="hidden" title="Encerrar Show">Encerrar Show</button>
     <span id="version-tag">v1.2</span>
   </div>
 </div>
@@ -1333,12 +1660,114 @@
       <span class="cd-label">Próxima música em</span>
       <span class="cd-number" id="cd-number">10</span>
       <span class="cd-next" id="cd-next-title"></span>
+
+      <div id="cd-singer-highlight" class="hidden">
+        <span class="cd-singer-position" id="cd-singer-position">#1</span>
+        <div id="cd-singer-name-display">Mario</div>
+        <div id="cd-singer-song-display">Música — Artista</div>
+        <div id="cd-singer-tone-display">Tom: +0</div>
+      </div>
+      <div id="cd-upcoming-list"></div>
+
       <button id="cd-skip-btn">Pular espera ▶</button>
     </div>
 
     <div id="idle-overlay" class="hidden">
       <img id="idle-logo" src="assets/logo.svg" alt=""/>
       <div id="idle-custom-image" class="hidden"></div>
+    </div>
+  </div>
+
+  <div id="singer-picker-backdrop" class="hidden">
+    <div id="singer-picker-modal">
+      <h3>Essa música é de qual cantor?</h3>
+      <p id="singer-picker-filename" class="singer-picker-filename"></p>
+
+      <div id="singer-picker-list"></div>
+
+      <div id="singer-picker-new-row">
+        <input type="text" id="singer-picker-new-input" placeholder="Ou digite um nome novo..."/>
+        <button id="singer-picker-new-btn" class="card-btn primary">Adicionar</button>
+      </div>
+
+      <div id="singer-picker-actions">
+        <button id="singer-picker-cancel-btn" class="card-btn secondary">Pular essa música</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manage-singers-backdrop" class="hidden">
+    <div id="manage-singers-modal">
+      <div id="manage-singers-header">
+        <h3>Gerenciar Cantores</h3>
+        <button id="manage-singers-close-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="manage-singers-body">
+        <div id="manage-singers-left">
+          <div class="library-section-label">Lista da Noite</div>
+          <div id="manage-singers-list"></div>
+          <button id="add-new-singer-btn" class="card-btn" style="width:100%;">+ Adicionar Novo Cantor</button>
+        </div>
+        <div id="manage-singers-right">
+          <div id="manage-singers-empty">Selecione um cantor na lista à esquerda.</div>
+          <div id="manage-singers-detail" class="hidden">
+            <h4 id="detail-singer-name">—</h4>
+            <div id="detail-tabs">
+              <button id="detail-tab-queue-btn" class="detail-tab active">Fila de Espera</button>
+              <button id="detail-tab-history-btn" class="detail-tab">Músicas Cantadas</button>
+            </div>
+            <div id="detail-queue-panel">
+              <div id="detail-queue-list"></div>
+              <button id="detail-add-song-btn" class="card-btn" style="width:100%;">+ Adicionar Música</button>
+              <div id="detail-add-song-search" class="hidden">
+                <div id="detail-song-search-box">
+                  <input type="text" id="detail-song-search-input" placeholder="Buscar na Biblioteca..."/>
+                </div>
+                <div id="detail-song-search-results"></div>
+              </div>
+            </div>
+            <div id="detail-history-panel" class="hidden">
+              <div id="detail-history-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="end-show-confirm-backdrop" class="hidden">
+    <div id="end-show-confirm-modal">
+      <h3>Encerrar o show?</h3>
+      <p>Isso vai gerar o relatório da noite. Você ainda poderá ver e exportar os dados antes de limpar tudo.</p>
+      <div id="end-show-confirm-actions">
+        <button id="end-show-confirm-cancel-btn" class="card-btn secondary">Cancelar</button>
+        <button id="end-show-confirm-ok-btn" class="card-btn primary">Encerrar Show</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="show-report-backdrop" class="hidden">
+    <div id="show-report-modal">
+      <div id="show-report-header">
+        <h3>Relatório do Show</h3>
+        <button id="show-report-close-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="show-report-cards">
+        <div class="report-card"><span class="report-card-label">Duração</span><span class="report-card-value" id="report-duration">—</span></div>
+        <div class="report-card"><span class="report-card-label">Músicas Cantadas</span><span class="report-card-value" id="report-total-songs">—</span></div>
+        <div class="report-card"><span class="report-card-label">Cantores Únicos</span><span class="report-card-value" id="report-unique-singers">—</span></div>
+        <div class="report-card"><span class="report-card-label">Destaque da Noite</span><span class="report-card-value" id="report-highlight">—</span></div>
+      </div>
+      <div id="show-report-table-wrap">
+        <table id="show-report-table">
+          <thead><tr><th>Horário</th><th>Cantor</th><th>Música</th><th>Artista</th><th>Tom</th></tr></thead>
+          <tbody id="show-report-tbody"></tbody>
+        </table>
+      </div>
+      <div id="show-report-actions">
+        <button id="export-csv-btn" class="card-btn">Exportar CSV</button>
+        <button id="new-show-btn" class="card-btn secondary">Iniciar Novo Show / Sair</button>
+      </div>
     </div>
   </div>
 
@@ -1430,6 +1859,32 @@
       <span class="settings-label">volume</span>
       <input type="range" id="ambient-volume-slider" min="0" max="100" value="30" style="width:90px;"/>
       <span class="settings-label" id="ambient-volume-pct">30%</span>
+    </div>
+
+    <div id="singer-mode-row" class="settings-card-row">
+      <div>
+        <div class="title-row"><span>Rodada de cantores</span><span class="new-badge">NOVO</span></div>
+        <div class="desc">A fila passa a ser organizada por cantor (cada um com até 5 músicas), em rodízio automático.</div>
+      </div>
+      <label class="switch-label" style="flex-shrink:0;">
+        <input type="checkbox" id="singer-mode-toggle"/>
+        <span>Ativar</span>
+      </label>
+    </div>
+
+    <div id="singer-mode-extra-settings" class="hidden">
+      <div class="settings-row">
+        <label class="switch-label"><input type="checkbox" id="cd-show-upcoming-toggle" checked/><span>Exibir lista dos próximos cantores</span></label>
+      </div>
+      <div class="settings-row">
+        <label class="switch-label"><input type="checkbox" id="cd-show-titles-toggle" checked/><span>Exibir títulos das músicas</span></label>
+      </div>
+      <div class="settings-row">
+        <label class="switch-label"><input type="checkbox" id="cd-show-counter-toggle" checked/><span>Exibir contador numérico</span></label>
+      </div>
+      <div class="settings-row">
+        <button id="open-manage-singers-btn" class="card-btn">Gerenciar Cantores</button>
+      </div>
     </div>
 
     <div id="second-screen-row" class="settings-card-row">
@@ -1534,6 +1989,7 @@
 <script src="js/cdg-player.js"></script>
 <script src="js/file-loader.js"></script>
 <script src="js/library.js"></script>
+<script src="js/singers.js"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- Script de Autenticação com o seu Hash -->
@@ -1555,6 +2011,9 @@
 
     if (sessionStorage.getItem('playkaraoke_auth') === 'true') {
       overlay.classList.add('unlocked');
+      if (!localStorage.getItem('playkaraoke-session-start')) {
+        localStorage.setItem('playkaraoke-session-start', String(Date.now()));
+      }
     }
 
     form.addEventListener('submit', async () => {
@@ -1564,6 +2023,7 @@
       const hash = await calculateSHA256(inputPass);
       if (hash === ACCESS_HASH) {
         sessionStorage.setItem('playkaraoke_auth', 'true');
+        localStorage.setItem('playkaraoke-session-start', String(Date.now()));
         overlay.classList.add('unlocked');
         errorMsg.classList.add('hidden');
       } else {

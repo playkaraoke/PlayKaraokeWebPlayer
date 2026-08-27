@@ -67,6 +67,7 @@ karaoke-engine/
     ├── tick-worker.js             → cronômetro em Web Worker (imune a aba em 2º plano)
     ├── file-loader.js             → extrai .cdg/.mp3 do .zip + interpreta nome do arquivo
     ├── library.js                 → Biblioteca: indexa pastas locais, busca em tempo real
+    ├── singers.js                 → Rodada de cantores: rotação circular, pausar/pular
     ├── second-screen.js           → lógica da janela da segunda tela
     └── app.js                     → cola tudo junto: UI, fila, autoplay, ambiente, aplausos
 ```
@@ -347,6 +348,107 @@ o app — só volta a ter a limitação de antes nesse cenário específico.
 
 ---
 
+## Rodada de Cantores (modo alternável)
+
+Um modo completo pra quem opera karaokê com vários cantores numa noite —
+liga/desliga nas Configurações ("Rodada de cantores"), sem afetar quem só
+usa o modo simples de sempre.
+
+### Conceito
+
+Em vez de uma fila plana de músicas, a fila vira uma **lista circular de
+cantores**, cada um com sua própria sub-fila de até 5 músicas:
+
+- Cantor novo entra no **final da rodada atual**.
+- Tocou a música #1 do cantor → sai da lista dele (consumida, vai pro
+  histórico dele). Na próxima vez dele, a que era #2 vira #1.
+- Terminou o último cantor da rodada → volta pro primeiro automaticamente
+  (loop infinito).
+- Cantor sem música na vez dele → tela mostra "Aguardando seleção de
+  música", com botão **"Pular cantor"** — que marca ele como **pausado**
+  (não é só pular essa rodada, fica pausado até reativar manualmente).
+- Cantor pausado é ignorado silenciosamente na rotação normal.
+
+### Arquitetura (importante pra quem for mexer no código)
+
+Arquivo: `js/singers.js` — módulo isolado, só cuida dos **dados e da
+lógica de rotação** (`createSingerManager()`), sem tocar em áudio/UI.
+Testado isoladamente (27 testes) cobrindo especificamente o loop
+circular, pausar/pular, reordenar, consumir músicas e histórico.
+
+**Truque de integração**: quando o modo cantores está ligado, a variável
+`playlist` (a mesma usada pelo modo simples) é sempre sobrescrita pra ter
+**só 1 item** — a música do cantor da vez. Isso significa que TODA a
+lógica de tocar/pitch/autoplay/segunda-tela que já existia (e já estava
+testada) é reaproveitada sem duplicação — só a **decisão de "qual é a
+próxima"** muda entre os dois modos.
+
+### Adicionar música com cantor
+
+Ao carregar um arquivo (upload ou Biblioteca) com o modo ligado, abre um
+modal perguntando de qual cantor é aquela música — dropdown dos
+existentes (mostra `X/5 músicas`) ou campo pra digitar um nome novo (cria
+o cantor automaticamente). Não permite nomes duplicados (comparação
+sem diferenciar maiúsculas/minúsculas). Com **vários arquivos de uma
+vez**, pergunta o cantor de cada um, um por um, em sequência.
+
+### Tela de espera rica (countdown)
+
+Quando o autoplay avança de cantor, o overlay de contagem mostra:
+posição + nome do cantor da vez + música/artista + tom, e os **próximos
+2** da rodada. Três toggles nas configurações controlam o que aparece
+(lista de próximos / títulos das músicas / contador numérico) — a mesma
+informação é replicada na segunda tela via `BroadcastChannel`
+(mensagem `countdown-start` ganhou os campos `singerMode`, `singer`,
+`upcoming` e `display`).
+
+---
+
+## Gerenciar Cantores (modal administrativo)
+
+Acessível pelo botão dentro das Configurações (só aparece com o modo
+cantores ligado). Modal em 2 colunas:
+
+**Esquerda — Lista da Noite**: todos os cantores com posição, status
+(bolinha verde = ativo, cinza = pausado), contador `X/5`. Reordenar com
+as setinhas ▲▼, pausar/reativar, excluir (com confirmação — remove as
+músicas dele junto), e "+ Adicionar Novo Cantor" (cadastro rápido sem
+música vinculada).
+
+**Direita — Detalhe do cantor selecionado**, com 2 abas:
+- **Fila de Espera**: lista as até-5 músicas dele, com botões +/− pra
+  pré-configurar o tom de cada uma (sem precisar abrir o modal de música
+  separado), botão de excluir individual, e "+ Adicionar Música" que abre
+  uma **busca da Biblioteca embutida ali mesmo** (sem fechar o modal —
+  decisão tomada deliberadamente pra não atrapalhar o fluxo do operador
+  durante o evento).
+- **Músicas Cantadas**: histórico só-leitura da sessão atual, com os
+  tons usados em cada uma.
+
+---
+
+## Encerrar Show (relatório + CSV)
+
+Só disponível com o modo cantores ligado (o relatório é centrado neles).
+
+- **Início da sessão** é gravado no `localStorage` no momento do login
+  bem-sucedido (script de autenticação no fim do `index.html`) — sobrevive
+  a F5 (só reseta com "Iniciar Novo Show" ou um logout de verdade).
+- Toda música que termina de tocar em modo cantores é registrada num
+  histórico global (`showHistory`, também em localStorage):
+  `{ horario, cantor, musica, artista, codigo, tom, duracao }`.
+- Botão **"Encerrar Show"** no rodapé da sidebar → confirmação → abre o
+  relatório com 4 cards (duração total no formato "Xh YYmin", total de
+  músicas, cantores únicos, destaque da noite — quem mais cantou) + tabela
+  cronológica completa.
+- **Exportar CSV**: gera e baixa um `.csv` com todo o histórico, via
+  `Blob` + link temporário — sem depender de nenhuma biblioteca externa.
+- **Iniciar Novo Show / Sair**: limpa fila, histórico e cantores do
+  `localStorage`, remove a autenticação da sessão, e recarrega a página
+  (volta pra tela de senha).
+
+---
+
 ## Biblioteca (indexação de pastas locais / HD externo)
 
 Resolve o fluxo de quem tem um HD/SSD cheio de karaokês (na prática: 2TB+
@@ -609,6 +711,25 @@ teste jsdom antes de considerar pronta.
 ---
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
+
+- **Persistência de músicas em modo cantores tem a mesma limitação já
+  conhecida do modo simples**: só músicas vindas da Biblioteca sobrevivem
+  a um F5 (referência viva ao arquivo); músicas manuais (arrastadas) não
+  — ficam de fora silenciosamente na restauração. Isso foi uma escolha
+  consciente pra não estourar o escopo dessa rodada; dá pra melhorar
+  depois se precisar.
+- **"Pular cantor" pausa de verdade** (não é "pular só essa rodada") —
+  confirmado explicitamente com o usuário, é intencional.
+- **Modo cantores é sempre opcional/alternável**, nunca substitui o modo
+  simples — decisão do usuário, pensando em quem só quer testar música
+  sem gerenciar uma lista de cantores.
+- **Busca "+ Adicionar Música" dentro do modal Gerenciar Cantores é
+  embutida** (não fecha o modal nem troca de aba) — decisão deliberada
+  pensando em fluidez durante um evento ao vivo, onde reabrir menus toda
+  hora atrapalha o operador.
+- **Relatório do "Encerrar Show" só aparece com modo cantores ligado** —
+  o conceito de "cantor" não existe no modo simples, então o relatório
+  não faria sentido lá.
 
 - **Mistério não resolvido: engrenagem de configurações não aparece
   colorida** (deveria ter o gradiente roxo/rosa, aparece branca/cinza pro

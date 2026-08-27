@@ -73,6 +73,67 @@ const tabBibliotecaPanel = el('tab-biblioteca-panel');
 
 const librarySearchInput = el('library-search-input');
 const librarySearchClearBtn = el('library-search-clear-btn');
+
+const cdSingerHighlight = el('cd-singer-highlight');
+const cdSingerPosition = el('cd-singer-position');
+const cdSingerNameDisplay = el('cd-singer-name-display');
+const cdSingerSongDisplay = el('cd-singer-song-display');
+const cdSingerToneDisplay = el('cd-singer-tone-display');
+const cdUpcomingList = el('cd-upcoming-list');
+const cdShowUpcomingToggle = el('cd-show-upcoming-toggle');
+const cdShowTitlesToggle = el('cd-show-titles-toggle');
+const cdShowCounterToggle = el('cd-show-counter-toggle');
+const singerModeExtraSettings = el('singer-mode-extra-settings');
+
+const openManageSingersBtn = el('open-manage-singers-btn');
+const manageSingersBackdrop = el('manage-singers-backdrop');
+const manageSingersCloseBtn = el('manage-singers-close-btn');
+const manageSingersList = el('manage-singers-list');
+const addNewSingerBtn = el('add-new-singer-btn');
+const manageSingersEmpty = el('manage-singers-empty');
+const manageSingersDetail = el('manage-singers-detail');
+const detailSingerName = el('detail-singer-name');
+const detailTabQueueBtn = el('detail-tab-queue-btn');
+const detailTabHistoryBtn = el('detail-tab-history-btn');
+const detailQueuePanel = el('detail-queue-panel');
+const detailHistoryPanel = el('detail-history-panel');
+const detailQueueList = el('detail-queue-list');
+const detailHistoryList = el('detail-history-list');
+const detailAddSongBtn = el('detail-add-song-btn');
+const detailAddSongSearch = el('detail-add-song-search');
+const detailSongSearchInput = el('detail-song-search-input');
+const detailSongSearchResults = el('detail-song-search-results');
+
+const endShowBtn = el('end-show-btn');
+const endShowConfirmBackdrop = el('end-show-confirm-backdrop');
+const endShowConfirmCancelBtn = el('end-show-confirm-cancel-btn');
+const endShowConfirmOkBtn = el('end-show-confirm-ok-btn');
+const showReportBackdrop = el('show-report-backdrop');
+const showReportCloseBtn = el('show-report-close-btn');
+const reportDuration = el('report-duration');
+const reportTotalSongs = el('report-total-songs');
+const reportUniqueSingers = el('report-unique-singers');
+const reportHighlight = el('report-highlight');
+const showReportTbody = el('show-report-tbody');
+const exportCsvBtn = el('export-csv-btn');
+const newShowBtn = el('new-show-btn');
+
+const singerModeToggle = el('singer-mode-toggle');
+const singerRoundView = el('singer-round-view');
+const currentSingerEmpty = el('current-singer-empty');
+const currentSingerContent = el('current-singer-content');
+const currentSingerName = el('current-singer-name');
+const currentSingerSong = el('current-singer-song');
+const currentSingerWaiting = el('current-singer-waiting');
+const skipSingerBtn = el('skip-singer-btn');
+const upcomingSingersList = el('upcoming-singers-list');
+
+const singerPickerBackdrop = el('singer-picker-backdrop');
+const singerPickerFilename = el('singer-picker-filename');
+const singerPickerList = el('singer-picker-list');
+const singerPickerNewInput = el('singer-picker-new-input');
+const singerPickerNewBtn = el('singer-picker-new-btn');
+const singerPickerCancelBtn = el('singer-picker-cancel-btn');
 const libraryResults = el('library-results');
 const libraryFoldersList = el('library-folders-list');
 const connectFolderBtn = el('connect-folder-btn');
@@ -374,6 +435,11 @@ function removeFromPlaylist(index) {
 async function addFilesToQueue(files) {
   const list = Array.from(files || []);
   if (!list.length) return;
+
+  if (singerModeEnabled) {
+    await addFilesInSingerMode(list);
+    return;
+  }
 
   const wasEmpty = playlist.length === 0;
   let firstNewIndex = -1;
@@ -849,8 +915,76 @@ function finishCountdown() {
   playNextInQueue();
 }
 
+/** Chamado quando qualquer música termina, no modo cantores. A música
+ * SEMPRE é consumida da fila do cantor (ela realmente aconteceu),
+ * independente do autoplay estar ligado — só o "carregar a próxima
+ * sozinho" depende do autoplay. */
+function handleSingerModeSongEnded() {
+  const singer = singerManager.getCurrentSinger();
+  if (singer && singer.songs.length > 0) {
+    const song = singer.songs[0];
+    logSongToShowHistory(singer.name, song, currentSemitones, Math.round(engine.getDuration ? engine.getDuration() : 0));
+  }
+  singerManager.consumeCurrentSongAndAdvance({ semitone: currentSemitones });
+  if (!autoplayToggle.checked) {
+    renderSingerRoundView();
+    return;
+  }
+  startSingerCountdown();
+}
+
+function startSingerCountdown() {
+  const singer = singerManager.getCurrentSinger();
+  if (!singer) { renderSingerRoundView(); return; }
+
+  const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
+  const songText = singer.songs.length > 0
+    ? [singer.songs[0].artist, singer.songs[0].title].filter(Boolean).join(' — ')
+    : 'aguardando seleção de música';
+  const nextTitleText = `${singer.name} — ${songText}`;
+  renderRichCountdown(singer);
+  countdownOverlay.classList.remove('hidden');
+  countdownRemaining = delay;
+  cdNumber.textContent = String(countdownRemaining);
+  refreshIdleState();
+  broadcastToSecondScreen({
+    type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText,
+    singerMode: true,
+    singer: { name: singer.name, song: singer.songs[0] || null },
+    upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null })),
+    display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
+  });
+
+  if (delay <= 0) {
+    finishSingerCountdown();
+    return;
+  }
+  countdownTimerId = setInterval(() => {
+    countdownRemaining -= 1;
+    cdNumber.textContent = String(Math.max(0, countdownRemaining));
+    broadcastToSecondScreen({ type: 'countdown-tick', remaining: Math.max(0, countdownRemaining) });
+    if (countdownRemaining <= 0) finishSingerCountdown();
+  }, 1000);
+}
+
+function finishSingerCountdown() {
+  cancelCountdown();
+  loadCurrentSingerTurn(true);
+}
+
+/** Ponto único chamado sempre que uma música termina — decide qual dos
+ * dois modos (simples ou rodada de cantores) deve tratar o evento. */
+function handleTrackEnded() {
+  if (singerModeEnabled) {
+    handleSingerModeSongEnded();
+  } else {
+    startAutoplayCountdownIfNeeded();
+  }
+}
+
 function startAutoplayCountdownIfNeeded() {
   if (!autoplayToggle.checked || !hasNext()) return;
+  resetCountdownDisplayToSimple();
 
   const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
   const nextItem = playlist[currentIndex + 1];
@@ -877,7 +1011,9 @@ function startAutoplayCountdownIfNeeded() {
   }, 1000);
 }
 
-cdSkipBtn.addEventListener('click', finishCountdown);
+cdSkipBtn.addEventListener('click', () => {
+  if (singerModeEnabled) finishSingerCountdown(); else finishCountdown();
+});
 
 // ---------- Aplausos: indicador clicável ----------
 
@@ -1067,7 +1203,7 @@ engine.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); })
 engine.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
 engine.addEventListener('ended', () => {
   updatePlayIcon();
-  startAutoplayCountdownIfNeeded();
+  handleTrackEnded();
   refreshIdleState();
 });
 engine.addEventListener('error', (e) => {
@@ -1104,7 +1240,7 @@ videoEl.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); }
 videoEl.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
 videoEl.addEventListener('ended', () => {
   updatePlayIcon();
-  startAutoplayCountdownIfNeeded();
+  handleTrackEnded();
   refreshIdleState();
 });
 videoEl.addEventListener('timeupdate', () => {
@@ -1423,6 +1559,10 @@ function renderLibraryResults() {
 }
 
 async function addLibraryItemToQueue(item) {
+  if (singerModeEnabled) {
+    await addLibraryItemInSingerMode(item);
+    return;
+  }
   try {
     const file = await library.getFileForItem(item);
     const beforeLength = playlist.length;
@@ -1446,6 +1586,760 @@ librarySearchClearBtn.addEventListener('click', () => {
   librarySearchInput.focus();
 });
 connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
+
+// ---------- Rodada de cantores ----------
+
+let singerModeEnabled = false;
+const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
+
+const singerManager = window.createSingerManager({
+  onChange: () => { renderSingerRoundView(); persistSingers(); },
+});
+
+function applySingerModeVisibility() {
+  el('playlist').classList.toggle('hidden', singerModeEnabled);
+  singerRoundView.classList.toggle('hidden', !singerModeEnabled);
+}
+
+singerModeToggle.addEventListener('change', () => {
+  singerModeEnabled = singerModeToggle.checked;
+  applySingerModeVisibility();
+  singerModeExtraSettings.classList.toggle('hidden', !singerModeEnabled);
+  endShowBtn.classList.toggle('hidden', !singerModeEnabled);
+  persistSingers();
+  if (singerModeEnabled) {
+    loadCurrentSingerTurn(false);
+  } else {
+    resetToEmptyState();
+  }
+});
+
+function renderSingerRoundView() {
+  const singer = singerManager.getCurrentSinger();
+  if (!singer) {
+    currentSingerEmpty.classList.remove('hidden');
+    currentSingerContent.classList.add('hidden');
+    upcomingSingersList.innerHTML = '';
+    return;
+  }
+  currentSingerEmpty.classList.add('hidden');
+  currentSingerContent.classList.remove('hidden');
+  currentSingerName.textContent = singer.name;
+
+  if (singer.songs.length > 0) {
+    const song = singer.songs[0];
+    currentSingerSong.textContent = [song.artist, song.title].filter(Boolean).join(' — ');
+    currentSingerSong.classList.remove('hidden');
+    currentSingerWaiting.classList.add('hidden');
+  } else {
+    currentSingerSong.classList.add('hidden');
+    currentSingerWaiting.classList.remove('hidden');
+  }
+
+  upcomingSingersList.innerHTML = '';
+  const upcoming = singerManager.getUpcomingSingers(5);
+  upcoming.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'upcoming-singer-row';
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = String(i + 2); // #1 é sempre o atual
+    const info = document.createElement('div');
+    info.className = 'info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'name';
+    nameEl.textContent = s.name;
+    const songEl = document.createElement('div');
+    songEl.className = 'song';
+    songEl.textContent = s.songs.length > 0
+      ? [s.songs[0].artist, s.songs[0].title].filter(Boolean).join(' — ')
+      : 'sem música na fila';
+    info.appendChild(nameEl);
+    info.appendChild(songEl);
+    row.appendChild(num);
+    row.appendChild(info);
+    if (s.paused) {
+      const tag = document.createElement('span');
+      tag.className = 'paused-tag';
+      tag.textContent = 'PAUSADO';
+      row.appendChild(tag);
+    }
+    upcomingSingersList.appendChild(row);
+  });
+}
+
+/** Carrega a música do cantor da vez no player (ou mostra estado de espera/vazio). */
+async function loadCurrentSingerTurn(autoplay) {
+  renderSingerRoundView();
+  const singer = singerManager.getCurrentSinger();
+  if (!singer || singer.songs.length === 0) {
+    resetToEmptyState();
+    renderSingerRoundView();
+    return;
+  }
+  const song = singer.songs[0];
+  playlist = [song];
+  currentIndex = -1;
+  await selectTrack(0, { autoplay, initialSemitones: song.savedSemitones || 0 });
+}
+
+skipSingerBtn.addEventListener('click', () => {
+  singerManager.skipCurrentSinger();
+  loadCurrentSingerTurn(false);
+});
+
+// ---------- Modal "Escolher cantor" (aparece ao adicionar música em modo cantores) ----------
+
+let singerPickerResolve = null;
+
+function openSingerPickerModal(file) {
+  return new Promise((resolve) => {
+    singerPickerResolve = resolve;
+    singerPickerFilename.textContent = file.name;
+    singerPickerNewInput.value = '';
+    renderSingerPickerList();
+    singerPickerBackdrop.classList.remove('hidden');
+  });
+}
+
+function renderSingerPickerList() {
+  singerPickerList.innerHTML = '';
+  singerManager.getAllSingers().forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'singer-picker-option';
+    const name = document.createElement('span');
+    name.textContent = s.name;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER}`;
+    row.appendChild(name);
+    row.appendChild(count);
+    row.addEventListener('click', () => resolveSingerPicker({ singerId: s.id, isNew: false }));
+    singerPickerList.appendChild(row);
+  });
+}
+
+function resolveSingerPicker(result) {
+  if (!singerPickerResolve) return;
+  const resolve = singerPickerResolve;
+  singerPickerResolve = null;
+  singerPickerBackdrop.classList.add('hidden');
+  resolve(result);
+}
+
+singerPickerNewBtn.addEventListener('click', () => {
+  const name = singerPickerNewInput.value.trim();
+  if (!name) return;
+  if (singerManager.nameExists(name)) {
+    showError('Já existe um cantor com esse nome.');
+    return;
+  }
+  resolveSingerPicker({ singerId: name, isNew: true });
+});
+singerPickerNewInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') singerPickerNewBtn.click();
+});
+singerPickerCancelBtn.addEventListener('click', () => resolveSingerPicker(null));
+
+/** Processa uma leva de arquivos perguntando o cantor de cada um, um por um. */
+async function addFilesInSingerMode(list) {
+  let skippedAny = false;
+  for (const file of list) {
+    const lower = file.name.toLowerCase();
+    const isZip = lower.endsWith('.zip');
+    const isMp4 = lower.endsWith('.mp4');
+    if (!isZip && !isMp4) { skippedAny = true; continue; }
+
+    const choice = await openSingerPickerModal(file);
+    if (!choice) continue; // usuário optou por pular essa música
+
+    const parsed = window.parseKaraokeFilename(file.name);
+    const song = {
+      id: 'track_' + (++playlistIdCounter),
+      file,
+      code: parsed.code, artist: parsed.artist, title: parsed.title,
+      format: isMp4 ? 'MP4' : 'MP3+G', type: isMp4 ? 'video' : 'cdg',
+      savedSemitones: 0,
+    };
+    try {
+      singerManager.addSongToSinger(choice.singerId, choice.isNew, song);
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+  if (skippedAny) showError('Alguns arquivos foram ignorados: só .zip (MP3+G) e .mp4 são suportados.');
+
+  if (mode === null) loadCurrentSingerTurn(false);
+}
+
+/** Igual, mas pra um único item vindo da Biblioteca (já tem metadados prontos). */
+async function addLibraryItemInSingerMode(item) {
+  const choice = await openSingerPickerModal({ name: item.name });
+  if (!choice) return;
+  try {
+    const file = await library.getFileForItem(item);
+    const song = {
+      id: 'track_' + (++playlistIdCounter),
+      file,
+      code: item.code, artist: item.artist, title: item.title,
+      format: item.format, type: item.type,
+      savedSemitones: 0,
+      librarySource: { folderId: item.folderId, fileName: item.name },
+    };
+    singerManager.addSongToSinger(choice.singerId, choice.isNew, song);
+    switchSidebarTab('fila');
+    if (mode === null) loadCurrentSingerTurn(false);
+  } catch (err) {
+    console.error('[App] Erro ao ler arquivo da biblioteca:', err);
+    showError('Não foi possível ler esse arquivo.');
+  }
+}
+
+// ---------- Persistência da rodada de cantores ----------
+
+function persistSingers() {
+  try {
+    const raw = singerManager.serialize();
+    const safeSingers = raw.singers.map(s => ({
+      id: s.id, name: s.name, paused: s.paused,
+      songs: s.songs.map(song => ({
+        code: song.code, artist: song.artist, title: song.title,
+        format: song.format, type: song.type,
+        savedSemitones: song.savedSemitones || 0,
+        librarySource: song.librarySource || null,
+      })),
+      history: s.history,
+    }));
+    localStorage.setItem(SINGERS_STORAGE_KEY, JSON.stringify({
+      enabled: singerModeEnabled,
+      idCounter: raw.idCounter,
+      currentSingerId: raw.currentSingerId,
+      singers: safeSingers,
+    }));
+  } catch (err) {
+    console.warn('[App] Não foi possível salvar a rodada de cantores:', err);
+  }
+}
+
+async function restoreSingersFromStorage() {
+  let saved;
+  try {
+    const rawStr = localStorage.getItem(SINGERS_STORAGE_KEY);
+    if (!rawStr) return;
+    saved = JSON.parse(rawStr);
+  } catch (err) { return; }
+  if (!saved) return;
+
+  singerModeEnabled = !!saved.enabled;
+  singerModeToggle.checked = singerModeEnabled;
+  applySingerModeVisibility();
+  singerModeExtraSettings.classList.toggle('hidden', !singerModeEnabled);
+  endShowBtn.classList.toggle('hidden', !singerModeEnabled);
+
+  // Restaura músicas que vieram da Biblioteca (têm referência viva);
+  // músicas manuais não sobrevivem a um F5 (mesma limitação já conhecida
+  // da fila simples) — ficam de fora, silenciosamente, nessa primeira
+  // versão.
+  let droppedSongs = 0;
+  const restoredSingers = (saved.singers || []).map(s => {
+    const songs = [];
+    for (const song of (s.songs || [])) {
+      if (song.librarySource) {
+        const found = library.findByFolderAndName(song.librarySource.folderId, song.librarySource.fileName);
+        if (found) {
+          songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null, _libraryItem: found });
+          continue;
+        }
+      }
+      droppedSongs++;
+    }
+    return { ...s, songs };
+  });
+
+  const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, singers: restoredSingers };
+  singerManager.restore(snapshot);
+
+  // Resolve o `file` de verdade (async) pras músicas restauradas da Biblioteca.
+  for (const s of singerManager.getAllSingers()) {
+    for (const song of s.songs) {
+      if (song._libraryItem && !song.file) {
+        try { song.file = await library.getFileForItem(song._libraryItem); } catch (err) { /* ignora */ }
+      }
+    }
+  }
+
+  if (singerModeEnabled) {
+    renderSingerRoundView();
+    if (droppedSongs > 0) {
+      showError(`${droppedSongs} música(s) de cantores não foram restauradas automaticamente (eram arquivos avulsos).`);
+    }
+  }
+}
+
+// ---------- Histórico do show (feature 3) ----------
+
+let showHistory = []; // { horario, cantor, musica, artista, codigo, tom, duracao }
+const SHOW_HISTORY_KEY = 'playkaraoke-show-history-v1';
+
+function persistShowHistory() {
+  try { localStorage.setItem(SHOW_HISTORY_KEY, JSON.stringify(showHistory)); } catch (err) {}
+}
+function restoreShowHistory() {
+  try {
+    const raw = localStorage.getItem(SHOW_HISTORY_KEY);
+    if (raw) showHistory = JSON.parse(raw) || [];
+  } catch (err) { showHistory = []; }
+}
+
+function logSongToShowHistory(singerName, song, semitone, duracao) {
+  showHistory.push({
+    horario: Date.now(),
+    cantor: singerName,
+    musica: song.title,
+    artista: song.artist || '',
+    codigo: song.code || '',
+    tom: semitone || 0,
+    duracao: duracao || 0,
+  });
+  persistShowHistory();
+}
+
+// ---------- Tela de espera rica (countdown enriquecido em modo cantores) ----------
+
+const CD_SETTINGS_KEY = 'playkaraoke-countdown-settings-v1';
+
+function persistCountdownSettings() {
+  try {
+    localStorage.setItem(CD_SETTINGS_KEY, JSON.stringify({
+      upcoming: cdShowUpcomingToggle.checked,
+      titles: cdShowTitlesToggle.checked,
+      counter: cdShowCounterToggle.checked,
+    }));
+  } catch (err) {}
+}
+function restoreCountdownSettings() {
+  try {
+    const raw = localStorage.getItem(CD_SETTINGS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    cdShowUpcomingToggle.checked = s.upcoming !== false;
+    cdShowTitlesToggle.checked = s.titles !== false;
+    cdShowCounterToggle.checked = s.counter !== false;
+  } catch (err) {}
+}
+[cdShowUpcomingToggle, cdShowTitlesToggle, cdShowCounterToggle].forEach(t => t.addEventListener('change', persistCountdownSettings));
+
+function renderRichCountdown(singer) {
+  const showTitles = cdShowTitlesToggle.checked;
+  const showUpcoming = cdShowUpcomingToggle.checked;
+  const showCounter = cdShowCounterToggle.checked;
+
+  cdNumber.parentElement.querySelector('.cd-number').classList.toggle('hidden', !showCounter);
+  cdNextTitle.classList.add('hidden'); // a versão simples de texto some, usamos o card rico
+  cdSingerHighlight.classList.remove('hidden');
+
+  cdSingerPosition.textContent = '#1 · CANTOR DA VEZ';
+  cdSingerNameDisplay.textContent = singer.name;
+
+  if (singer.songs.length > 0) {
+    const song = singer.songs[0];
+    cdSingerSongDisplay.classList.toggle('hidden', !showTitles);
+    cdSingerSongDisplay.textContent = [song.title, song.artist].filter(Boolean).join(' — ');
+    const semitone = song.savedSemitones || 0;
+    cdSingerToneDisplay.textContent = `Tom: ${semitone > 0 ? '+' : ''}${semitone}`;
+  } else {
+    cdSingerSongDisplay.classList.add('hidden');
+    cdSingerToneDisplay.textContent = 'Aguardando seleção de música';
+  }
+
+  cdUpcomingList.innerHTML = '';
+  if (showUpcoming) {
+    const upcoming = singerManager.getUpcomingSingers(2);
+    upcoming.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'cd-upcoming-row';
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = `#${i + 2}`;
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = s.name;
+      row.appendChild(num);
+      row.appendChild(name);
+      if (showTitles) {
+        const songText = document.createElement('span');
+        songText.textContent = s.songs.length > 0 ? '— ' + [s.songs[0].title, s.songs[0].artist].filter(Boolean).join(' / ') : '— sem música';
+        row.appendChild(songText);
+      }
+      cdUpcomingList.appendChild(row);
+    });
+  }
+}
+
+function resetCountdownDisplayToSimple() {
+  cdSingerHighlight.classList.add('hidden');
+  cdNextTitle.classList.remove('hidden');
+  const numEl = document.getElementById('cd-number');
+  if (numEl) numEl.classList.remove('hidden');
+}
+
+// ---------- Gerenciar Cantores (feature 2) ----------
+
+let selectedManageSingerId = null;
+let manageDetailTab = 'queue';
+
+function openManageSingersModal() {
+  manageSingersBackdrop.classList.remove('hidden');
+  renderManageSingersList();
+  if (selectedManageSingerId && singerManager.getAllSingers().some(s => s.id === selectedManageSingerId)) {
+    renderManageSingerDetail(selectedManageSingerId);
+  } else {
+    manageSingersEmpty.classList.remove('hidden');
+    manageSingersDetail.classList.add('hidden');
+  }
+}
+openManageSingersBtn.addEventListener('click', openManageSingersModal);
+manageSingersCloseBtn.addEventListener('click', () => manageSingersBackdrop.classList.add('hidden'));
+manageSingersBackdrop.addEventListener('click', (e) => { if (e.target === manageSingersBackdrop) manageSingersBackdrop.classList.add('hidden'); });
+
+function renderManageSingersList() {
+  manageSingersList.innerHTML = '';
+  const singers = singerManager.getAllSingers();
+  singers.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'manage-singer-row' + (s.id === selectedManageSingerId ? ' selected' : '') + (s.paused ? ' paused' : '');
+
+    const pos = document.createElement('span');
+    pos.className = 'pos';
+    pos.textContent = String(i + 1);
+
+    const dot = document.createElement('span');
+    dot.className = 'status-dot';
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    const nameLine = document.createElement('div');
+    nameLine.className = 'name-line';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    nameEl.textContent = s.name;
+    nameLine.appendChild(nameEl);
+    const count = document.createElement('div');
+    count.className = 'count';
+    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} músicas${s.paused ? ' · pausado' : ''}`;
+    info.appendChild(nameLine);
+    info.appendChild(count);
+
+    const reorderMini = document.createElement('div');
+    reorderMini.className = 'reorder-mini';
+    const upBtn = document.createElement('button');
+    upBtn.textContent = '▲';
+    upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i - 1); renderManageSingersList(); });
+    const downBtn = document.createElement('button');
+    downBtn.textContent = '▼';
+    downBtn.disabled = i === singers.length - 1;
+    downBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i + 2); renderManageSingersList(); });
+    reorderMini.appendChild(upBtn);
+    reorderMini.appendChild(downBtn);
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    const pauseBtn = document.createElement('button');
+    pauseBtn.textContent = s.paused ? '▶' : '⏸';
+    pauseBtn.title = s.paused ? 'Reativar' : 'Pausar';
+    pauseBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.setPaused(s.id, !s.paused); renderManageSingersList(); renderSingerRoundView(); });
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×';
+    delBtn.title = 'Excluir';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(`Remover ${s.name} e todas as músicas dele(a)?`)) {
+        singerManager.removeSinger(s.id);
+        if (selectedManageSingerId === s.id) selectedManageSingerId = null;
+        renderManageSingersList();
+        manageSingersEmpty.classList.remove('hidden');
+        manageSingersDetail.classList.add('hidden');
+        renderSingerRoundView();
+      }
+    });
+    actions.appendChild(pauseBtn);
+    actions.appendChild(delBtn);
+
+    row.appendChild(pos);
+    row.appendChild(dot);
+    row.appendChild(info);
+    row.appendChild(reorderMini);
+    row.appendChild(actions);
+    row.addEventListener('click', () => { selectedManageSingerId = s.id; renderManageSingersList(); renderManageSingerDetail(s.id); });
+
+    manageSingersList.appendChild(row);
+  });
+}
+
+addNewSingerBtn.addEventListener('click', () => {
+  const name = prompt('Nome do novo cantor:');
+  if (!name || !name.trim()) return;
+  try {
+    singerManager.addSinger(name);
+    renderManageSingersList();
+    renderSingerRoundView();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+function renderManageSingerDetail(singerId) {
+  const singer = singerManager.getAllSingers().find(s => s.id === singerId);
+  if (!singer) return;
+  manageSingersEmpty.classList.add('hidden');
+  manageSingersDetail.classList.remove('hidden');
+  detailSingerName.textContent = singer.name;
+  renderDetailQueueList(singer);
+  renderDetailHistoryList(singer);
+}
+
+function switchDetailTab(tab) {
+  manageDetailTab = tab;
+  detailTabQueueBtn.classList.toggle('active', tab === 'queue');
+  detailTabHistoryBtn.classList.toggle('active', tab === 'history');
+  detailQueuePanel.classList.toggle('hidden', tab !== 'queue');
+  detailHistoryPanel.classList.toggle('hidden', tab !== 'history');
+}
+detailTabQueueBtn.addEventListener('click', () => switchDetailTab('queue'));
+detailTabHistoryBtn.addEventListener('click', () => switchDetailTab('history'));
+
+function renderDetailQueueList(singer) {
+  detailQueueList.innerHTML = '';
+  if (singer.songs.length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'empty-hint-small';
+    hint.textContent = 'Nenhuma música na fila desse cantor ainda.';
+    detailQueueList.appendChild(hint);
+  }
+  singer.songs.forEach((song, i) => {
+    const row = document.createElement('div');
+    row.className = 'detail-song-row';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = `${i + 1}. ${song.title}`;
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    sub.textContent = song.artist || song.format;
+    info.appendChild(title);
+    info.appendChild(sub);
+
+    const toneControls = document.createElement('div');
+    toneControls.className = 'tone-controls';
+    const minus = document.createElement('button');
+    minus.textContent = '−';
+    minus.addEventListener('click', () => {
+      song.savedSemitones = Math.max(-12, (song.savedSemitones || 0) - 1);
+      persistSingers();
+      renderDetailQueueList(singer);
+    });
+    const toneVal = document.createElement('span');
+    toneVal.className = 'tone-val';
+    const st = song.savedSemitones || 0;
+    toneVal.textContent = `${st > 0 ? '+' : ''}${st}`;
+    const plus = document.createElement('button');
+    plus.textContent = '+';
+    plus.addEventListener('click', () => {
+      song.savedSemitones = Math.min(12, (song.savedSemitones || 0) + 1);
+      persistSingers();
+      renderDetailQueueList(singer);
+    });
+    toneControls.appendChild(minus);
+    toneControls.appendChild(toneVal);
+    toneControls.appendChild(plus);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-song-btn';
+    removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+    removeBtn.addEventListener('click', () => {
+      singerManager.removeSongFromSinger(singer.id, i);
+      renderDetailQueueList(singer);
+      renderManageSingersList();
+      renderSingerRoundView();
+    });
+
+    row.appendChild(info);
+    row.appendChild(toneControls);
+    row.appendChild(removeBtn);
+    detailQueueList.appendChild(row);
+  });
+}
+
+function renderDetailHistoryList(singer) {
+  detailHistoryList.innerHTML = '';
+  if (singer.history.length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'empty-hint-small';
+    hint.textContent = 'Esse cantor ainda não cantou nenhuma música nessa sessão.';
+    detailHistoryList.appendChild(hint);
+    return;
+  }
+  singer.history.slice().reverse().forEach(h => {
+    const row = document.createElement('div');
+    row.className = 'detail-song-row';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = h.title;
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    sub.textContent = `${h.artist || ''} · tom ${h.semitone > 0 ? '+' : ''}${h.semitone}`;
+    info.appendChild(title);
+    info.appendChild(sub);
+    row.appendChild(info);
+    detailHistoryList.appendChild(row);
+  });
+}
+
+detailAddSongBtn.addEventListener('click', () => {
+  detailAddSongSearch.classList.toggle('hidden');
+  detailSongSearchInput.value = '';
+  detailSongSearchResults.innerHTML = '';
+  if (!detailAddSongSearch.classList.contains('hidden')) detailSongSearchInput.focus();
+});
+
+detailSongSearchInput.addEventListener('input', () => {
+  const q = detailSongSearchInput.value;
+  detailSongSearchResults.innerHTML = '';
+  if (!q.trim()) return;
+  const results = library.search(q);
+  results.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'search-result';
+    const meta = document.createElement('div');
+    meta.className = 'sr-meta';
+    const t = document.createElement('div');
+    t.className = 'sr-title';
+    t.textContent = item.title;
+    const s = document.createElement('div');
+    s.className = 'sr-sub';
+    s.textContent = [item.artist, item.code].filter(Boolean).join(' · ');
+    meta.appendChild(t);
+    meta.appendChild(s);
+    const addBtn = document.createElement('div');
+    addBtn.className = 'sr-add';
+    addBtn.innerHTML = '+';
+    row.appendChild(meta);
+    row.appendChild(addBtn);
+    row.addEventListener('click', async () => {
+      try {
+        const file = await library.getFileForItem(item);
+        const song = {
+          id: 'track_' + (++playlistIdCounter),
+          file, code: item.code, artist: item.artist, title: item.title,
+          format: item.format, type: item.type, savedSemitones: 0,
+          librarySource: { folderId: item.folderId, fileName: item.name },
+        };
+        singerManager.addSongToSinger(selectedManageSingerId, false, song);
+        detailAddSongSearch.classList.add('hidden');
+        renderManageSingerDetail(selectedManageSingerId);
+        renderManageSingersList();
+        renderSingerRoundView();
+      } catch (err) {
+        showError(err.message || 'Não foi possível adicionar essa música.');
+      }
+    });
+    detailSongSearchResults.appendChild(row);
+  });
+});
+
+// ---------- Encerrar Show (feature 3) ----------
+
+endShowBtn.addEventListener('click', () => endShowConfirmBackdrop.classList.remove('hidden'));
+endShowConfirmCancelBtn.addEventListener('click', () => endShowConfirmBackdrop.classList.add('hidden'));
+endShowConfirmBackdrop.addEventListener('click', (e) => { if (e.target === endShowConfirmBackdrop) endShowConfirmBackdrop.classList.add('hidden'); });
+
+endShowConfirmOkBtn.addEventListener('click', () => {
+  endShowConfirmBackdrop.classList.add('hidden');
+  openShowReport();
+});
+
+function formatShowDuration(ms) {
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}min`;
+}
+
+function openShowReport() {
+  const startRaw = localStorage.getItem('playkaraoke-session-start');
+  const start = startRaw ? Number(startRaw) : Date.now();
+  const duration = Date.now() - start;
+
+  reportDuration.textContent = formatShowDuration(duration);
+  reportTotalSongs.textContent = String(showHistory.length);
+
+  const uniqueSingers = new Set(showHistory.map(h => h.cantor));
+  reportUniqueSingers.textContent = String(uniqueSingers.size);
+
+  const countBySinger = {};
+  showHistory.forEach(h => { countBySinger[h.cantor] = (countBySinger[h.cantor] || 0) + 1; });
+  let topSinger = '—', topCount = 0;
+  Object.entries(countBySinger).forEach(([name, count]) => {
+    if (count > topCount) { topSinger = name; topCount = count; }
+  });
+  reportHighlight.textContent = topCount > 0 ? `${topSinger} (${topCount})` : '—';
+
+  showReportTbody.innerHTML = '';
+  showHistory.slice().reverse().forEach(h => {
+    const tr = document.createElement('tr');
+    const time = new Date(h.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    [time, h.cantor, h.musica, h.artista, `${h.tom > 0 ? '+' : ''}${h.tom}`].forEach(val => {
+      const td = document.createElement('td');
+      td.textContent = val;
+      tr.appendChild(td);
+    });
+    showReportTbody.appendChild(tr);
+  });
+
+  showReportBackdrop.classList.remove('hidden');
+}
+
+showReportCloseBtn.addEventListener('click', () => showReportBackdrop.classList.add('hidden'));
+
+function buildShowCsv() {
+  const lines = [];
+  lines.push('Horário,Cantor,Música,Artista,Código,Tom,Duração(s)');
+  showHistory.forEach(h => {
+    const time = new Date(h.horario).toLocaleTimeString('pt-BR');
+    const row = [time, h.cantor, h.musica, h.artista, h.codigo, h.tom, h.duracao]
+      .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+    lines.push(row);
+  });
+  return lines.join('\n');
+}
+
+exportCsvBtn.addEventListener('click', () => {
+  const csv = buildShowCsv();
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `play-karaoke-show-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+newShowBtn.addEventListener('click', () => {
+  try {
+    localStorage.removeItem(SHOW_HISTORY_KEY);
+    localStorage.removeItem(SINGERS_STORAGE_KEY);
+    localStorage.removeItem(PLAYLIST_STORAGE_KEY);
+    localStorage.removeItem('playkaraoke-session-start');
+    sessionStorage.removeItem('playkaraoke_auth');
+  } catch (err) {}
+  window.location.reload();
+});
 
 // ---------- Persistência da fila (sobrevive a um F5 acidental) ----------
 //
@@ -1529,7 +2423,14 @@ async function restorePlaylistFromStorage() {
 }
 
 // Tenta restaurar pastas já conectadas em sessões anteriores (silencioso).
-library.restoreSavedFolders().then(restorePlaylistFromStorage);
+library.restoreSavedFolders().then(async () => {
+  await restoreSingersFromStorage();
+  if (singerModeEnabled) {
+    await loadCurrentSingerTurn(false);
+  } else {
+    await restorePlaylistFromStorage();
+  }
+});
 
 // ---------- Redimensionar a sidebar (arrastando a borda) ----------
 
@@ -1591,3 +2492,5 @@ ambientVolumePct.textContent = ambientVolumeSlider.value + '%';
 applyIdleImage();
 updateIdleOverlay();
 renderPlaylist();
+restoreShowHistory();
+restoreCountdownSettings();
