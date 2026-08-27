@@ -220,13 +220,19 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
   }
 
   /** Busca no índice em memória. Retorna até MAX_SEARCH_RESULTS itens. */
+  /**
+   * Busca por múltiplas palavras: cada palavra digitada precisa aparecer
+   * em algum lugar (título, artista ou código), em qualquer ordem — não
+   * precisa ser uma frase exata. Assim "planta certeza" acha "Planta e
+   * Raiz - Com Certeza", mesmo as palavras não sendo vizinhas no nome.
+   */
   function search(query) {
-    const q = (query || '').trim().toLowerCase();
-    if (!q) return [];
+    const words = (query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
     const results = [];
     for (const item of libraryIndex) {
       const haystack = [item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase();
-      if (haystack.includes(q)) {
+      if (words.every(word => haystack.includes(word))) {
         results.push(item);
         if (results.length >= MAX_SEARCH_RESULTS) break;
       }

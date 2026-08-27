@@ -128,12 +128,27 @@
   /* ===================== SIDEBAR ===================== */
   #sidebar{
     width:300px;
-    min-width:300px;
+    min-width:220px;
+    max-width:600px;
     height:100vh;
     background:var(--surface);
     border-right:1px solid var(--outline-variant);
     display:flex;
     flex-direction:column;
+    position:relative;
+    flex-shrink:0;
+  }
+  #sidebar-resize-handle{
+    position:absolute;
+    top:0;
+    right:-3px;
+    width:6px;
+    height:100%;
+    cursor:col-resize;
+    z-index:20;
+  }
+  #sidebar-resize-handle:hover, #sidebar-resize-handle.resizing{
+    background:rgba(77,142,255,0.3);
   }
   #logo-area{
     display:flex;
@@ -436,20 +451,20 @@
     align-items:center;
     justify-content:center;
     width:36px;height:36px;
-    background:var(--surface-container);
-    border:1px solid var(--outline-variant);
-    color:var(--on-surface);
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    border:none;
+    color:#0a0a0a;
     border-radius:8px;
     cursor:pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow:0 0 12px rgba(77,142,255,0.2);
   }
   #settings-btn:hover{
-    border-color:var(--primary-bright);
-    background:var(--surface-container-high);
+    transform:scale(1.05);
+    box-shadow:0 0 16px rgba(77,142,255,0.35);
   }
   #settings-btn.active{
-    border-color:var(--primary-bright);
-    color:var(--primary-bright);
+    box-shadow:0 0 20px rgba(77,142,255,0.5);
   }
   #settings-btn svg{ width:18px;height:18px; }
 
@@ -768,14 +783,53 @@
   }
 
   /* ===================== SETTINGS PANEL ===================== */
-  #settings-panel{
-    padding:16px 24px;
-    border-top:1px solid var(--outline-variant);
+  #settings-modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+  }
+  #settings-modal{
     background:var(--surface-container-low);
+    border:1px solid var(--outline-variant);
+    border-radius:16px;
+    padding:20px 24px 24px 24px;
+    width:100%;
+    max-width:560px;
+    max-height:85vh;
+    overflow-y:auto;
     display:flex;
     flex-direction:column;
-    gap:14px;
+    gap:16px;
   }
+  #settings-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--outline-variant);
+  }
+  #settings-modal-header h3{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:18px;
+    margin:0;
+    color:var(--on-surface);
+  }
+  #settings-close-btn{
+    width:28px;height:28px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface-container-high);
+    border:none;
+    color:var(--on-surface-variant);
+    border-radius:6px;
+    cursor:pointer;
+  }
+  #settings-close-btn:hover{ color:var(--on-surface); }
+  #settings-close-btn svg{ width:14px;height:14px; }
   .settings-row{
     display:flex;
     align-items:center;
@@ -962,12 +1016,13 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:24px;
+    gap:16px;
   }
   #transport{
     display:flex;
     align-items:center;
     gap:16px;
+    flex-shrink:0;
   }
   #play-btn{
     width:52px;height:52px;
@@ -1008,6 +1063,7 @@
     display:flex;
     align-items:center;
     gap:24px;
+    flex-shrink:0;
   }
   .control-group{
     display:flex;
@@ -1083,8 +1139,12 @@
 
   #quick-toggles-row{
     display:flex;
+    align-items:center;
+    justify-content:center;
     gap:8px;
     flex-wrap:wrap;
+    flex:1;
+    min-width:0;
   }
   .quick-toggle-pill{
     display:flex;
@@ -1104,9 +1164,10 @@
   }
   .quick-toggle-pill:hover{ border-color:var(--primary-bright); }
   .quick-toggle-pill.on{
-    color:var(--tertiary);
-    border-color:var(--tertiary);
-    background:rgba(78,222,163,0.08);
+    color:#0a0a0a;
+    border-color:transparent;
+    background:linear-gradient(135deg, var(--primary), var(--secondary));
+    font-weight:700;
   }
   .quick-toggle-pill .dot{
     width:6px;height:6px;border-radius:50%;
@@ -1114,7 +1175,7 @@
     flex-shrink:0;
     opacity:0.5;
   }
-  .quick-toggle-pill.on .dot{ opacity:1; }
+  .quick-toggle-pill.on .dot{ opacity:0.6; }
 </style>
 </head>
 <body>
@@ -1134,6 +1195,7 @@
 </div>
 
 <div id="sidebar">
+  <div id="sidebar-resize-handle"></div>
   <div id="logo-area">
     <img src="assets/logo.svg" alt="Play Karaoke"/>
     <div class="brand-sub">PLAYER CDG &amp; MP4</div>
@@ -1190,7 +1252,7 @@
     <button id="settings-btn" title="Configurações">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
     </button>
-    <span id="version-tag">v1.2 · Biblioteca</span>
+    <span id="version-tag">v1.2</span>
   </div>
 </div>
 
@@ -1268,7 +1330,15 @@
     </div>
   </div>
 
-  <div id="settings-panel" class="hidden">
+  <div id="settings-modal-backdrop" class="hidden">
+   <div id="settings-modal">
+    <div id="settings-modal-header">
+      <h3>Configurações</h3>
+      <button id="settings-close-btn" title="Fechar">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
     <div class="settings-row">
       <label class="switch-label">
         <input type="checkbox" id="custom-colors-toggle"/>
@@ -1338,6 +1408,7 @@
       </div>
     </div>
     <input type="file" id="idle-image-input" accept="image/*" class="hidden"/>
+   </div>
   </div>
 
   <div id="track-meta-bar">
@@ -1377,6 +1448,21 @@
         </button>
       </div>
 
+      <div id="quick-toggles-row">
+        <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" title="Abrir/fechar a segunda tela">
+          <span class="dot"></span> Segunda Tela
+        </button>
+        <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Ligar/desligar autoplay">
+          <span class="dot"></span> Autoplay
+        </button>
+        <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Ligar/desligar aplausos automáticos">
+          <span class="dot"></span> Aplausos
+        </button>
+        <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Ligar/desligar música ambiente">
+          <span class="dot"></span> Ambiente
+        </button>
+      </div>
+
       <div class="side-controls">
         <div class="control-group">
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
@@ -1392,21 +1478,6 @@
           <button id="pitch-reset-btn" title="Resetar tom">RESET</button>
         </div>
       </div>
-    </div>
-
-    <div id="quick-toggles-row">
-      <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" title="Abrir/fechar a segunda tela">
-        <span class="dot"></span> Segunda Tela
-      </button>
-      <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Ligar/desligar autoplay">
-        <span class="dot"></span> Autoplay
-      </button>
-      <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Ligar/desligar aplausos automáticos">
-        <span class="dot"></span> Aplausos
-      </button>
-      <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Ligar/desligar música ambiente">
-        <span class="dot"></span> Ambiente
-      </button>
     </div>
   </div>
 </div>

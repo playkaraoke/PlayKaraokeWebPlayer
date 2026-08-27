@@ -5,6 +5,8 @@ const el = (id) => document.getElementById(id);
 // ---------- Elementos ----------
 
 const dropZone = el('stage-empty');
+const sidebar = el('sidebar');
+const sidebarResizeHandle = el('sidebar-resize-handle');
 const fileInput = el('file-input');
 const stageEmpty = el('stage-empty');
 const stageCanvasWrap = el('stage-canvas-wrap');
@@ -37,7 +39,8 @@ const errorBanner = el('error-banner');
 const loadingBanner = el('loading-banner');
 
 const settingsBtn = el('settings-btn');
-const settingsPanel = el('settings-panel');
+const settingsModalBackdrop = el('settings-modal-backdrop');
+const settingsCloseBtn = el('settings-close-btn');
 const customColorsToggle = el('custom-colors-toggle');
 const colorBackground = el('color-background');
 const colorText = el('color-text');
@@ -561,7 +564,7 @@ function resetToEmptyState() {
 
   playBtn.disabled = true;
   settingsBtn.classList.remove('active');
-  settingsPanel.classList.add('hidden');
+  settingsModalBackdrop.classList.add('hidden');
   updatePlayIcon();
   renderPlaylist();
   refreshIdleState();
@@ -1077,9 +1080,18 @@ videoEl.addEventListener('timeupdate', () => {
 // ---------- Painel de configurações (esquema de cores) ----------
 
 settingsBtn.addEventListener('click', () => {
-  const isOpen = !settingsPanel.classList.contains('hidden');
-  settingsPanel.classList.toggle('hidden', isOpen);
-  settingsBtn.classList.toggle('active', !isOpen);
+  settingsModalBackdrop.classList.remove('hidden');
+  settingsBtn.classList.add('active');
+});
+settingsCloseBtn.addEventListener('click', () => {
+  settingsModalBackdrop.classList.add('hidden');
+  settingsBtn.classList.remove('active');
+});
+settingsModalBackdrop.addEventListener('click', (e) => {
+  if (e.target === settingsModalBackdrop) {
+    settingsModalBackdrop.classList.add('hidden');
+    settingsBtn.classList.remove('active');
+  }
 });
 
 function getActiveColors() {
@@ -1469,6 +1481,45 @@ async function restorePlaylistFromStorage() {
 
 // Tenta restaurar pastas já conectadas em sessões anteriores (silencioso).
 library.restoreSavedFolders().then(restorePlaylistFromStorage);
+
+// ---------- Redimensionar a sidebar (arrastando a borda) ----------
+
+const SIDEBAR_WIDTH_KEY = 'playkaraoke-sidebar-width';
+
+(function setupSidebarResize() {
+  const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+  if (savedWidth) {
+    sidebar.style.width = savedWidth + 'px';
+  }
+
+  let dragging = false;
+
+  sidebarResizeHandle.addEventListener('mousedown', (e) => {
+    dragging = true;
+    sidebarResizeHandle.classList.add('resizing');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const min = 220, max = 600;
+    const newWidth = Math.max(min, Math.min(max, e.clientX));
+    sidebar.style.width = newWidth + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    sidebarResizeHandle.classList.remove('resizing');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, parseInt(sidebar.style.width, 10));
+    } catch (err) { /* não é crítico se não salvar */ }
+  });
+})();
 
 // ---------- Atalhos de teclado ----------
 

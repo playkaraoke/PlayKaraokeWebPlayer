@@ -372,7 +372,11 @@ quebrar o resto do funcionamento.
    rápido mesmo em pastas enormes. Cada nome passa pelo mesmo parser de
    `Código - Artista - Música` já usado no resto do app.
 4. A busca roda inteiramente **em memória** sobre esse índice — instantânea,
-   sem esperar nada de disco a cada tecla digitada.
+   sem esperar nada de disco a cada tecla digitada. É uma busca por
+   **múltiplas palavras** (não frase exata): digitar "planta certeza" acha
+   "Planta e Raiz - Com Certeza" mesmo as palavras não sendo vizinhas —
+   basta que todas apareçam em algum lugar (título, artista ou código),
+   em qualquer ordem.
 5. Ao clicar num resultado, o app lê o arquivo **de verdade** do disco
    (`handle.getFile()`) — sem rede, sem upload, é leitura local direta —
    e adiciona à fila normalmente (troca automaticamente pra aba Fila).
@@ -493,20 +497,29 @@ sistema "rearma" e os aplausos podem disparar de novo depois.
 
 Tem indicador clicável na barra lateral também, igual o autoplay.
 
-## Acesso rápido (barra de controles + indicadores da sidebar)
+## Acesso rápido (pills no rodapé) + Configurações (modal)
 
-Autoplay, aplausos, música ambiente e segunda tela têm **três pontos de
-controle sincronizados** entre si (ligar em qualquer um liga nos outros
-dois automaticamente):
-1. O checkbox correspondente no painel de configurações
-2. O indicador clicável na barra lateral (embaixo da fila)
-3. Um "pill" (botão arredondado compacto) na barra de controles do
-   rodapé, pra não precisar abrir configurações nem olhar a barra lateral
+Autoplay, aplausos, música ambiente e segunda tela têm **dois pontos de
+controle sincronizados** entre si (ligar em qualquer um liga no outro
+automaticamente):
+1. O checkbox correspondente no **modal de configurações** (abre clicando
+   na engrenagem no rodapé da sidebar — antes era um painel que empurrava
+   o conteúdo, agora é um modal de verdade, sobrepondo a tela)
+2. Um "pill" (botão arredondado compacto) **centralizado no meio da barra
+   de controles do rodapé**, entre o play e o volume/tom
 
-Pra segunda tela especificamente, esses três pontos também **abrem e
-fecham** a janela (não só mostram estado) — clicar em qualquer um dos
-três com a janela fechada abre ela; clicar com ela aberta, fecha de
-verdade (`window.close()`).
+Pra segunda tela especificamente, os dois pontos também **abrem e
+fecham** a janela (não só mostram estado) — clicar com a janela fechada
+abre ela; clicar com ela aberta, fecha de verdade (`window.close()`).
+
+Quando ativos, os pills usam o mesmo gradiente roxo/azul do botão de
+play (não mais verde) — mesma cor da engrenagem de configurações também,
+pra manter uma identidade visual consistente de "isso é interativo/de
+destaque".
+
+*Nota histórica: numa versão anterior existia também um bloco de
+indicadores fixo na barra lateral (embaixo da fila) — foi removido por
+ficar redundante com os pills do rodapé.*
 
 ---
 
@@ -593,6 +606,18 @@ teste jsdom antes de considerar pronta.
 ---
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
+
+- **Bug reportado, não confirmado**: usuário relatou que clicar "Aplicar
+  tom" no modal de música (pra música já ativa) estaria disparando play
+  sem querer. Revisão de código + teste automatizado simulando exatamente
+  esse clique **não reproduziram o problema** — a função chamada
+  (`setSemitones()`) não tem nenhuma chamada de play. Fica registrado
+  como pendente de investigação com passo a passo mais detalhado do
+  usuário, não descartar a possibilidade de ser algo específico de
+  navegador que não aparece em teste headless.
+- **Sidebar é redimensionável** (arrastando a borda direita) desde essa
+  rodada — a largura escolhida fica salva no `localStorage`
+  (`playkaraoke-sidebar-width`).
 
 - **Persistência da fila é parcial, por decisão técnica** (não escolha
   arbitrária): músicas da Biblioteca sobrevivem a um F5, músicas manuais
