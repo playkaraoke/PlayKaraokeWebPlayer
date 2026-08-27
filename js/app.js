@@ -57,6 +57,7 @@ const ambientVolumePct = el('ambient-volume-pct');
 const ambientAudio = el('ambient-audio');
 
 const countdownOverlay = el('countdown-overlay');
+const countdownTimerParts = el('countdown-timer-parts');
 const cdNumber = el('cd-number');
 const cdNextTitle = el('cd-next-title');
 const cdSkipBtn = el('cd-skip-btn');
@@ -203,6 +204,7 @@ let playlistIdCounter = 0;
 let currentIndex = -1;
 
 let countdownTimerId = null;
+let singerCountdownActive = false; // true só durante a contagem cronometrada de verdade
 let countdownRemaining = 0;
 
 let customIdleImageDataUrl = null; // imagem de fundo custom pra tela ociosa (base64), ou null = usa a logo
@@ -905,7 +907,16 @@ function cancelCountdown() {
     clearInterval(countdownTimerId);
     countdownTimerId = null;
   }
-  countdownOverlay.classList.add('hidden');
+  singerCountdownActive = false;
+  if (singerModeEnabled) {
+    // Em modo cantores, o card do cantor da vez continua visível mesmo
+    // sem o timer rodando — updateIdleOverlay() decide isso já já. Só
+    // escondemos as partes específicas do cronômetro na hora.
+    countdownTimerParts.classList.add('hidden');
+    cdSkipBtn.classList.add('hidden');
+  } else {
+    countdownOverlay.classList.add('hidden');
+  }
   broadcastToSecondScreen({ type: 'countdown-end' });
   refreshIdleState();
 }
@@ -942,7 +953,10 @@ function startSingerCountdown() {
     ? [singer.songs[0].artist, singer.songs[0].title].filter(Boolean).join(' — ')
     : 'aguardando seleção de música';
   const nextTitleText = `${singer.name} — ${songText}`;
+  singerCountdownActive = true;
   renderRichCountdown(singer);
+  countdownTimerParts.classList.remove('hidden');
+  cdSkipBtn.classList.remove('hidden');
   countdownOverlay.classList.remove('hidden');
   countdownRemaining = delay;
   cdNumber.textContent = String(countdownRemaining);
@@ -950,8 +964,8 @@ function startSingerCountdown() {
   broadcastToSecondScreen({
     type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText,
     singerMode: true,
-    singer: { name: singer.name, song: singer.songs[0] || null },
-    upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null })),
+    singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
+    upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
     display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
   });
 
@@ -1132,6 +1146,33 @@ function refreshIdleState() {
 }
 
 function updateIdleOverlay() {
+  if (singerModeEnabled) {
+    idleOverlay.classList.add('hidden'); // em modo cantores, o card substitui a logo ociosa
+    const idle = !isAnythingPlaying();
+    const singer = singerManager.getCurrentSinger();
+
+    if (idle && singer) {
+      renderRichCountdown(singer);
+      countdownOverlay.classList.remove('hidden');
+      countdownTimerParts.classList.toggle('hidden', !singerCountdownActive);
+      cdSkipBtn.classList.toggle('hidden', !singerCountdownActive);
+      if (!singerCountdownActive) {
+        broadcastToSecondScreen({
+          type: 'countdown-start', delay: 0, remaining: 0,
+          singerMode: true, timerless: true,
+          singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
+          upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
+          display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
+        });
+      }
+    } else if (!singerCountdownActive) {
+      countdownOverlay.classList.add('hidden');
+      broadcastToSecondScreen({ type: 'countdown-end' });
+    }
+    broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
+    return;
+  }
+
   const idle = mode !== null && !isAnythingPlaying();
   idleOverlay.classList.toggle('hidden', !idle);
   broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
@@ -1614,6 +1655,13 @@ singerModeToggle.addEventListener('change', () => {
   }
 });
 
+/** Posição real (1-based) de um cantor na lista completa da rodada —
+ * NÃO é relativo a quem está tocando agora, é a posição de cadastro. */
+function getSingerPosition(singerId) {
+  const idx = singerManager.getAllSingers().findIndex(s => s.id === singerId);
+  return idx >= 0 ? idx + 1 : null;
+}
+
 function renderSingerRoundView() {
   const singer = singerManager.getCurrentSinger();
   if (!singer) {
@@ -1625,6 +1673,8 @@ function renderSingerRoundView() {
   currentSingerEmpty.classList.add('hidden');
   currentSingerContent.classList.remove('hidden');
   currentSingerName.textContent = singer.name;
+  const posLabel = currentSingerContent.querySelector('.singer-position-label');
+  if (posLabel) posLabel.textContent = `#${getSingerPosition(singer.id)} · CANTOR DA VEZ`;
 
   if (singer.songs.length > 0) {
     const song = singer.songs[0];
@@ -1643,7 +1693,7 @@ function renderSingerRoundView() {
     row.className = 'upcoming-singer-row';
     const num = document.createElement('span');
     num.className = 'num';
-    num.textContent = String(i + 2); // #1 é sempre o atual
+    num.textContent = String(getSingerPosition(s.id));
     const info = document.createElement('div');
     info.className = 'info';
     const nameEl = document.createElement('div');
@@ -1938,29 +1988,29 @@ function renderRichCountdown(singer) {
   cdNextTitle.classList.add('hidden'); // a versão simples de texto some, usamos o card rico
   cdSingerHighlight.classList.remove('hidden');
 
-  cdSingerPosition.textContent = '#1 · CANTOR DA VEZ';
+  cdSingerPosition.textContent = `#${getSingerPosition(singer.id)} · CANTOR DA VEZ`;
   cdSingerNameDisplay.textContent = singer.name;
 
   if (singer.songs.length > 0) {
     const song = singer.songs[0];
     cdSingerSongDisplay.classList.toggle('hidden', !showTitles);
     cdSingerSongDisplay.textContent = [song.title, song.artist].filter(Boolean).join(' — ');
-    const semitone = song.savedSemitones || 0;
-    cdSingerToneDisplay.textContent = `Tom: ${semitone > 0 ? '+' : ''}${semitone}`;
+    cdSingerToneDisplay.classList.add('hidden');
   } else {
     cdSingerSongDisplay.classList.add('hidden');
+    cdSingerToneDisplay.classList.remove('hidden');
     cdSingerToneDisplay.textContent = 'Aguardando seleção de música';
   }
 
   cdUpcomingList.innerHTML = '';
   if (showUpcoming) {
     const upcoming = singerManager.getUpcomingSingers(2);
-    upcoming.forEach((s, i) => {
+    upcoming.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'cd-upcoming-row';
       const num = document.createElement('span');
       num.className = 'num';
-      num.textContent = `#${i + 2}`;
+      num.textContent = `#${getSingerPosition(s.id)}`;
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = s.name;

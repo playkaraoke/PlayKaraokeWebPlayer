@@ -23,6 +23,7 @@
   const cdNumber = document.getElementById('cd-number');
   const cdNextTitle = document.getElementById('cd-next-title');
   const cdSingerHighlight = document.getElementById('cd-singer-highlight');
+  const cdSingerPosition = document.getElementById('cd-singer-position');
   const cdSingerNameDisplay = document.getElementById('cd-singer-name-display');
   const cdSingerSongDisplay = document.getElementById('cd-singer-song-display');
   const cdUpcomingList = document.getElementById('cd-upcoming-list');
@@ -91,9 +92,13 @@
     }
 
     cdNextTitle.classList.add('hidden');
+    const timerParts = document.getElementById('countdown-timer-parts');
+    if (timerParts) timerParts.classList.toggle('hidden', !!msg.timerless);
     const display = msg.display || { upcoming: true, titles: true, counter: true };
     cdNumber.classList.toggle('hidden', !display.counter);
     cdSingerHighlight.classList.remove('hidden');
+    const pos = (msg.singer && msg.singer.position) || 1;
+    cdSingerPosition.textContent = `#${pos} · CANTOR DA VEZ`;
     cdSingerNameDisplay.textContent = (msg.singer && msg.singer.name) || '—';
     if (msg.singer && msg.singer.song && display.titles) {
       cdSingerSongDisplay.classList.remove('hidden');
@@ -104,11 +109,11 @@
 
     cdUpcomingList.innerHTML = '';
     if (display.upcoming && Array.isArray(msg.upcoming)) {
-      msg.upcoming.forEach((s, i) => {
+      msg.upcoming.forEach((s) => {
         const row = document.createElement('div');
         row.className = 'cd-upcoming-row';
         const num = document.createElement('span');
-        num.textContent = `#${i + 2}`;
+        num.textContent = `#${s.position || ''}`;
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = s.name;

@@ -1657,19 +1657,21 @@
     </div>
 
     <div id="countdown-overlay" class="hidden">
-      <span class="cd-label">Próxima música em</span>
-      <span class="cd-number" id="cd-number">10</span>
-      <span class="cd-next" id="cd-next-title"></span>
+      <div id="countdown-timer-parts">
+        <span class="cd-label">Próxima música em</span>
+        <span class="cd-number" id="cd-number">10</span>
+        <span class="cd-next" id="cd-next-title"></span>
+      </div>
 
       <div id="cd-singer-highlight" class="hidden">
         <span class="cd-singer-position" id="cd-singer-position">#1</span>
         <div id="cd-singer-name-display">Mario</div>
         <div id="cd-singer-song-display">Música — Artista</div>
-        <div id="cd-singer-tone-display">Tom: +0</div>
+        <div id="cd-singer-tone-display" class="hidden">Aguardando seleção de música</div>
       </div>
       <div id="cd-upcoming-list"></div>
 
-      <button id="cd-skip-btn">Pular espera ▶</button>
+      <button id="cd-skip-btn" class="hidden">Pular espera ▶</button>
     </div>
 
     <div id="idle-overlay" class="hidden">
