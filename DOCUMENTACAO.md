@@ -607,17 +607,26 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
-- **Bug reportado, não confirmado**: usuário relatou que clicar "Aplicar
-  tom" no modal de música (pra música já ativa) estaria disparando play
-  sem querer. Revisão de código + teste automatizado simulando exatamente
-  esse clique **não reproduziram o problema** — a função chamada
-  (`setSemitones()`) não tem nenhuma chamada de play. Fica registrado
-  como pendente de investigação com passo a passo mais detalhado do
-  usuário, não descartar a possibilidade de ser algo específico de
-  navegador que não aparece em teste headless.
+- **Bug do modal "Aplicar tom" — esclarecido e corrigido**: o problema
+  reportado inicialmente ("clicar Aplicar tom dá play sem querer") na
+  verdade era sobre um cenário diferente do que eu tinha testado: com uma
+  música tocando, o usuário clicava numa **outra** música (ainda em
+  espera na fila) só pra pré-configurar o tom dela — mas como só existia
+  o botão "Tocar" pra músicas não-ativas, a única opção trocava a música
+  na hora, interrompendo a que estava tocando. Corrigido separando em
+  **dois botões**: "Aplicar tom" (sempre visível — pra música ativa,
+  aplica na hora; pra música em espera, só salva o valor pro futuro, sem
+  tocar nada) e "Tocar" (só aparece pra música não-ativa, troca e toca na
+  hora). O tom salvo numa música em espera é aplicado automaticamente
+  quando ela realmente começa a tocar (via autoplay ou botão Próxima).
 - **Sidebar é redimensionável** (arrastando a borda direita) desde essa
   rodada — a largura escolhida fica salva no `localStorage`
   (`playkaraoke-sidebar-width`).
+- **`.card-btn`/`.card-btn.secondary` eram acidentalmente escopados**
+  só dentro de `.settings-card-row` — o botão "Cancelar" do modal de
+  música nunca teve estilo de verdade por causa disso (aparecia com o
+  visual padrão do navegador). Generalizado pra funcionar em qualquer
+  contexto.
 
 - **Persistência da fila é parcial, por decisão técnica** (não escolha
   arbitrária): músicas da Biblioteca sobrevivem a um F5, músicas manuais
@@ -660,6 +669,13 @@ teste jsdom antes de considerar pronta.
 ---
 
 ## Ideias discutidas mas não implementadas (pra retomar se quiser)
+
+- **Busca ignorando acentos** (na Biblioteca) — usuário quer buscar
+  "voce e coracao" e encontrar "Você é Meu Coração", sem precisar digitar
+  os acentos certinhos. Tecnicamente simples (normalizar tanto a busca
+  quanto o índice removendo acentos via `String.prototype.normalize('NFD')`
+  + regex pra tirar os diacríticos antes de comparar) — **aprovado, mas
+  explicitamente pedido pra não implementar ainda**, esperando confirmação.
 
 - **Nome do cantor na fila** — usuário quer, mas vai detalhar como quer
   antes de implementar. Não fazer sem alinhar de novo.

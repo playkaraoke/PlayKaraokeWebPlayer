@@ -1,0 +1,7 @@
+# Arquivos de sistema do macOS (Finder) — nunca devem entrar no repositório
+.DS_Store
+**/.DS_Store
+
+# Arquivos de sistema do Windows, por segurança (caso alguém edite no Windows também)
+Thumbs.db
+desktop.ini

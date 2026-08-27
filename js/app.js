@@ -103,6 +103,7 @@ const tmPitchUpBtn = el('tm-pitch-up-btn');
 const tmPitchValue = el('tm-pitch-value');
 const tmCancelBtn = el('tm-cancel-btn');
 const tmPlayBtn = el('tm-play-btn');
+const tmApplyBtn = el('tm-apply-btn');
 
 // ---------- Motores ----------
 
@@ -477,7 +478,12 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
 }
 
 function playNextInQueue() {
-  if (hasNext()) selectTrack(currentIndex + 1, { autoplay: true });
+  if (!hasNext()) return;
+  const nextIndex = currentIndex + 1;
+  const nextItem = playlist[nextIndex];
+  // Respeita um tom pré-configurado no modal (via "Aplicar tom" numa
+  // música ainda em espera), se existir.
+  selectTrack(nextIndex, { autoplay: true, initialSemitones: nextItem.savedSemitones || 0 });
 }
 
 nextBtn.addEventListener('click', playNextInQueue);
@@ -497,13 +503,20 @@ function openTrackModal(index) {
   modalTrackIndex = index;
 
   const isActive = index === currentIndex;
-  modalPitchValue = isActive ? currentSemitones : 0;
+  // Pra música ativa, mostra o tom que está tocando agora. Pra música em
+  // espera, mostra o tom já salvo pra ela (se algum dia "Aplicar tom" já
+  // foi usado nela antes) — assim reabrir o modal não perde a escolha.
+  modalPitchValue = isActive ? currentSemitones : (item.savedSemitones || 0);
 
   tmCode.textContent = item.code || '—';
   tmArtist.textContent = item.artist || '—';
   tmFormat.textContent = item.format;
   tmTitle.textContent = item.title;
-  tmPlayBtn.textContent = isActive ? 'Aplicar tom' : 'Tocar';
+
+  // "Aplicar tom" sempre existe. "Tocar" só faz sentido pra uma música
+  // que ainda NÃO é a que está tocando agora (senão seria redundante).
+  tmPlayBtn.classList.toggle('hidden', isActive);
+
   updateTmPitchLabel();
 
   trackModalBackdrop.classList.remove('hidden');
@@ -526,16 +539,31 @@ tmCancelBtn.addEventListener('click', closeTrackModal);
 trackModalBackdrop.addEventListener('click', (e) => {
   if (e.target === trackModalBackdrop) closeTrackModal();
 });
-tmPlayBtn.addEventListener('click', () => {
+
+// "Aplicar tom": SEMPRE só salva o valor no item da fila. Se a música
+// clicada for a que já está tocando, também aplica na hora (efeito
+// audível imediato). Se for uma música em espera, só guarda o valor pra
+// quando ela realmente começar a tocar — NUNCA dá play aqui.
+tmApplyBtn.addEventListener('click', () => {
   const index = modalTrackIndex;
   const semitones = modalPitchValue;
   const isActive = index === currentIndex;
+  if (playlist[index]) playlist[index].savedSemitones = semitones;
   closeTrackModal();
   if (isActive) {
     setSemitones(semitones);
   } else {
-    selectTrack(index, { autoplay: true, initialSemitones: semitones });
+    renderPlaylist(); // sem tocar nada — só garante que a escolha fica salva/persistida
   }
+});
+
+// "Tocar": troca pra essa música agora, já com o tom escolhido.
+tmPlayBtn.addEventListener('click', () => {
+  const index = modalTrackIndex;
+  const semitones = modalPitchValue;
+  if (playlist[index]) playlist[index].savedSemitones = semitones;
+  closeTrackModal();
+  selectTrack(index, { autoplay: true, initialSemitones: semitones });
 });
 
 // ---------- Reset (fila vazia) ----------
@@ -1422,6 +1450,7 @@ function persistPlaylist() {
         format: item.format,
         type: item.type,
         librarySource: item.librarySource || null,
+        savedSemitones: item.savedSemitones || 0,
       })),
     };
     localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(data));
@@ -1460,6 +1489,7 @@ async function restorePlaylistFromStorage() {
             format: found.format,
             type: found.type,
             librarySource: savedItem.librarySource,
+            savedSemitones: savedItem.savedSemitones || 0,
           });
           restoredCount++;
           restored = true;

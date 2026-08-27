@@ -905,7 +905,7 @@
     background:var(--tertiary); color:#04342c; font-family:'JetBrains Mono',monospace;
     font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px;
   }
-  .settings-card-row .card-btn{
+  .card-btn{
     background:var(--surface-container-high);
     border:1px solid var(--primary-bright);
     color:var(--primary-bright);
@@ -916,8 +916,11 @@
     cursor:pointer;
     font-family:'Inter',sans-serif;
   }
-  .settings-card-row .card-btn:hover{ background:var(--surface-container); }
-  .settings-card-row .card-btn.secondary{
+  .card-btn:hover{ background:var(--surface-container); }
+  .card-btn.secondary{
+    border-color:var(--outline-variant);
+    color:var(--on-surface-variant);
+  }
     border-color:var(--outline-variant);
     color:var(--on-surface-variant);
   }
@@ -1325,6 +1328,7 @@
 
       <div id="track-modal-actions">
         <button id="tm-cancel-btn" class="card-btn secondary">Cancelar</button>
+        <button id="tm-apply-btn" class="card-btn secondary">Aplicar tom</button>
         <button id="tm-play-btn" class="card-btn primary">Tocar</button>
       </div>
     </div>
