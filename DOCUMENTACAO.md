@@ -712,6 +712,21 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Modo simples: música que termina agora sai da fila** — decisão do
+  usuário, pra não ficar acumulando o que já foi cantado. Removida
+  independente do autoplay estar ligado ou não (com autoplay desligado,
+  ainda some da lista, só não avança sozinho). Modo cantores **não** foi
+  alterado — lá o conceito já era diferente (consome da fila do cantor,
+  o cantor em si continua na rodada).
+- **Bug real encontrado durante essa mudança**: `hasNext()` tinha uma
+  guarda `currentIndex >= 0` que rejeitava incorretamente o caso onde a
+  música removida era a **primeira** da fila (currentIndex ficava -1
+  nesse instante de transição, um estado válido — "nada carregado
+  ainda, mas tem música esperando" — que a função não previa. Guarda
+  relaxada pra `currentIndex < playlist.length - 1`, sem exigir
+  não-negativo.
+
+
 - **Auditoria de UX feita e melhorias aplicadas** — pontos que geravam
   confusão: pills de Aplausos/Ambiente pareciam disparar efeito na hora
   do clique (agora tooltips deixam claro que é automático, no momento

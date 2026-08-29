@@ -280,7 +280,11 @@ function updateMetaBar(item) {
 // ---------- Playlist ----------
 
 function hasNext() {
-  return currentIndex >= 0 && currentIndex < playlist.length - 1;
+  // Nota: NÃO exige currentIndex >= 0 — depois que uma música termina e
+  // é removida da fila (removeFinishedTrackFromQueue), currentIndex fica
+  // temporariamente em -1 (nada carregado ainda), mas ainda pode haver
+  // músicas esperando pra tocar. -1 < length-1 continua correto nesse caso.
+  return currentIndex < playlist.length - 1;
 }
 
 function renderPlaylist() {
@@ -1087,8 +1091,23 @@ function handleTrackEnded() {
   if (singerModeEnabled) {
     handleSingerModeSongEnded();
   } else {
-    startAutoplayCountdownIfNeeded();
+    handleSimpleModeSongEnded();
   }
+}
+
+/** Remove da fila a música que acabou de tocar (modo simples). Ajusta
+ * currentIndex pra continuar apontando corretamente pra próxima música
+ * (que "deslizou" uma posição pra trás depois da remoção). */
+function removeFinishedTrackFromQueue() {
+  if (currentIndex < 0 || currentIndex >= playlist.length) return;
+  playlist.splice(currentIndex, 1);
+  currentIndex -= 1;
+  renderPlaylist(); // já persiste a fila atualizada
+}
+
+function handleSimpleModeSongEnded() {
+  removeFinishedTrackFromQueue();
+  startAutoplayCountdownIfNeeded();
 }
 
 function startAutoplayCountdownIfNeeded() {
