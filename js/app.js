@@ -231,8 +231,29 @@ function showError(msg) {
   setTimeout(() => errorBanner.classList.add('hidden'), 5000);
 }
 
+let isTrackLoading = false;
+
 function showLoading(show) {
+  isTrackLoading = show;
   loadingBanner.classList.toggle('hidden', !show);
+  // Enquanto carrega de verdade, nenhum desses botões pode ficar
+  // clicável -- clicar neles durante o carregamento (ex: "Iniciar
+  // Agora" numa troca de cantor lenta) disparava um SEGUNDO
+  // carregamento por cima do primeiro, ou mexia no motor no meio da
+  // troca — deixando tudo travado num "carregando" infinito com
+  // play/stop entrando em loop.
+  cdSkipBtn.disabled = show;
+  if (show) {
+    playBtn.disabled = true;
+    stopBtn.disabled = true;
+  } else if (mode !== null) {
+    // Carregamento terminou (com sucesso ou erro) e ainda há uma música
+    // válida carregada -- reabilita os botões. Se o erro deixou tudo
+    // vazio (mode === null), resetToEmptyState() já cuida de manter
+    // desabilitado.
+    playBtn.disabled = false;
+    stopBtn.disabled = false;
+  }
 }
 
 function setStage(newMode) {

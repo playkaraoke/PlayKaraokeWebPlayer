@@ -712,6 +712,23 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Bug real encontrado e corrigido: "Carregando arquivo..." travado +
+  play/stop em loop.** Causa raiz confirmada com teste reproduzindo o
+  cenário exato: o botão "Iniciar Agora" (que fica sempre visível na
+  tela de espera desde o redesign) continuava **clicável durante o
+  próprio carregamento** de uma música (a troca de cantor, com internet/
+  disco mais lento, tem uma janela real de alguns milissegundos-segundos
+  onde `isAnythingPlaying()` ainda é falso mas já tem um carregamento em
+  andamento). Clicar nele nessa janela disparava um **segundo**
+  carregamento por cima do primeiro — o motor ficava competindo consigo
+  mesmo, gerando o "trava, mostra carregando, dá play/stop sozinho".
+  Corrigido desabilitando `cd-skip-btn` (e também `play-btn`/`stop-btn`,
+  pelo mesmo motivo) enquanto `showLoading(true)` está ativo — e
+  garantindo que eles voltam a ficar clicáveis tanto no sucesso quanto
+  numa falha de carregamento (senão travariam desabilitados pra sempre
+  num erro).
+
+
 - **Conceito de "pausar cantor" foi removido por completo** — decisão do
   usuário, achou que gerava confusão (alguém fica pausado sem se dar
   conta, e a rodada passa reto por ele sem aviso claro o suficiente).
