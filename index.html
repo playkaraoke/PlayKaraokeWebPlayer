@@ -2160,7 +2160,14 @@
 <!-- Script de Autenticação com o seu Hash -->
 <script>
   (function() {
-    const ACCESS_HASH = 'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53';
+    // Lista de senhas válidas (cada uma como hash SHA-256, nunca a senha
+    // em texto puro). Pra REMOVER o acesso de um beta tester, é só tirar
+    // a linha correspondente daqui e dar git push de novo — sem precisar
+    // de nenhum servidor ou banco de dados.
+    const ACCESS_HASHES = [
+      'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53', // plkplayer (principal)
+      'ce60cc4e7842949b0a225e7d8a6819a7802425c4fe25581c8cb47ded0b645aa7', // plkbeta2026 (beta testers)
+    ];
 
     async function calculateSHA256(str) {
       const buffer = new TextEncoder().encode(str);
@@ -2186,7 +2193,7 @@
       if (!inputPass) return;
 
       const hash = await calculateSHA256(inputPass);
-      if (hash === ACCESS_HASH) {
+      if (ACCESS_HASHES.includes(hash)) {
         sessionStorage.setItem('playkaraoke_auth', 'true');
         localStorage.setItem('playkaraoke-session-start', String(Date.now()));
         overlay.classList.add('unlocked');
