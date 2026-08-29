@@ -712,6 +712,30 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Auditoria de UX feita e melhorias aplicadas** — pontos que geravam
+  confusão: pills de Aplausos/Ambiente pareciam disparar efeito na hora
+  do clique (agora tooltips deixam claro que é automático, no momento
+  certo); Modo Show não se explicava (agora tem modal de boas-vindas na
+  primeira vez que liga, com "não mostrar de novo" persistido em
+  `playkaraoke-hide-show-welcome`); empty state da fila em modo cantores
+  não dizia como adicionar o primeiro cantor.
+- **Modal de boas-vindas é amarrado ao clique em "Iniciar Modo Show"**,
+  não ao login — decisão deliberada. A maioria dos usos é modo simples;
+  forçar explicação de uma feature opcional toda vez que loga seria
+  atrito desnecessário pra quem só quer carregar e tocar.
+- **Campo de "nome do evento" foi cogitado e descartado por enquanto** —
+  ficaria sem função real (o relatório final não tem onde mostrar isso
+  ainda). Se for retomado no futuro, precisa vir junto com o campo
+  aparecendo no relatório/CSV, senão é um input que não leva a lugar
+  nenhum.
+- Uma segunda IA revisou o `ARQUITETURA.md` e sugeriu mover o botão
+  "Encerrar Show" pro rodapé — **já estava implementado assim** desde a
+  rodada anterior; ela só não tinha o histórico completo da conversa,
+  só o documento técnico. Vale lembrar disso ao repassar só o
+  `ARQUITETURA.md`/`DOCUMENTACAO.md` pra outra IA no futuro — documentos
+  podem ficar defasados entre uma rodada e outra.
+
+
 - **Bug real encontrado e corrigido: "Carregando arquivo..." travado +
   play/stop em loop.** Causa raiz confirmada com teste reproduzindo o
   cenário exato: o botão "Iniciar Agora" (que fica sempre visível na

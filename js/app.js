@@ -1746,20 +1746,45 @@ function updateShowModeBtnDisplay() {
   if (indicatorText) indicatorText.textContent = singerModeEnabled ? 'Ativado' : 'Desativado';
 }
 
+const SHOW_WELCOME_HIDE_KEY = 'playkaraoke-hide-show-welcome';
+const showModeWelcomeBackdrop = el('show-mode-welcome-backdrop');
+const welcomeDontShowAgain = el('welcome-dont-show-again');
+const welcomeStartBtn = el('welcome-start-btn');
+
+function actuallyEnableSingerMode() {
+  singerModeEnabled = true;
+  applySingerModeVisibility();
+  updateShowModeBtnDisplay();
+  persistSingers();
+  loadCurrentSingerTurn(false);
+}
+
 showModeBtn.addEventListener('click', () => {
   if (!singerModeEnabled) {
-    // Liga o Modo Show na hora.
-    singerModeEnabled = true;
-    applySingerModeVisibility();
-    updateShowModeBtnDisplay();
-    persistSingers();
-    loadCurrentSingerTurn(false);
+    const alreadyDismissed = localStorage.getItem(SHOW_WELCOME_HIDE_KEY) === 'true';
+    if (alreadyDismissed) {
+      actuallyEnableSingerMode();
+    } else {
+      welcomeDontShowAgain.checked = false;
+      showModeWelcomeBackdrop.classList.remove('hidden');
+    }
   } else {
     // Já está ligado: "encerrar" passa pelo fluxo completo (confirmação
     // + relatório) — não existe mais um jeito de só desligar sem
     // encerrar de verdade.
     endShowConfirmBackdrop.classList.remove('hidden');
   }
+});
+
+welcomeStartBtn.addEventListener('click', () => {
+  if (welcomeDontShowAgain.checked) {
+    try { localStorage.setItem(SHOW_WELCOME_HIDE_KEY, 'true'); } catch (err) {}
+  }
+  showModeWelcomeBackdrop.classList.add('hidden');
+  actuallyEnableSingerMode();
+});
+showModeWelcomeBackdrop.addEventListener('click', (e) => {
+  if (e.target === showModeWelcomeBackdrop) showModeWelcomeBackdrop.classList.add('hidden');
 });
 
 /** Posição real (1-based) de um cantor na lista completa da rodada —

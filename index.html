@@ -921,6 +921,37 @@
   .empty-hint-small{ font-size:11.5px; color:var(--on-surface-variant); padding:6px 0; }
 
   /* ===================== ENCERRAR SHOW ===================== */
+  #show-mode-welcome-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:130;
+  }
+  #show-mode-welcome-modal{
+    background:var(--surface-container-low); border:1px solid var(--outline-variant);
+    border-radius:16px; padding:26px; max-width:440px; width:100%;
+    display:flex; flex-direction:column; gap:16px;
+  }
+  #show-mode-welcome-modal h3{
+    font-family:'Montserrat',sans-serif; font-weight:600; font-size:19px; margin:0;
+    color:var(--on-surface);
+  }
+  .welcome-intro{ font-size:13px; color:var(--on-surface-variant); line-height:1.5; margin:0; }
+  .welcome-intro strong{ color:var(--primary-bright); }
+  .welcome-steps{ display:flex; flex-direction:column; gap:12px; }
+  .welcome-step{ display:flex; gap:12px; align-items:flex-start; }
+  .welcome-step-num{
+    font-family:'Montserrat',sans-serif; font-weight:700; font-size:12px;
+    color:#0a0a0a; background:linear-gradient(135deg, var(--primary), var(--secondary));
+    width:22px;height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;
+  }
+  .welcome-step span:last-child{ font-size:12.5px; color:var(--on-surface); line-height:1.5; }
+  .welcome-step strong{ color:var(--primary-bright); }
+  .welcome-dont-show{
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--on-surface-variant);
+    cursor:pointer; user-select:none;
+  }
+  .welcome-dont-show input{ width:14px;height:14px; accent-color:var(--primary); cursor:pointer; }
+
   #end-show-confirm-backdrop, #show-report-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,0.65);
     display:flex; align-items:center; justify-content:center; z-index:120;
@@ -1054,7 +1085,12 @@
     overflow-y:auto;
     padding:0 10px 10px 10px;
   }
-  #current-singer-empty{ font-size:12.5px; color:var(--on-surface-variant); text-align:center; padding:20px 10px; }
+  #current-singer-empty{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    color:var(--on-surface-variant); text-align:center; padding:32px 16px;
+  }
+  #current-singer-empty p{ margin:0; font-size:12.5px; line-height:1.6; }
+  #current-singer-empty strong{ color:var(--on-surface); }
   #singer-list-full{ display:flex; flex-direction:column; gap:6px; }
   .singer-playlist-item{
     display:flex;
@@ -1727,7 +1763,10 @@
     </div>
 
     <div id="singer-round-view" class="hidden">
-      <div id="current-singer-empty">Nenhum cantor na rodada ainda.</div>
+      <div id="current-singer-empty">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="28" height="28"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+        <p><strong>Nenhum cantor na rodada ainda.</strong><br/>Clique em "Carregar Música" acima — vai te perguntar de qual cantor é, e já cria ele na hora.</p>
+      </div>
       <div id="singer-list-full"></div>
     </div>
   </div>
@@ -1841,7 +1880,7 @@
       </select>
 
       <div id="singer-picker-new-row">
-        <input type="text" id="singer-picker-new-input" placeholder="Ou digite um nome novo..."/>
+        <input type="text" id="singer-picker-new-input" placeholder="Ou digite o nome de um cantor novo..."/>
         <button id="singer-picker-new-btn" class="card-btn primary">Adicionar</button>
       </div>
 
@@ -1892,6 +1931,35 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="show-mode-welcome-backdrop" class="hidden">
+    <div id="show-mode-welcome-modal">
+      <h3>Bem-vindo ao Modo Show</h3>
+      <p class="welcome-intro">Em vez de uma fila comum de músicas, a fila passa a ser organizada por <strong>cantor</strong> — cada um com sua própria fila de até 5 músicas, em rodízio automático.</p>
+
+      <div class="welcome-steps">
+        <div class="welcome-step">
+          <span class="welcome-step-num">1</span>
+          <span>Clique em <strong>"Carregar Música"</strong> (ou arraste um arquivo) — vai aparecer perguntando de qual cantor é essa música. Digite um nome novo pra criar o cantor na hora.</span>
+        </div>
+        <div class="welcome-step">
+          <span class="welcome-step-num">2</span>
+          <span>Repita pra cada música/cantor da noite. A ordem de rodízio segue a ordem que você foi adicionando.</span>
+        </div>
+        <div class="welcome-step">
+          <span class="welcome-step-num">3</span>
+          <span>Dê play — o sistema cuida de avançar pro próximo cantor sozinho. Pra editar nomes, reordenar ou adicionar mais músicas depois, use <strong>"Gerenciar Cantores"</strong> nas Configurações.</span>
+        </div>
+      </div>
+
+      <label class="welcome-dont-show">
+        <input type="checkbox" id="welcome-dont-show-again"/>
+        <span>Não mostrar essa explicação de novo</span>
+      </label>
+
+      <button id="welcome-start-btn" class="card-btn primary" style="width:100%;">Entendi, iniciar Modo Show</button>
     </div>
   </div>
 
@@ -2042,7 +2110,7 @@
           </button>
         </div>
         <div class="setting-card-body">
-          <p class="setting-card-desc">Alterar cores da paleta do CDG de fundo, letras e sincronização</p>
+          <p class="setting-card-desc">Alterar cores da paleta do CDG de fundo, letras e sincronização. <em>Só funciona pra músicas em formato CDG (MP3+G) — não afeta vídeos MP4.</em></p>
           <div id="color-pickers">
             <label class="color-field">
               <input type="color" id="color-background" value="#0e0e0e"/>
@@ -2117,13 +2185,13 @@
         <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" title="Abrir/fechar a segunda tela">
           <span class="dot"></span> Segunda Tela
         </button>
-        <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Ligar/desligar autoplay">
+        <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Quando ligado, a próxima música da fila começa sozinha depois de um tempo de espera">
           <span class="dot"></span> Autoplay
         </button>
-        <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Ligar/desligar aplausos automáticos">
+        <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Toca um som de aplausos automaticamente nos últimos segundos de cada música — não toca na hora que você liga">
           <span class="dot"></span> Aplausos
         </button>
-        <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Ligar/desligar música ambiente">
+        <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Toca uma música de fundo suave só quando NÃO há nenhuma música em reprodução (silêncio entre uma apresentação e outra)">
           <span class="dot"></span> Ambiente
         </button>
       </div>
