@@ -154,11 +154,11 @@
     display:flex;
     flex-direction:column;
     align-items:stretch;
-    gap:4px;
-    padding:20px 16px 16px 16px;
+    gap:2px;
+    padding:12px 16px 10px 16px;
     border-bottom:1px solid var(--outline-variant);
   }
-  #logo-area img{ width:100%; height:auto; display:block; }
+  #logo-area img{ width:100%; max-width:150px; height:auto; display:block; }
   #logo-area .brand-sub{
     font-family:'JetBrains Mono',monospace;
     font-size:10.5px;
@@ -168,7 +168,7 @@
 
   #sidebar-tabs{
     display:flex;
-    padding:12px 16px 0 16px;
+    padding:8px 16px 0 16px;
     gap:4px;
     border-bottom:1px solid var(--outline-variant);
   }
@@ -201,8 +201,8 @@
     display:flex;
     flex-direction:column;
     align-items:stretch;
-    gap:10px;
-    padding:16px;
+    gap:8px;
+    padding:12px 16px;
   }
   #playlist-header .playlist-count{
     font-family:'JetBrains Mono',monospace;
@@ -467,19 +467,32 @@
     justify-content:space-between;
     gap:8px;
   }
-  #end-show-btn{
-    font-family:'JetBrains Mono',monospace;
-    font-size:10px;
+  #show-mode-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
     font-weight:700;
-    color:var(--error);
-    background:none;
-    border:1px solid var(--error);
-    border-radius:6px;
-    padding:6px 10px;
+    padding:8px 12px;
+    border-radius:20px;
     cursor:pointer;
     white-space:nowrap;
+    flex:1;
+    justify-content:center;
+    min-width:0;
+    background:none;
+    border:1.5px solid var(--primary-bright);
+    color:var(--primary-bright);
   }
-  #end-show-btn:hover{ background:rgba(255,107,107,0.1); }
+  #show-mode-btn svg{ width:13px;height:13px;flex-shrink:0; }
+  #show-mode-btn span{ overflow:hidden; text-overflow:ellipsis; }
+  #show-mode-btn:hover{ background:rgba(173,198,255,0.08); }
+  #show-mode-btn.active{
+    border-color:var(--error);
+    color:var(--error);
+  }
+  #show-mode-btn.active:hover{ background:rgba(255,107,107,0.1); }
   #version-tag{
     font-family:'JetBrains Mono',monospace;
     font-size:10.5px;
@@ -676,98 +689,146 @@
   #countdown-overlay{
     position:absolute;
     inset:24px;
-    background:rgba(0,0,0,0.85);
+    background:rgba(0,0,0,0.9);
     border-radius:12px;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:8px;
+    gap:18px;
     z-index:10;
+    padding:32px;
+  }
+  #countdown-timer-parts{
+    display:flex;
+    align-items:baseline;
+    gap:16px;
   }
   #countdown-overlay .cd-label{
     font-family:'JetBrains Mono',monospace;
-    font-size:12px;
-    letter-spacing:0.06em;
+    font-size:min(2vw,15px);
+    letter-spacing:0.1em;
     text-transform:uppercase;
     color:var(--on-surface-variant);
   }
   #countdown-overlay .cd-number{
     font-family:'Montserrat',sans-serif;
-    font-weight:600;
-    font-size:64px;
-    color:var(--primary-bright);
+    font-weight:700;
+    font-size:min(9vw,72px);
+    color:var(--on-surface);
     line-height:1;
   }
   #countdown-overlay .cd-next{
     font-size:14px;
     color:var(--on-surface);
-    margin-bottom:10px;
     text-align:center;
     padding:0 20px;
   }
   #countdown-overlay #cd-skip-btn{
-    background:var(--surface-container-high);
-    border:1px solid var(--outline-variant);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:none;
+    border:1.5px solid var(--outline-variant);
     color:var(--on-surface);
-    font-size:12px;
-    padding:7px 16px;
-    border-radius:8px;
+    font-size:min(2.4vw,15px);
+    font-weight:600;
+    padding:12px 28px;
+    border-radius:999px;
     cursor:pointer;
     font-family:'Inter',sans-serif;
   }
-  #countdown-overlay #cd-skip-btn:hover{ border-color:var(--primary-bright); }
+  #countdown-overlay #cd-skip-btn:hover{ border-color:var(--primary-bright); color:var(--primary-bright); }
 
   #cd-singer-highlight{
-    background:var(--surface-container);
-    border:1px solid var(--primary);
-    border-radius:12px;
-    padding:16px 24px;
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:2px;
-    margin:4px 0;
+    gap:8px;
+    width:100%;
+    max-width:640px;
   }
-  .cd-singer-position{
+  .cd-a-seguir-label, .cd-proximas-label{
     font-family:'JetBrains Mono',monospace;
-    font-size:11px;
-    color:var(--tertiary);
-    letter-spacing:0.08em;
+    font-size:min(2vw,14px);
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--on-surface-variant);
+  }
+  #cd-singer-card{
+    background:#ffffff;
+    border-radius:14px;
+    padding:20px 32px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    width:100%;
   }
   #cd-singer-name-display{
     font-family:'Montserrat',sans-serif;
-    font-weight:600;
-    font-size:20px;
-    color:var(--on-surface);
+    font-weight:700;
+    font-size:min(5vw,32px);
+    color:#111111;
+    text-align:center;
   }
   #cd-singer-song-display{
-    font-size:13px;
-    color:var(--primary-bright);
+    font-size:min(2.4vw,16px);
+    font-weight:600;
+    color:#333333;
+    text-align:center;
   }
   #cd-singer-tone-display{
-    font-family:'JetBrains Mono',monospace;
-    font-size:11px;
-    color:var(--on-surface-variant);
+    font-size:13px;
+    color:#555555;
     margin-top:4px;
+    text-align:center;
+  }
+  #cd-upcoming-section{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    max-width:640px;
   }
   #cd-upcoming-list{
     display:flex;
     flex-direction:column;
-    gap:4px;
-    max-width:340px;
+    gap:8px;
     width:100%;
   }
   .cd-upcoming-row{
     display:flex;
     align-items:center;
-    gap:8px;
-    font-size:12px;
+    gap:10px;
+    font-size:min(2.2vw,15px);
     color:var(--on-surface-variant);
-    padding:4px 8px;
   }
-  .cd-upcoming-row .num{ font-family:'JetBrains Mono',monospace; color:var(--on-surface-variant); }
-  .cd-upcoming-row .name{ font-weight:600; color:var(--on-surface); }
+  .cd-upcoming-row .pos-badge{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:12px;
+    color:#111111;
+    background:#ffffff;
+    border-radius:999px;
+    width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .cd-upcoming-row .name-badge{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:min(2.2vw,14px);
+    color:#111111;
+    background:#ffffff;
+    border-radius:999px;
+    padding:5px 14px;
+    flex-shrink:0;
+  }
+  .cd-upcoming-row .song-info{
+    color:var(--on-surface-variant);
+  }
 
   /* ===================== GERENCIAR CANTORES ===================== */
   #manage-singers-backdrop{
@@ -812,14 +873,23 @@
   .manage-singer-row .count{ font-size:10.5px; color:var(--on-surface-variant); }
   .manage-singer-row .status-dot{ width:6px;height:6px;border-radius:50%; background:var(--tertiary); flex-shrink:0; }
   .manage-singer-row.paused .status-dot{ background:var(--on-surface-variant); }
-  .manage-singer-row .reorder-mini{ display:flex; flex-direction:column; gap:1px; }
-  .manage-singer-row .reorder-mini button{ width:16px;height:12px; background:none; border:none; color:var(--on-surface-variant); cursor:pointer; font-size:9px; padding:0; }
+  .reorder-mini{ display:flex; flex-direction:column; gap:1px; }
+  .reorder-mini button{ width:16px;height:12px; background:none; border:none; color:var(--on-surface-variant); cursor:pointer; font-size:9px; padding:0; }
+  .reorder-mini button:disabled{ opacity:0.25; cursor:default; }
   .manage-singer-row .row-actions{ display:flex; gap:4px; }
   .manage-singer-row .row-actions button{ width:22px;height:22px; background:var(--surface-container-high); border:none; border-radius:5px; color:var(--on-surface-variant); cursor:pointer; font-size:11px; }
   .manage-singer-row .row-actions button:hover{ color:var(--on-surface); }
   #manage-singers-right{ flex:1; padding:20px; overflow-y:auto; }
   #manage-singers-empty{ color:var(--on-surface-variant); font-size:13px; text-align:center; padding:40px 0; }
-  #detail-singer-name{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:19px; margin:0 0 14px 0; }
+  #detail-singer-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  #detail-singer-name{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:19px; margin:0; }
+  #detail-edit-name-btn{
+    width:26px;height:26px; display:flex; align-items:center; justify-content:center;
+    background:var(--surface-container-high); border:none; border-radius:6px;
+    color:var(--on-surface-variant); cursor:pointer;
+  }
+  #detail-edit-name-btn:hover{ color:var(--primary-bright); }
+  #detail-edit-name-btn svg{ width:13px;height:13px; }
   #detail-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--outline-variant); margin-bottom:14px; }
   .detail-tab{
     background:none; border:none; padding:8px 4px; margin-right:16px;
@@ -977,71 +1047,102 @@
     text-align:center;
   }
   /* ===================== RODADA DE CANTORES ===================== */
-  #current-singer-card{
-    background:var(--surface-container);
-    border:1px solid var(--outline-variant);
-    border-radius:12px;
-    padding:18px;
-    margin-top:12px;
-  }
-  #current-singer-empty{ font-size:12.5px; color:var(--on-surface-variant); text-align:center; padding:20px 0; }
-  .singer-position-label{
-    font-family:'JetBrains Mono',monospace;
-    font-size:10px;
-    letter-spacing:0.1em;
-    color:var(--tertiary);
-  }
-  #current-singer-name{
-    font-family:'Montserrat',sans-serif;
-    font-weight:600;
-    font-size:20px;
-    color:var(--on-surface);
-    margin-top:4px;
-  }
-  #current-singer-song{
-    font-size:13px;
-    color:var(--primary-bright);
-    margin-top:4px;
-  }
-  #current-singer-waiting{ margin-top:12px; }
-  #current-singer-waiting p{
-    font-size:12px;
-    color:#f5a623;
-    margin:0 0 10px 0;
-  }
-  #skip-singer-btn{
-    background:var(--surface-container-high);
-    border:1px solid var(--outline-variant);
-    color:var(--on-surface);
-    font-size:12px;
-    padding:7px 14px;
-    border-radius:8px;
-    cursor:pointer;
-  }
-  .upcoming-singer-row{
+  #current-singer-empty{ font-size:12.5px; color:var(--on-surface-variant); text-align:center; padding:20px 10px; }
+  #singer-list-full{ display:flex; flex-direction:column; gap:6px; }
+  .singer-playlist-item{
     display:flex;
     align-items:center;
     gap:10px;
-    padding:8px 4px;
-    border-bottom:1px solid var(--outline-variant);
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid transparent;
+    background:var(--surface-container);
+    cursor:grab;
   }
-  .upcoming-singer-row .num{
-    font-family:'JetBrains Mono',monospace;
+  .singer-playlist-item.active{
+    border-color:var(--primary);
+    background:var(--surface-container-high);
+  }
+  .singer-playlist-item.dragging{ opacity:0.4; }
+  .singer-playlist-item .play-tri{
+    width:14px;height:14px;flex-shrink:0;
+    color:var(--on-surface-variant);
+  }
+  .singer-playlist-item.active .play-tri{ color:var(--primary-bright); }
+  .singer-playlist-item .pos-num-badge{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:11px;
+    color:#111111;
+    background:#ffffff;
+    border-radius:999px;
+    width:20px;height:20px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .singer-playlist-item .singer-meta{ flex:1; min-width:0; }
+  .singer-playlist-item .singer-name-line{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--on-surface);
+  }
+  .singer-playlist-item.active .singer-name-line{ color:var(--primary-bright); }
+  .singer-playlist-item .singer-song-line{
+    font-size:13px;
+    font-weight:600;
+    color:var(--on-surface);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .singer-playlist-item .singer-sub-line{
     font-size:11px;
     color:var(--on-surface-variant);
-    width:18px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .upcoming-singer-row .info{ flex:1; min-width:0; }
-  .upcoming-singer-row .name{ font-size:12.5px; font-weight:600; color:var(--on-surface); }
-  .upcoming-singer-row .song{ font-size:11px; color:var(--on-surface-variant); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .upcoming-singer-row .paused-tag{
+  .singer-playlist-item .singer-waiting-inline{ font-size:11.5px; color:#f5a623; }
+  .singer-playlist-item .skip-singer-inline-btn{
+    background:var(--surface-container-high);
+    border:1px solid var(--outline-variant);
+    color:var(--on-surface);
+    font-size:10.5px;
+    padding:3px 9px;
+    border-radius:6px;
+    cursor:pointer;
+    margin-top:4px;
+  }
+  .singer-playlist-item .paused-tag{
     font-family:'JetBrains Mono',monospace;
     font-size:9px;
     color:var(--on-surface-variant);
     border:1px solid var(--outline-variant);
     border-radius:6px;
     padding:2px 6px;
+    flex-shrink:0;
   }
+  .singer-playlist-item .singer-reorder-controls{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    flex-shrink:0;
+  }
+  .singer-playlist-item .singer-reorder-controls button{
+    width:18px;height:14px;
+    background:none; border:none;
+    color:var(--on-surface-variant);
+    cursor:pointer;
+    font-size:9px;
+    padding:0;
+  }
+  .singer-playlist-item .singer-reorder-controls button:disabled{ opacity:0.25; cursor:default; }
+  .singer-playlist-item .singer-remove-btn{
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    background:none; border:none;
+    color:var(--on-surface-variant);
+    cursor:pointer;
+    flex-shrink:0;
+    border-radius:6px;
+  }
+  .singer-playlist-item .singer-remove-btn:hover{ color:var(--error); background:var(--surface-container-high); }
 
   /* ===================== MODAL ESCOLHER CANTOR ===================== */
   #singer-picker-backdrop{
@@ -1073,27 +1174,25 @@
     margin:-8px 0 0 0;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  #singer-picker-list{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-    max-height:220px;
-    overflow-y:auto;
-  }
-  .singer-picker-option{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
+  #singer-picker-dropdown{
+    width:100%;
     background:var(--surface-container);
     border:1px solid var(--outline-variant);
     border-radius:8px;
-    padding:10px 14px;
+    padding:11px 14px;
     cursor:pointer;
     font-size:13px;
+    font-family:'Inter',sans-serif;
     color:var(--on-surface);
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9d9c' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    background-size:16px;
   }
-  .singer-picker-option:hover{ border-color:var(--primary-bright); }
-  .singer-picker-option .count{ font-size:11px; color:var(--on-surface-variant); }
+  #singer-picker-dropdown:hover{ border-color:var(--primary-bright); }
+  #singer-picker-dropdown option{ background:var(--surface-container); color:var(--on-surface); }
   #singer-picker-new-row{ display:flex; gap:8px; }
   #singer-picker-new-row input{
     flex:1;
@@ -1133,20 +1232,20 @@
     background:var(--surface-container-low);
     border:1px solid var(--outline-variant);
     border-radius:16px;
-    padding:20px 24px 24px 24px;
+    padding:18px 22px 22px 22px;
     width:100%;
-    max-width:560px;
-    max-height:85vh;
+    max-width:900px;
+    max-height:92vh;
     overflow-y:auto;
     display:flex;
     flex-direction:column;
-    gap:16px;
+    gap:14px;
   }
   #settings-modal-header{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    padding-bottom:12px;
+    padding-bottom:10px;
     border-bottom:1px solid var(--outline-variant);
   }
   #settings-modal-header h3{
@@ -1167,51 +1266,77 @@
   }
   #settings-close-btn:hover{ color:var(--on-surface); }
   #settings-close-btn svg{ width:14px;height:14px; }
-  .settings-row{
-    display:flex;
-    align-items:center;
-    gap:24px;
-    flex-wrap:wrap;
+
+  #settings-cards-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
   }
-  .color-field{
+  .setting-card{
+    background:var(--surface-container);
+    border:1px solid var(--outline-variant);
+    border-radius:12px;
+    padding:14px 16px;
     display:flex;
     flex-direction:column;
+    gap:10px;
+  }
+  .setting-card-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .setting-card-title{
+    font-family:'Montserrat',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    color:var(--on-surface);
+  }
+  .setting-card-title em{
+    font-style:normal;
+    font-size:11px;
+    color:var(--on-surface-variant);
+    font-weight:400;
+  }
+  .setting-toggle-indicator{
+    display:flex;
+    align-items:center;
     gap:6px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:2px 4px;
     font-size:12px;
     color:var(--on-surface-variant);
+    flex-shrink:0;
   }
-  .color-field input[type=color]{
-    width:56px;height:32px;
-    border:1px solid var(--outline-variant);
-    border-radius:6px;
-    background:none;
-    cursor:pointer;
-    padding:0;
+  .setting-toggle-indicator:disabled{ cursor:default; }
+  .setting-toggle-indicator .toggle-dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--on-surface-variant);
+    flex-shrink:0;
   }
-  .settings-label{
-    font-size:13px;
+  .setting-toggle-indicator.on{ color:var(--primary-bright); }
+  .setting-toggle-indicator.on .toggle-dot{ background:var(--primary-bright); }
+  .setting-card-body{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    font-size:12.5px;
     color:var(--on-surface-variant);
   }
-  .settings-hint{
+  .setting-card-desc{
     font-size:12px;
     color:var(--on-surface-variant);
     line-height:1.5;
     margin:0;
-    max-width:640px;
+    width:100%;
   }
-  .switch-label{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    font-size:13px;
-    cursor:pointer;
-    user-select:none;
-  }
-  .switch-label input[type=checkbox]{
-    width:16px;height:16px;
-    accent-color: var(--primary);
-    cursor:pointer;
-  }
+  .setting-card-desc em{ font-style:normal; color:var(--on-surface-variant); opacity:0.8; }
+  .setting-card-body input[type=range]{ flex:1; min-width:60px; }
   .delay-input{
     width:52px;
     background:var(--surface-container-high);
@@ -1224,23 +1349,46 @@
     color:var(--tertiary);
     text-align:center;
   }
-  .settings-card-row{
+  .mini-checkbox-row{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    gap:16px;
-    background:var(--surface-container);
+    gap:8px;
+    font-size:12.5px;
+    color:var(--on-surface);
+    cursor:pointer;
+    user-select:none;
+    width:100%;
+  }
+  .mini-checkbox-row input[type=checkbox]{
+    width:14px;height:14px;
+    accent-color:var(--primary);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  #color-pickers{
+    display:flex;
+    gap:10px;
+    width:100%;
+  }
+  .color-field{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    font-size:9.5px;
+    letter-spacing:0.06em;
+    color:var(--on-surface-variant);
+    font-family:'JetBrains Mono',monospace;
+  }
+  .color-field input[type=color]{
+    width:100%;
+    height:34px;
     border:1px solid var(--outline-variant);
     border-radius:8px;
-    padding:12px 16px;
-    flex-wrap:wrap;
-  }
-  .settings-card-row .desc{ font-size:12px; color:var(--on-surface-variant); max-width:460px; }
-  .settings-card-row .title-row{ display:flex; align-items:center; gap:8px; margin-bottom:2px; }
-  .settings-card-row .title-row span:first-child{ font-size:13px;font-weight:600; }
-  .new-badge{
-    background:var(--tertiary); color:#04342c; font-family:'JetBrains Mono',monospace;
-    font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px;
+    background:none;
+    cursor:pointer;
+    padding:0;
   }
   .card-btn{
     background:var(--surface-container-high);
@@ -1576,20 +1724,8 @@
     </div>
 
     <div id="singer-round-view" class="hidden">
-      <div id="current-singer-card">
-        <div id="current-singer-empty">Nenhum cantor na rodada ainda.</div>
-        <div id="current-singer-content" class="hidden">
-          <span class="singer-position-label">CANTOR DA VEZ</span>
-          <div id="current-singer-name">—</div>
-          <div id="current-singer-song">—</div>
-          <div id="current-singer-waiting" class="hidden">
-            <p>Aguardando seleção de música</p>
-            <button id="skip-singer-btn">Pular cantor</button>
-          </div>
-        </div>
-      </div>
-      <div class="library-section-label" style="margin:16px 0 8px 0;">Próximos na rodada</div>
-      <div id="upcoming-singers-list"></div>
+      <div id="current-singer-empty">Nenhum cantor na rodada ainda.</div>
+      <div id="singer-list-full"></div>
     </div>
   </div>
 
@@ -1622,8 +1758,11 @@
     <button id="settings-btn" title="Configurações">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
     </button>
-    <button id="end-show-btn" class="hidden" title="Encerrar Show">Encerrar Show</button>
-    <span id="version-tag">v1.2</span>
+    <button id="show-mode-btn" title="Modo Show">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"/></svg>
+      <span id="show-mode-btn-label">Iniciar Modo Show</span>
+    </button>
+    <span id="version-tag">v2.0</span>
   </div>
 </div>
 
@@ -1658,20 +1797,29 @@
 
     <div id="countdown-overlay" class="hidden">
       <div id="countdown-timer-parts">
-        <span class="cd-label">Próxima música em</span>
+        <span class="cd-label">A música inicia em:</span>
         <span class="cd-number" id="cd-number">10</span>
         <span class="cd-next" id="cd-next-title"></span>
       </div>
 
       <div id="cd-singer-highlight" class="hidden">
-        <span class="cd-singer-position" id="cd-singer-position">#1</span>
-        <div id="cd-singer-name-display">Mario</div>
-        <div id="cd-singer-song-display">Música — Artista</div>
-        <div id="cd-singer-tone-display" class="hidden">Aguardando seleção de música</div>
+        <span class="cd-a-seguir-label">A seguir:</span>
+        <div id="cd-singer-card">
+          <div id="cd-singer-name-display">Mario</div>
+          <div id="cd-singer-song-display">Música — Artista</div>
+          <div id="cd-singer-tone-display" class="hidden">Aguardando seleção de música</div>
+        </div>
       </div>
-      <div id="cd-upcoming-list"></div>
 
-      <button id="cd-skip-btn" class="hidden">Pular espera ▶</button>
+      <div id="cd-upcoming-section">
+        <span class="cd-proximas-label">Próximas músicas:</span>
+        <div id="cd-upcoming-list"></div>
+      </div>
+
+      <button id="cd-skip-btn" class="hidden">
+        <svg fill="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+        Iniciar Agora
+      </button>
     </div>
 
     <div id="idle-overlay" class="hidden">
@@ -1685,7 +1833,9 @@
       <h3>Essa música é de qual cantor?</h3>
       <p id="singer-picker-filename" class="singer-picker-filename"></p>
 
-      <div id="singer-picker-list"></div>
+      <select id="singer-picker-dropdown">
+        <option value="" disabled selected>Selecionar cantor existente...</option>
+      </select>
 
       <div id="singer-picker-new-row">
         <input type="text" id="singer-picker-new-input" placeholder="Ou digite um nome novo..."/>
@@ -1693,7 +1843,7 @@
       </div>
 
       <div id="singer-picker-actions">
-        <button id="singer-picker-cancel-btn" class="card-btn secondary">Pular essa música</button>
+        <button id="singer-picker-cancel-btn" class="card-btn secondary">Cancelar</button>
       </div>
     </div>
   </div>
@@ -1713,7 +1863,12 @@
         <div id="manage-singers-right">
           <div id="manage-singers-empty">Selecione um cantor na lista à esquerda.</div>
           <div id="manage-singers-detail" class="hidden">
-            <h4 id="detail-singer-name">—</h4>
+            <div id="detail-singer-name-row">
+              <h4 id="detail-singer-name">—</h4>
+              <button id="detail-edit-name-btn" title="Editar nome">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+              </button>
+            </div>
             <div id="detail-tabs">
               <button id="detail-tab-queue-btn" class="detail-tab active">Fila de Espera</button>
               <button id="detail-tab-history-btn" class="detail-tab">Músicas Cantadas</button>
@@ -1815,101 +1970,103 @@
       </button>
     </div>
 
-    <div class="settings-row">
-      <label class="switch-label">
-        <input type="checkbox" id="custom-colors-toggle"/>
-        <span>Aplicar esquema de cores personalizado <span class="settings-label">(somente em CDG)</span></span>
-      </label>
-    </div>
-    <div id="color-pickers" class="settings-row">
-      <label class="color-field">
-        <span>Fundo</span>
-        <input type="color" id="color-background" value="#0e0e0e"/>
-      </label>
-      <label class="color-field">
-        <span>Texto</span>
-        <input type="color" id="color-text" value="#ffffff"/>
-      </label>
-      <label class="color-field">
-        <span>Destaque (sincronia)</span>
-        <input type="color" id="color-highlight" value="#4d8eff"/>
-      </label>
+    <div id="settings-cards-grid">
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title">Autoplay</span>
+          <button class="setting-toggle-indicator" id="autoplay-toggle-indicator" type="button">
+            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          </button>
+        </div>
+        <div class="setting-card-body">
+          <span>Esperar</span>
+          <input type="number" id="autoplay-delay-input" class="delay-input" min="0" max="60" value="10"/>
+          <span>segundos nos intervalos entre as músicas</span>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title">Música Ambiente</span>
+          <button class="setting-toggle-indicator" id="ambient-toggle-indicator" type="button">
+            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          </button>
+        </div>
+        <div class="setting-card-body">
+          <span>Definir volume do fundo musical</span>
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
+          <input type="range" id="ambient-volume-slider" min="0" max="100" value="30"/>
+          <span id="ambient-volume-pct">30%</span>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title">Imagem de Fundo de Tela</span>
+          <button class="setting-toggle-indicator" id="idle-image-toggle-indicator" type="button" disabled>
+            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          </button>
+        </div>
+        <div class="setting-card-body">
+          <p class="setting-card-desc">Exibe uma imagem de fundo quando não estiver tocando nenhuma música. <em>Tamanho ideal 1920×1080 px.</em></p>
+          <button id="idle-image-upload-btn" class="card-btn primary" style="width:100%;">Fazer Upload de Imagem</button>
+          <div id="idle-image-filename" class="hidden"></div>
+          <button id="idle-image-remove-btn" class="card-btn secondary hidden" style="width:100%;">Remover imagem</button>
+        </div>
+      </div>
+      <input type="file" id="idle-image-input" accept="image/*" class="hidden"/>
+
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title">Modo Show</span>
+          <button class="setting-toggle-indicator" id="singer-mode-toggle-indicator" type="button" disabled title="Use o botão 'Iniciar Modo Show' na barra lateral">
+            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          </button>
+        </div>
+        <div class="setting-card-body">
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-upcoming-toggle" checked/><span>Exibir lista dos próximos cantores</span></label>
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-titles-toggle"/><span>Exibir títulos das músicas</span></label>
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-counter-toggle" checked/><span>Exibir contador regressivo de Autoplay</span></label>
+          <button id="open-manage-singers-btn" class="card-btn primary" style="width:100%;">Gerenciar Cantores</button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title">Alterar Cores de CDG <em>(experimental)</em></span>
+          <button class="setting-toggle-indicator" id="custom-colors-toggle-indicator" type="button">
+            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          </button>
+        </div>
+        <div class="setting-card-body">
+          <p class="setting-card-desc">Alterar cores da paleta do CDG de fundo, letras e sincronização</p>
+          <div id="color-pickers">
+            <label class="color-field">
+              <input type="color" id="color-background" value="#0e0e0e"/>
+              <span>FUNDO</span>
+            </label>
+            <label class="color-field">
+              <input type="color" id="color-text" value="#ffffff"/>
+              <span>TEXTO</span>
+            </label>
+            <label class="color-field">
+              <input type="color" id="color-highlight" value="#4d8eff"/>
+              <span>DESTAQUE</span>
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="settings-row">
-      <label class="switch-label">
-        <input type="checkbox" id="applause-toggle"/>
-        <span>Aplausos automáticos nos últimos 5 segundos</span>
-      </label>
-    </div>
-
-    <div class="settings-row">
-      <label class="switch-label">
-        <input type="checkbox" id="autoplay-toggle"/>
-        <span>Autoplay da fila</span>
-      </label>
-      <span class="settings-label">esperar</span>
-      <input type="number" id="autoplay-delay-input" class="delay-input" min="0" max="60" value="10"/>
-      <span class="settings-label">segundos antes da próxima</span>
-    </div>
-
-    <div class="settings-row">
-      <label class="switch-label">
-        <input type="checkbox" id="ambient-toggle"/>
-        <span>Música ambiente (toca quando não há música em reprodução)</span>
-      </label>
-      <span class="settings-label">volume</span>
-      <input type="range" id="ambient-volume-slider" min="0" max="100" value="30" style="width:90px;"/>
-      <span class="settings-label" id="ambient-volume-pct">30%</span>
-    </div>
-
-    <div id="singer-mode-row" class="settings-card-row">
-      <div>
-        <div class="title-row"><span>Rodada de cantores</span><span class="new-badge">NOVO</span></div>
-        <div class="desc">A fila passa a ser organizada por cantor (cada um com até 5 músicas), em rodízio automático.</div>
-      </div>
-      <label class="switch-label" style="flex-shrink:0;">
-        <input type="checkbox" id="singer-mode-toggle"/>
-        <span>Ativar</span>
-      </label>
-    </div>
-
-    <div id="singer-mode-extra-settings" class="hidden">
-      <div class="settings-row">
-        <label class="switch-label"><input type="checkbox" id="cd-show-upcoming-toggle" checked/><span>Exibir lista dos próximos cantores</span></label>
-      </div>
-      <div class="settings-row">
-        <label class="switch-label"><input type="checkbox" id="cd-show-titles-toggle" checked/><span>Exibir títulos das músicas</span></label>
-      </div>
-      <div class="settings-row">
-        <label class="switch-label"><input type="checkbox" id="cd-show-counter-toggle" checked/><span>Exibir contador numérico</span></label>
-      </div>
-      <div class="settings-row">
-        <button id="open-manage-singers-btn" class="card-btn">Gerenciar Cantores</button>
-      </div>
-    </div>
-
-    <div id="second-screen-row" class="settings-card-row">
-      <div>
-        <div class="title-row"><span>Segunda tela</span><span class="new-badge">NOVO</span></div>
-        <div class="desc">Abre a letra numa janela separada, sem os controles — arraste pro seu segundo monitor e coloque em tela cheia.</div>
-        <div id="second-screen-status" class="hidden">● Janela aberta e sincronizada</div>
-      </div>
-      <button id="open-second-btn" class="card-btn">Abrir janela ↗</button>
-    </div>
-
-    <div id="idle-image-row" class="settings-card-row">
-      <div>
-        <div class="title-row"><span>Imagem de fundo (tela ociosa)</span></div>
-        <div class="desc">Enquanto nada está tocando, mostra essa imagem no lugar da logo — em ambas as telas. Ideal 1920×1080px.</div>
-        <div id="idle-image-filename" class="hidden"></div>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button id="idle-image-remove-btn" class="card-btn secondary hidden">Remover</button>
-        <button id="idle-image-upload-btn" class="card-btn">Escolher imagem</button>
-      </div>
-    </div>
-    <input type="file" id="idle-image-input" accept="image/*" class="hidden"/>
+    <!-- Checkboxes "de verdade" (fonte da lógica) que não têm mais card
+         visual próprio — controlados só pelos pills do rodapé — mas
+         precisam continuar existindo no DOM. -->
+    <input type="checkbox" id="applause-toggle" class="hidden"/>
+    <input type="checkbox" id="autoplay-toggle" class="hidden"/>
+    <input type="checkbox" id="ambient-toggle" class="hidden"/>
+    <input type="checkbox" id="custom-colors-toggle" class="hidden"/>
+    <button id="open-second-btn" class="hidden">Abrir janela</button>
+    <div id="second-screen-status" class="hidden"></div>
    </div>
   </div>
 

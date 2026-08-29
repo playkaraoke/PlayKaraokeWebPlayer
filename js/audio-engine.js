@@ -455,6 +455,22 @@ class AudioEngine extends EventTarget {
       if (!this._playing) return;
       const currentTime = this.getCurrentTime();
       const duration = this.getDuration();
+
+      // Rede de segurança: o evento 'ended' nativo do navegador (que
+      // detecta o fim da música) tem relatos conhecidos de não disparar
+      // de forma 100% confiável em alguns casos raros do Chrome — quando
+      // isso acontece, o player fica "travado" no fim da música sem
+      // avançar sozinho. Como esse loop já sabe o tempo atual e a
+      // duração (via relógio do AudioContext, independente do evento
+      // nativo), detectamos esse caso aqui e forçamos o fim manualmente,
+      // em vez de depender só do navegador.
+      if (duration > 0 && currentTime >= duration - 0.05) {
+        this._playing = false;
+        this.dispatchEvent(new CustomEvent('ended'));
+        this._stopTicking();
+        return;
+      }
+
       // Chamada direta, sem alocar objeto de evento — roda a cada frame.
       for (let i = 0; i < this._timeUpdateCallbacks.length; i++) {
         this._timeUpdateCallbacks[i](currentTime, duration);

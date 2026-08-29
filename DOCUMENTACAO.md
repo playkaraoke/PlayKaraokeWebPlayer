@@ -712,6 +712,32 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **v2.0 — redesign completo da interface do modo cantores.** Vale saber:
+  - Correção real de bug: motor de áudio ganhou uma rede de segurança
+    pro caso do evento `ended` nativo do navegador não disparar (relatos
+    conhecidos de instabilidade no Chrome nesse evento) — o loop de tick
+    já existente detecta quando o tempo passou da duração e força o fim
+    manualmente.
+  - "Modo Show" agora é **um único botão** no rodapé (não mais um toggle
+    de configurações + botão separado de encerrar). Ligado → mostra
+    "Encerrar Show"; clicar nesse estado abre a confirmação de encerrar
+    de verdade (relatório + CSV + reset). **Não existe mais um jeito de
+    só "pausar" o modo sem encerrar** — decisão explícita do usuário.
+  - Configurações: Aplausos e Segunda Tela saíram do modal (viraram só
+    os pills do rodapé, que já bastam — sem configuração extra que
+    justificasse um card). Modal virou grid de 2 colunas, sem scroll.
+  - Fila em modo cantores agora é uma **lista completa** (1 linha por
+    cantor, mostrando a música atual dele), não mais um card resumido —
+    com drag-and-drop, setas, remover, e duplo-clique abrindo Gerenciar
+    Cantores direto no cantor certo.
+  - Tela de espera: card branco pro "a seguir", 3 próximos (era 2),
+    botão "Iniciar Agora" sempre visível fora do timer também (pula se
+    tiver contando, ou já inicia a vez do cantor se estiver parado).
+  - Tudo desenhado pra caber sem scroll numa tela de ~1280×800 (MacBook
+    13") — logo com tamanho máximo fixo em pixels, espaçamentos
+    reduzidos.
+
+
 - **Persistência de músicas em modo cantores tem a mesma limitação já
   conhecida do modo simples**: só músicas vindas da Biblioteca sobrevivem
   a um F5 (referência viva ao arquivo); músicas manuais (arrastadas) não

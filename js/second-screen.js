@@ -23,7 +23,6 @@
   const cdNumber = document.getElementById('cd-number');
   const cdNextTitle = document.getElementById('cd-next-title');
   const cdSingerHighlight = document.getElementById('cd-singer-highlight');
-  const cdSingerPosition = document.getElementById('cd-singer-position');
   const cdSingerNameDisplay = document.getElementById('cd-singer-name-display');
   const cdSingerSongDisplay = document.getElementById('cd-singer-song-display');
   const cdUpcomingList = document.getElementById('cd-upcoming-list');
@@ -97,8 +96,6 @@
     const display = msg.display || { upcoming: true, titles: true, counter: true };
     cdNumber.classList.toggle('hidden', !display.counter);
     cdSingerHighlight.classList.remove('hidden');
-    const pos = (msg.singer && msg.singer.position) || 1;
-    cdSingerPosition.textContent = `#${pos} · CANTOR DA VEZ`;
     cdSingerNameDisplay.textContent = (msg.singer && msg.singer.name) || '—';
     if (msg.singer && msg.singer.song && display.titles) {
       cdSingerSongDisplay.classList.remove('hidden');
@@ -108,20 +105,23 @@
     }
 
     cdUpcomingList.innerHTML = '';
+    const upcomingSection = document.getElementById('cd-upcoming-section');
+    if (upcomingSection) upcomingSection.classList.toggle('hidden', !display.upcoming);
     if (display.upcoming && Array.isArray(msg.upcoming)) {
       msg.upcoming.forEach((s) => {
         const row = document.createElement('div');
         row.className = 'cd-upcoming-row';
-        const num = document.createElement('span');
-        num.textContent = `#${s.position || ''}`;
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = s.name;
-        row.appendChild(num);
-        row.appendChild(name);
+        const posBadge = document.createElement('span');
+        posBadge.className = 'pos-badge';
+        posBadge.textContent = String(s.position || '');
+        const nameBadge = document.createElement('span');
+        nameBadge.className = 'name-badge';
+        nameBadge.textContent = s.name;
+        row.appendChild(posBadge);
+        row.appendChild(nameBadge);
         if (display.titles && s.song) {
           const songText = document.createElement('span');
-          songText.textContent = '— ' + [s.song.title, s.song.artist].filter(Boolean).join(' / ');
+          songText.textContent = [s.song.title, s.song.artist].filter(Boolean).join(' - ');
           row.appendChild(songText);
         }
         cdUpcomingList.appendChild(row);

@@ -114,36 +114,59 @@
     padding:0 20px;
   }
   #cd-singer-highlight{
-    background:rgba(255,255,255,0.06);
-    border:1px solid #4d8eff;
-    border-radius:16px;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    width:100%; max-width:70vw;
+  }
+  .cd-a-seguir-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:min(2vw,14px);
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:#9a9d9c;
+  }
+  #cd-singer-card{
+    background:#ffffff;
+    border-radius:14px;
     padding:20px 32px;
     display:flex; flex-direction:column; align-items:center; gap:4px;
-    margin:8px 0;
-  }
-  .cd-singer-position{
-    font-family:'JetBrains Mono',monospace;
-    font-size:min(2vw,13px);
-    color:#4edea3;
-    letter-spacing:0.1em;
+    width:100%;
   }
   #cd-singer-name-display{
     font-family:'Montserrat',sans-serif;
-    font-weight:600;
+    font-weight:700;
     font-size:min(5vw,32px);
-    color:#e5e2e1;
+    color:#111111;
+    text-align:center;
   }
   #cd-singer-song-display{
-    font-size:min(3vw,18px);
-    color:#adc6ff;
+    font-size:min(2.4vw,16px);
+    font-weight:600;
+    color:#333333;
+    text-align:center;
   }
-  #cd-upcoming-list{ display:flex; flex-direction:column; gap:4px; max-width:60vw; }
-  .cd-upcoming-row{
-    display:flex; align-items:center; gap:10px;
-    font-size:min(2.2vw,14px);
+  #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:70vw; }
+  .cd-proximas-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:min(2vw,14px);
+    letter-spacing:0.1em;
+    text-transform:uppercase;
     color:#9a9d9c;
   }
-  .cd-upcoming-row .name{ font-weight:600; color:#e5e2e1; }
+  #cd-upcoming-list{ display:flex; flex-direction:column; gap:8px; width:100%; }
+  .cd-upcoming-row{
+    display:flex; align-items:center; gap:10px;
+    font-size:min(2.2vw,15px);
+    color:#9a9d9c;
+  }
+  .cd-upcoming-row .pos-badge{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:12px;
+    color:#111111; background:#ffffff; border-radius:999px;
+    width:24px;height:24px; display:flex;align-items:center;justify-content:center; flex-shrink:0;
+  }
+  .cd-upcoming-row .name-badge{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:min(2.2vw,14px);
+    color:#111111; background:#ffffff; border-radius:999px; padding:5px 14px; flex-shrink:0;
+  }
 </style>
 </head>
 <body>
@@ -163,17 +186,22 @@
 
 <div id="countdown-overlay" class="hidden">
   <div id="countdown-timer-parts">
-    <span class="cd-label">Próxima música em</span>
+    <span class="cd-label">A música inicia em:</span>
     <span class="cd-number" id="cd-number">10</span>
     <span class="cd-next" id="cd-next-title"></span>
   </div>
 
   <div id="cd-singer-highlight" class="hidden">
-    <span class="cd-singer-position" id="cd-singer-position">#1 · CANTOR DA VEZ</span>
-    <div id="cd-singer-name-display">—</div>
-    <div id="cd-singer-song-display">—</div>
+    <span class="cd-a-seguir-label">A seguir:</span>
+    <div id="cd-singer-card">
+      <div id="cd-singer-name-display">—</div>
+      <div id="cd-singer-song-display">—</div>
+    </div>
   </div>
-  <div id="cd-upcoming-list"></div>
+  <div id="cd-upcoming-section">
+    <span class="cd-proximas-label">Próximas músicas:</span>
+    <div id="cd-upcoming-list"></div>
+  </div>
 </div>
 
 <button id="fs-btn" title="Tela cheia">

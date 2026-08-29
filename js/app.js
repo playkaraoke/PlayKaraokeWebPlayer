@@ -39,6 +39,12 @@ const errorBanner = el('error-banner');
 const loadingBanner = el('loading-banner');
 
 const settingsBtn = el('settings-btn');
+const autoplayToggleIndicator = el('autoplay-toggle-indicator');
+const ambientToggleIndicator = el('ambient-toggle-indicator');
+const idleImageToggleIndicator = el('idle-image-toggle-indicator');
+const customColorsToggleIndicator = el('custom-colors-toggle-indicator');
+const showModeBtn = el('show-mode-btn');
+const showModeBtnLabel = el('show-mode-btn-label');
 const settingsModalBackdrop = el('settings-modal-backdrop');
 const settingsCloseBtn = el('settings-close-btn');
 const customColorsToggle = el('custom-colors-toggle');
@@ -76,7 +82,7 @@ const librarySearchInput = el('library-search-input');
 const librarySearchClearBtn = el('library-search-clear-btn');
 
 const cdSingerHighlight = el('cd-singer-highlight');
-const cdSingerPosition = el('cd-singer-position');
+const cdUpcomingSection = el('cd-upcoming-section');
 const cdSingerNameDisplay = el('cd-singer-name-display');
 const cdSingerSongDisplay = el('cd-singer-song-display');
 const cdSingerToneDisplay = el('cd-singer-tone-display');
@@ -84,7 +90,6 @@ const cdUpcomingList = el('cd-upcoming-list');
 const cdShowUpcomingToggle = el('cd-show-upcoming-toggle');
 const cdShowTitlesToggle = el('cd-show-titles-toggle');
 const cdShowCounterToggle = el('cd-show-counter-toggle');
-const singerModeExtraSettings = el('singer-mode-extra-settings');
 
 const openManageSingersBtn = el('open-manage-singers-btn');
 const manageSingersBackdrop = el('manage-singers-backdrop');
@@ -94,6 +99,7 @@ const addNewSingerBtn = el('add-new-singer-btn');
 const manageSingersEmpty = el('manage-singers-empty');
 const manageSingersDetail = el('manage-singers-detail');
 const detailSingerName = el('detail-singer-name');
+const detailEditNameBtn = el('detail-edit-name-btn');
 const detailTabQueueBtn = el('detail-tab-queue-btn');
 const detailTabHistoryBtn = el('detail-tab-history-btn');
 const detailQueuePanel = el('detail-queue-panel');
@@ -105,7 +111,8 @@ const detailAddSongSearch = el('detail-add-song-search');
 const detailSongSearchInput = el('detail-song-search-input');
 const detailSongSearchResults = el('detail-song-search-results');
 
-const endShowBtn = el('end-show-btn');
+const endShowBtn = null; // removido: agora é o showModeBtn que assume esse papel
+const singerModeToggleIndicator = el('singer-mode-toggle-indicator');
 const endShowConfirmBackdrop = el('end-show-confirm-backdrop');
 const endShowConfirmCancelBtn = el('end-show-confirm-cancel-btn');
 const endShowConfirmOkBtn = el('end-show-confirm-ok-btn');
@@ -119,19 +126,14 @@ const showReportTbody = el('show-report-tbody');
 const exportCsvBtn = el('export-csv-btn');
 const newShowBtn = el('new-show-btn');
 
-const singerModeToggle = el('singer-mode-toggle');
 const singerRoundView = el('singer-round-view');
 const currentSingerEmpty = el('current-singer-empty');
-const currentSingerContent = el('current-singer-content');
-const currentSingerName = el('current-singer-name');
-const currentSingerSong = el('current-singer-song');
-const currentSingerWaiting = el('current-singer-waiting');
-const skipSingerBtn = el('skip-singer-btn');
-const upcomingSingersList = el('upcoming-singers-list');
+const singerListFull = el('singer-list-full');
+let singerDragFromIndex = null;
 
 const singerPickerBackdrop = el('singer-picker-backdrop');
 const singerPickerFilename = el('singer-picker-filename');
-const singerPickerList = el('singer-picker-list');
+const singerPickerDropdown = el('singer-picker-dropdown');
 const singerPickerNewInput = el('singer-picker-new-input');
 const singerPickerNewBtn = el('singer-picker-new-btn');
 const singerPickerCancelBtn = el('singer-picker-cancel-btn');
@@ -728,6 +730,7 @@ function updatePlayIcon() {
 
   const badge = playlistEl.querySelector('.now-playing-badge');
   if (badge) badge.classList.toggle('hidden', !playing);
+  if (singerModeEnabled) updateSingerNowPlayingBadge();
 }
 
 playBtn.addEventListener('click', async () => {
@@ -885,6 +888,37 @@ function checkSilenceForApplause(currentTime, duration, remaining) {
 
 // ---------- Autoplay da fila (com contagem regressiva) ----------
 
+// ---------- Indicadores "Ativado/Desativado" do novo design de Configurações ----------
+
+/** Deixa um botão-indicador (texto + bolinha) sincronizado visualmente
+ * com um checkbox escondido, e clicável pra alternar o checkbox. */
+function syncToggleIndicator(indicatorEl, checkboxEl) {
+  const update = () => {
+    const on = checkboxEl.checked;
+    indicatorEl.classList.toggle('on', on);
+    const textEl = indicatorEl.querySelector('.toggle-state-text');
+    if (textEl) textEl.textContent = on ? 'Ativado' : 'Desativado';
+  };
+  update();
+  checkboxEl.addEventListener('change', update);
+  indicatorEl.addEventListener('click', () => {
+    checkboxEl.checked = !checkboxEl.checked;
+    checkboxEl.dispatchEvent(new Event('change'));
+  });
+}
+
+/** Pro indicador de imagem de fundo, que não tem checkbox próprio (o
+ * "ativado" dele é simplesmente "existe uma imagem definida agora"). */
+function updateIdleImageToggleIndicatorDisplay(hasImage) {
+  idleImageToggleIndicator.classList.toggle('on', hasImage);
+  const textEl = idleImageToggleIndicator.querySelector('.toggle-state-text');
+  if (textEl) textEl.textContent = hasImage ? 'Ativado' : 'Desativado';
+}
+
+syncToggleIndicator(autoplayToggleIndicator, autoplayToggle);
+syncToggleIndicator(ambientToggleIndicator, ambientToggle);
+syncToggleIndicator(customColorsToggleIndicator, customColorsToggle);
+
 function updateAutoplayIndicator() {
   const on = autoplayToggle.checked;
   quickAutoplayBtn.classList.toggle('on', on);
@@ -965,7 +999,7 @@ function startSingerCountdown() {
     type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText,
     singerMode: true,
     singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
-    upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
+    upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
     display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
   });
 
@@ -1155,13 +1189,13 @@ function updateIdleOverlay() {
       renderRichCountdown(singer);
       countdownOverlay.classList.remove('hidden');
       countdownTimerParts.classList.toggle('hidden', !singerCountdownActive);
-      cdSkipBtn.classList.toggle('hidden', !singerCountdownActive);
+      cdSkipBtn.classList.remove('hidden'); // botão "Iniciar Agora" sempre visível quando ocioso em modo cantores
       if (!singerCountdownActive) {
         broadcastToSecondScreen({
           type: 'countdown-start', delay: 0, remaining: 0,
           singerMode: true, timerless: true,
           singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
-          upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
+          upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
           display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
         });
       }
@@ -1190,6 +1224,7 @@ function applyIdleImage() {
     idleCustomImage.classList.add('hidden');
     idleCustomImage.style.backgroundImage = '';
   }
+  updateIdleImageToggleIndicatorDisplay(!!customIdleImageDataUrl);
 }
 
 idleImageUploadBtn.addEventListener('click', () => idleImageInput.click());
@@ -1642,16 +1677,27 @@ function applySingerModeVisibility() {
   singerRoundView.classList.toggle('hidden', !singerModeEnabled);
 }
 
-singerModeToggle.addEventListener('change', () => {
-  singerModeEnabled = singerModeToggle.checked;
-  applySingerModeVisibility();
-  singerModeExtraSettings.classList.toggle('hidden', !singerModeEnabled);
-  endShowBtn.classList.toggle('hidden', !singerModeEnabled);
-  persistSingers();
-  if (singerModeEnabled) {
+function updateShowModeBtnDisplay() {
+  showModeBtn.classList.toggle('active', singerModeEnabled);
+  showModeBtnLabel.textContent = singerModeEnabled ? 'Encerrar Show' : 'Iniciar Modo Show';
+  const indicatorText = singerModeToggleIndicator.querySelector('.toggle-state-text');
+  singerModeToggleIndicator.classList.toggle('on', singerModeEnabled);
+  if (indicatorText) indicatorText.textContent = singerModeEnabled ? 'Ativado' : 'Desativado';
+}
+
+showModeBtn.addEventListener('click', () => {
+  if (!singerModeEnabled) {
+    // Liga o Modo Show na hora.
+    singerModeEnabled = true;
+    applySingerModeVisibility();
+    updateShowModeBtnDisplay();
+    persistSingers();
     loadCurrentSingerTurn(false);
   } else {
-    resetToEmptyState();
+    // Já está ligado: "encerrar" passa pelo fluxo completo (confirmação
+    // + relatório) — não existe mais um jeito de só desligar sem
+    // encerrar de verdade.
+    endShowConfirmBackdrop.classList.remove('hidden');
   }
 });
 
@@ -1663,59 +1709,149 @@ function getSingerPosition(singerId) {
 }
 
 function renderSingerRoundView() {
-  const singer = singerManager.getCurrentSinger();
-  if (!singer) {
+  const allSingers = singerManager.getAllSingers();
+  singerListFull.innerHTML = '';
+
+  if (allSingers.length === 0) {
     currentSingerEmpty.classList.remove('hidden');
-    currentSingerContent.classList.add('hidden');
-    upcomingSingersList.innerHTML = '';
     return;
   }
   currentSingerEmpty.classList.add('hidden');
-  currentSingerContent.classList.remove('hidden');
-  currentSingerName.textContent = singer.name;
-  const posLabel = currentSingerContent.querySelector('.singer-position-label');
-  if (posLabel) posLabel.textContent = `#${getSingerPosition(singer.id)} · CANTOR DA VEZ`;
 
-  if (singer.songs.length > 0) {
-    const song = singer.songs[0];
-    currentSingerSong.textContent = [song.artist, song.title].filter(Boolean).join(' — ');
-    currentSingerSong.classList.remove('hidden');
-    currentSingerWaiting.classList.add('hidden');
-  } else {
-    currentSingerSong.classList.add('hidden');
-    currentSingerWaiting.classList.remove('hidden');
-  }
+  const currentSinger = singerManager.getCurrentSinger();
 
-  upcomingSingersList.innerHTML = '';
-  const upcoming = singerManager.getUpcomingSingers(5);
-  upcoming.forEach((s, i) => {
+  allSingers.forEach((s, i) => {
+    const isActive = currentSinger && s.id === currentSinger.id;
     const row = document.createElement('div');
-    row.className = 'upcoming-singer-row';
-    const num = document.createElement('span');
-    num.className = 'num';
-    num.textContent = String(getSingerPosition(s.id));
-    const info = document.createElement('div');
-    info.className = 'info';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'name';
-    nameEl.textContent = s.name;
-    const songEl = document.createElement('div');
-    songEl.className = 'song';
-    songEl.textContent = s.songs.length > 0
-      ? [s.songs[0].artist, s.songs[0].title].filter(Boolean).join(' — ')
-      : 'sem música na fila';
-    info.appendChild(nameEl);
-    info.appendChild(songEl);
-    row.appendChild(num);
-    row.appendChild(info);
-    if (s.paused) {
-      const tag = document.createElement('span');
-      tag.className = 'paused-tag';
-      tag.textContent = 'PAUSADO';
-      row.appendChild(tag);
+    row.className = 'singer-playlist-item' + (isActive ? ' active' : '');
+    row.draggable = true;
+    row.dataset.singerId = s.id;
+
+    const tri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    tri.setAttribute('viewBox', '0 0 24 24');
+    tri.setAttribute('fill', 'currentColor');
+    tri.setAttribute('class', 'play-tri');
+    tri.innerHTML = '<path d="M8 5v14l11-7z"/>';
+
+    const posBadge = document.createElement('span');
+    posBadge.className = 'pos-num-badge';
+    posBadge.textContent = String(i + 1);
+
+    const meta = document.createElement('div');
+    meta.className = 'singer-meta';
+    const nameLine = document.createElement('div');
+    nameLine.className = 'singer-name-line';
+    nameLine.textContent = s.name;
+    meta.appendChild(nameLine);
+
+    if (s.songs.length > 0) {
+      const song = s.songs[0];
+      const songLine = document.createElement('div');
+      songLine.className = 'singer-song-line';
+      songLine.textContent = song.title;
+      const subLine = document.createElement('div');
+      subLine.className = 'singer-sub-line';
+      subLine.textContent = [song.artist, song.code].filter(Boolean).join(' · ') || song.format;
+      meta.appendChild(songLine);
+      meta.appendChild(subLine);
+    } else if (isActive) {
+      const waiting = document.createElement('div');
+      waiting.className = 'singer-waiting-inline';
+      waiting.textContent = 'Aguardando seleção de música';
+      const skipBtn = document.createElement('button');
+      skipBtn.className = 'skip-singer-inline-btn';
+      skipBtn.textContent = 'Pular cantor';
+      skipBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        singerManager.skipCurrentSinger();
+        loadCurrentSingerTurn(false);
+      });
+      waiting.appendChild(document.createElement('br'));
+      meta.appendChild(waiting);
+      meta.appendChild(skipBtn);
+    } else {
+      const subLine = document.createElement('div');
+      subLine.className = 'singer-sub-line';
+      subLine.textContent = 'sem música na fila';
+      meta.appendChild(subLine);
     }
-    upcomingSingersList.appendChild(row);
+
+    row.appendChild(tri);
+    row.appendChild(posBadge);
+    row.appendChild(meta);
+
+    if (isActive) {
+      const badge = document.createElement('span');
+      badge.className = 'now-playing-badge' + (isAnythingPlaying() ? '' : ' hidden');
+      badge.textContent = 'TOCANDO';
+      row.appendChild(badge);
+    } else {
+      if (s.paused) {
+        const tag = document.createElement('span');
+        tag.className = 'paused-tag';
+        tag.textContent = 'PAUSADO';
+        row.appendChild(tag);
+      }
+      const reorderControls = document.createElement('div');
+      reorderControls.className = 'singer-reorder-controls';
+      const upBtn = document.createElement('button');
+      upBtn.textContent = '▲';
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i - 1); });
+      const downBtn = document.createElement('button');
+      downBtn.textContent = '▼';
+      downBtn.disabled = i === allSingers.length - 1;
+      downBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i + 2); });
+      reorderControls.appendChild(upBtn);
+      reorderControls.appendChild(downBtn);
+      row.appendChild(reorderControls);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'singer-remove-btn';
+      removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+      removeBtn.title = 'Remover cantor';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`Remover ${s.name} e todas as músicas dele(a)?`)) {
+          singerManager.removeSinger(s.id);
+        }
+      });
+      row.appendChild(removeBtn);
+    }
+
+    // Duplo-clique abre o Gerenciar Cantores já no cantor certo.
+    row.addEventListener('dblclick', () => {
+      selectedManageSingerId = s.id;
+      openManageSingersModal();
+    });
+
+    // Arrastar pra reordenar.
+    row.addEventListener('dragstart', () => {
+      singerDragFromIndex = i;
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', (e) => e.preventDefault());
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (singerDragFromIndex === null || singerDragFromIndex === i) return;
+      const rect = row.getBoundingClientRect();
+      const isTopHalf = e.clientY < rect.top + rect.height / 2;
+      const targetIndex = isTopHalf ? i : i + 1;
+      singerManager.reorderSinger(singerDragFromIndex, targetIndex);
+      singerDragFromIndex = null;
+    });
+
+    singerListFull.appendChild(row);
   });
+}
+
+/** Chamado sempre que o estado de play/pause muda, pra manter a tag
+ * TOCANDO da lista de cantores sincronizada (sem precisar re-renderizar
+ * a lista inteira, que perderia o estado de drag). */
+function updateSingerNowPlayingBadge() {
+  const badge = singerListFull.querySelector('.now-playing-badge');
+  if (badge) badge.classList.toggle('hidden', !isAnythingPlaying());
 }
 
 /** Carrega a música do cantor da vez no player (ou mostra estado de espera/vazio). */
@@ -1733,10 +1869,7 @@ async function loadCurrentSingerTurn(autoplay) {
   await selectTrack(0, { autoplay, initialSemitones: song.savedSemitones || 0 });
 }
 
-skipSingerBtn.addEventListener('click', () => {
-  singerManager.skipCurrentSinger();
-  loadCurrentSingerTurn(false);
-});
+// (o "Pular cantor" agora é renderizado dentro da própria linha ativa em renderSingerRoundView, quando ela não tem música)
 
 // ---------- Modal "Escolher cantor" (aparece ao adicionar música em modo cantores) ----------
 
@@ -1753,21 +1886,19 @@ function openSingerPickerModal(file) {
 }
 
 function renderSingerPickerList() {
-  singerPickerList.innerHTML = '';
+  singerPickerDropdown.innerHTML = '<option value="" disabled selected>Selecionar cantor existente...</option>';
   singerManager.getAllSingers().forEach(s => {
-    const row = document.createElement('div');
-    row.className = 'singer-picker-option';
-    const name = document.createElement('span');
-    name.textContent = s.name;
-    const count = document.createElement('span');
-    count.className = 'count';
-    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER}`;
-    row.appendChild(name);
-    row.appendChild(count);
-    row.addEventListener('click', () => resolveSingerPicker({ singerId: s.id, isNew: false }));
-    singerPickerList.appendChild(row);
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.name} (${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER})`;
+    singerPickerDropdown.appendChild(opt);
   });
 }
+singerPickerDropdown.addEventListener('change', () => {
+  if (singerPickerDropdown.value) {
+    resolveSingerPicker({ singerId: singerPickerDropdown.value, isNew: false });
+  }
+});
 
 function resolveSingerPicker(result) {
   if (!singerPickerResolve) return;
@@ -1881,10 +2012,8 @@ async function restoreSingersFromStorage() {
   if (!saved) return;
 
   singerModeEnabled = !!saved.enabled;
-  singerModeToggle.checked = singerModeEnabled;
   applySingerModeVisibility();
-  singerModeExtraSettings.classList.toggle('hidden', !singerModeEnabled);
-  endShowBtn.classList.toggle('hidden', !singerModeEnabled);
+  updateShowModeBtnDisplay();
 
   // Restaura músicas que vieram da Biblioteca (têm referência viva);
   // músicas manuais não sobrevivem a um F5 (mesma limitação já conhecida
@@ -1984,11 +2113,10 @@ function renderRichCountdown(singer) {
   const showUpcoming = cdShowUpcomingToggle.checked;
   const showCounter = cdShowCounterToggle.checked;
 
-  cdNumber.parentElement.querySelector('.cd-number').classList.toggle('hidden', !showCounter);
+  cdNumber.classList.toggle('hidden', !showCounter);
   cdNextTitle.classList.add('hidden'); // a versão simples de texto some, usamos o card rico
   cdSingerHighlight.classList.remove('hidden');
 
-  cdSingerPosition.textContent = `#${getSingerPosition(singer.id)} · CANTOR DA VEZ`;
   cdSingerNameDisplay.textContent = singer.name;
 
   if (singer.songs.length > 0) {
@@ -2003,22 +2131,24 @@ function renderRichCountdown(singer) {
   }
 
   cdUpcomingList.innerHTML = '';
+  cdUpcomingSection.classList.toggle('hidden', !showUpcoming);
   if (showUpcoming) {
-    const upcoming = singerManager.getUpcomingSingers(2);
+    const upcoming = singerManager.getUpcomingSingers(3);
     upcoming.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'cd-upcoming-row';
-      const num = document.createElement('span');
-      num.className = 'num';
-      num.textContent = `#${getSingerPosition(s.id)}`;
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = s.name;
-      row.appendChild(num);
-      row.appendChild(name);
+      const posBadge = document.createElement('span');
+      posBadge.className = 'pos-badge';
+      posBadge.textContent = String(getSingerPosition(s.id));
+      const nameBadge = document.createElement('span');
+      nameBadge.className = 'name-badge';
+      nameBadge.textContent = s.name;
+      row.appendChild(posBadge);
+      row.appendChild(nameBadge);
       if (showTitles) {
         const songText = document.createElement('span');
-        songText.textContent = s.songs.length > 0 ? '— ' + [s.songs[0].title, s.songs[0].artist].filter(Boolean).join(' / ') : '— sem música';
+        songText.className = 'song-info';
+        songText.textContent = s.songs.length > 0 ? [s.songs[0].title, s.songs[0].artist].filter(Boolean).join(' - ') : 'sem música';
         row.appendChild(songText);
       }
       cdUpcomingList.appendChild(row);
@@ -2149,6 +2279,23 @@ function renderManageSingerDetail(singerId) {
   renderDetailHistoryList(singer);
 }
 
+detailEditNameBtn.addEventListener('click', () => {
+  const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
+  if (!singer) return;
+  const newName = prompt('Novo nome do cantor:', singer.name);
+  if (newName === null) return; // cancelou
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === singer.name) return;
+  try {
+    singerManager.renameSinger(singer.id, trimmed);
+    detailSingerName.textContent = singer.name;
+    renderManageSingersList();
+    renderSingerRoundView();
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
 function switchDetailTab(tab) {
   manageDetailTab = tab;
   detailTabQueueBtn.classList.toggle('active', tab === 'queue');
@@ -2180,6 +2327,29 @@ function renderDetailQueueList(singer) {
     sub.textContent = song.artist || song.format;
     info.appendChild(title);
     info.appendChild(sub);
+
+    const reorderMini = document.createElement('div');
+    reorderMini.className = 'reorder-mini';
+    const upBtn = document.createElement('button');
+    upBtn.textContent = '▲';
+    upBtn.disabled = i === 0;
+    upBtn.title = 'Mover pra cima';
+    upBtn.addEventListener('click', () => {
+      singerManager.reorderSongInSinger(singer.id, i, i - 1);
+      renderDetailQueueList(singer);
+      renderSingerRoundView();
+    });
+    const downBtn = document.createElement('button');
+    downBtn.textContent = '▼';
+    downBtn.disabled = i === singer.songs.length - 1;
+    downBtn.title = 'Mover pra baixo';
+    downBtn.addEventListener('click', () => {
+      singerManager.reorderSongInSinger(singer.id, i, i + 2);
+      renderDetailQueueList(singer);
+      renderSingerRoundView();
+    });
+    reorderMini.appendChild(upBtn);
+    reorderMini.appendChild(downBtn);
 
     const toneControls = document.createElement('div');
     toneControls.className = 'tone-controls';
@@ -2216,6 +2386,7 @@ function renderDetailQueueList(singer) {
     });
 
     row.appendChild(info);
+    row.appendChild(reorderMini);
     row.appendChild(toneControls);
     row.appendChild(removeBtn);
     detailQueueList.appendChild(row);
@@ -2303,7 +2474,7 @@ detailSongSearchInput.addEventListener('input', () => {
 
 // ---------- Encerrar Show (feature 3) ----------
 
-endShowBtn.addEventListener('click', () => endShowConfirmBackdrop.classList.remove('hidden'));
+// (o clique que abre a confirmação de encerrar já é tratado no listener do showModeBtn, acima)
 endShowConfirmCancelBtn.addEventListener('click', () => endShowConfirmBackdrop.classList.add('hidden'));
 endShowConfirmBackdrop.addEventListener('click', (e) => { if (e.target === endShowConfirmBackdrop) endShowConfirmBackdrop.classList.add('hidden'); });
 
@@ -2543,4 +2714,5 @@ applyIdleImage();
 updateIdleOverlay();
 renderPlaylist();
 restoreShowHistory();
+updateShowModeBtnDisplay();
 restoreCountdownSettings();
