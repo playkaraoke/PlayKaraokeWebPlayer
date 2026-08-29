@@ -712,6 +712,46 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Conceito de "pausar cantor" foi removido por completo** — decisão do
+  usuário, achou que gerava confusão (alguém fica pausado sem se dar
+  conta, e a rodada passa reto por ele sem aviso claro o suficiente).
+  Removido de `singers.js` (campo `paused`, `setPaused`,
+  `skipCurrentSinger`), do "Gerenciar Cantores" (botão ⏸/▶), e da fila
+  (botão "Pular cantor", tag "PAUSADO"). Agora, cantor sem música na vez
+  dele simplesmente **fica esperando** — sem botão de pular, sem pausa
+  automática. Rotação voltou a ser um `(idx + 1) % length` simples, sem
+  filtro nenhum.
+- **Bug de scroll corrigido**: a lista de cantores (`#singer-round-view`)
+  nunca tinha ganhado `flex:1; overflow-y:auto;` — igual a lista simples
+  (`#playlist`) já tinha desde sempre. Com muitos cantores, a lista
+  crescia e cobria o rodapé (engrenagem/Modo Show/versão) em vez de
+  rolar internamente.
+
+
+- **Bug real encontrado e corrigido: travamento + pular cantor na rodada.**
+  Causa raiz: `selectTrack()` não tinha proteção contra chamadas
+  sobrepostas (cliques rápidos, ou o próprio evento "ended" disparando
+  mais de uma vez pra mesma música — o que já sabíamos ser possível,
+  vide a rede de segurança adicionada antes). Um disparo duplo de "ended"
+  chamava `consumeCurrentSongAndAdvance()` duas vezes seguidas, avançando
+  a rodada duas posições de uma vez — exatamente o "cantor pulado" que o
+  usuário reportou. Corrigido com dois mecanismos:
+  1. `selectTrack()` ganhou um contador de gerações — uma chamada mais
+     nova invalida qualquer chamada antiga ainda em andamento (que se
+     auto-cancela nos pontos de espera).
+  2. `handleTrackEnded()` ganhou um debounce de 800ms — ignora disparos
+     repetidos do evento de fim de música dentro dessa janela.
+  Teste de regressão confirma: dois disparos seguidos de "ended" agora
+  avançam a rodada só uma vez (não mais pulando ninguém).
+- **Botão Stop** adicionado no transporte (entre Play e Próxima) —
+  invalida qualquer carregamento em andamento e reseta tudo pro estado
+  vazio, pra quando travar por qualquer outro motivo não previsto.
+- **Triângulo de play nas linhas da fila (modo cantores)** só aparece na
+  linha ATIVA agora — nas outras não tinha ação nenhuma associada
+  (clique simples não faz nada, só duplo-clique/arrastar), então mostrar
+  ele lá só confundia.
+
+
 - **v2.0 — redesign completo da interface do modo cantores.** Vale saber:
   - Correção real de bug: motor de áudio ganhou uma rede de segurança
     pro caso do evento `ended` nativo do navegador não disparar (relatos

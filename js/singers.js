@@ -38,7 +38,7 @@ function createSingerManager({ onChange }) {
     const trimmed = (name || '').trim();
     if (!trimmed) throw new Error('Nome do cantor não pode ser vazio.');
     if (nameExists(trimmed)) throw new Error('Já existe um cantor com esse nome.');
-    const singer = { id: 'singer_' + (++idCounter), name: trimmed, paused: false, songs: [], history: [] };
+    const singer = { id: 'singer_' + (++idCounter), name: trimmed, songs: [], history: [] };
     singers.push(singer);
     if (currentSingerId === null) currentSingerId = singer.id;
     notify();
@@ -60,11 +60,6 @@ function createSingerManager({ onChange }) {
       currentSingerId = singers.length > 0 ? singers[0].id : null;
     }
     notify();
-  }
-
-  function setPaused(id, paused) {
-    const singer = findSinger(id);
-    if (singer) { singer.paused = paused; notify(); }
   }
 
   function reorderSinger(fromIndex, toIndex) {
@@ -111,17 +106,12 @@ function createSingerManager({ onChange }) {
     notify();
   }
 
-  /** Cantor ativo (não pausado) seguinte a partir de um id, em ordem circular. Null se nenhum ativo. */
+  /** Próximo cantor da rodada a partir de um id, em ordem circular. */
   function getNextActiveSingerId(afterId) {
     if (singers.length === 0) return null;
-    const activeSingers = singers.filter(s => !s.paused);
-    if (activeSingers.length === 0) return null;
     const idx = singers.findIndex(s => s.id === afterId);
-    for (let step = 1; step <= singers.length; step++) {
-      const candidate = singers[(idx + step) % singers.length];
-      if (!candidate.paused) return candidate.id;
-    }
-    return null;
+    const nextIdx = (idx + 1) % singers.length;
+    return singers[nextIdx].id;
   }
 
   function getCurrentSinger() {
@@ -129,7 +119,7 @@ function createSingerManager({ onChange }) {
   }
 
   /** Consome a música do topo do cantor atual (ela já tocou), registra no
-   * histórico dele, e avança a vez pro próximo cantor ativo da rodada. */
+   * histórico dele, e avança a vez pro próximo cantor da rodada. */
   function consumeCurrentSongAndAdvance(playedInfo) {
     const singer = getCurrentSinger();
     if (singer && singer.songs.length > 0) {
@@ -145,16 +135,7 @@ function createSingerManager({ onChange }) {
     notify();
   }
 
-  /** Pula o cantor atual (marca pausado) e avança pro próximo. */
-  function skipCurrentSinger() {
-    const singer = getCurrentSinger();
-    if (singer) singer.paused = true;
-    const nextId = getNextActiveSingerId(currentSingerId);
-    currentSingerId = nextId;
-    notify();
-  }
-
-  /** Lista os próximos N cantores ativos a partir do atual (não inclui o atual). */
+  /** Lista os próximos N cantores a partir do atual (não inclui o atual). */
   function getUpcomingSingers(count) {
     const result = [];
     let id = currentSingerId;
@@ -188,9 +169,9 @@ function createSingerManager({ onChange }) {
   }
 
   return {
-    addSinger, renameSinger, removeSinger, setPaused, reorderSinger,
+    addSinger, renameSinger, removeSinger, reorderSinger,
     addSongToSinger, removeSongFromSinger, reorderSongInSinger,
-    getCurrentSinger, consumeCurrentSongAndAdvance, skipCurrentSinger,
+    getCurrentSinger, consumeCurrentSongAndAdvance,
     getUpcomingSingers, getNextActiveSingerId,
     getAllSingers: () => singers,
     nameExists,

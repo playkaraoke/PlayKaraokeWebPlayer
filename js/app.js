@@ -21,6 +21,7 @@ const metaSong = el('meta-song');
 const metaFormat = el('meta-format');
 
 const playBtn = el('play-btn');
+const stopBtn = el('stop-btn');
 const playIcon = el('play-icon');
 const pauseIcon = el('pause-icon');
 const nextBtn = el('next-btn');
@@ -482,9 +483,20 @@ async function addFilesToQueue(files) {
   }
 }
 
+let selectTrackGeneration = 0;
+
 async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: false, initialSemitones: 0 }) {
   if (index < 0 || index >= playlist.length) return;
   cancelCountdown();
+
+  // Rede de segurança contra chamadas sobrepostas: se `selectTrack` for
+  // chamada de novo antes dessa terminar de carregar (ex: clique duplo,
+  // autoplay avançando rápido demais, etc.), a chamada mais velha se
+  // auto-cancela nos pontos de espera assim que percebe que não é mais
+  // a mais recente — evita carregar a mesma música (ou músicas erradas)
+  // múltiplas vezes ao mesmo tempo, que é o que causava o travamento.
+  const myGeneration = ++selectTrackGeneration;
+  const isCurrent = () => myGeneration === selectTrackGeneration;
 
   currentIndex = index;
   renderPlaylist();
@@ -493,6 +505,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   showLoading(true);
   try {
     const result = await window.loadKaraokeFile(item.file);
+    if (!isCurrent()) return; // uma chamada mais nova já assumiu, descarta essa
     applauseTriggered = false;
     silenceAccumMs = 0;
     lastSilenceCheckMs = 0;
@@ -502,6 +515,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     if (result.type === 'cdg') {
       cdgPlayer.load(result.cdgBuffer);
       await engine.loadArrayBuffer(result.audioBuffer);
+      if (!isCurrent()) return;
       setStage('cdg');
       timeDuration.textContent = formatTime(engine.getDuration());
       seekBar.max = String(Math.floor(engine.getDuration() * 1000));
@@ -521,6 +535,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
       // CDG — só funciona no motor de thread separada (worklet); se caiu
       // pro motor antigo, o vídeo toca normal, sem ajuste de tom.
       const pitchOk = await engine.ensureVideoPitchSupport();
+      if (!isCurrent()) return;
       videoPitchRouted = pitchOk && engine.attachVideoElement(videoEl);
       if (!videoPitchRouted) {
         console.warn('[App] Ajuste de tom não disponível pra esse vídeo neste navegador.');
@@ -538,6 +553,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     }
 
     playBtn.disabled = false;
+    stopBtn.disabled = false;
     settingsBtn.classList.remove('hidden');
 
     if (autoplay) {
@@ -550,10 +566,11 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     }
     refreshIdleState();
   } catch (err) {
+    if (!isCurrent()) return; // erro de uma chamada já obsoleta -- ignora silenciosamente
     console.error(err);
     showError(err.message || 'Não foi possível carregar essa música.');
   } finally {
-    showLoading(false);
+    if (isCurrent()) showLoading(false);
   }
 }
 
@@ -567,6 +584,16 @@ function playNextInQueue() {
 }
 
 nextBtn.addEventListener('click', playNextInQueue);
+
+stopBtn.addEventListener('click', () => {
+  // Invalida qualquer selectTrack() ainda em andamento (carregamento
+  // travado, cliques duplos, etc.) antes de resetar tudo — assim o
+  // resultado de uma chamada antiga não "chega atrasado" depois do
+  // reset e bagunça o estado de novo.
+  selectTrackGeneration++;
+  handlingTrackEnded = false;
+  resetToEmptyState();
+});
 
 // ---------- Modal de informações da música (abre ao clicar na fila) ----------
 
@@ -671,6 +698,7 @@ function resetToEmptyState() {
   seekBar.value = '0';
 
   playBtn.disabled = true;
+  stopBtn.disabled = true;
   settingsBtn.classList.remove('active');
   settingsModalBackdrop.classList.add('hidden');
   updatePlayIcon();
@@ -1022,7 +1050,19 @@ function finishSingerCountdown() {
 
 /** Ponto único chamado sempre que uma música termina — decide qual dos
  * dois modos (simples ou rodada de cantores) deve tratar o evento. */
+let handlingTrackEnded = false;
+
 function handleTrackEnded() {
+  // Rede de segurança: se o evento "ended" disparar mais de uma vez pra
+  // mesma música (ex: motor de áudio + rede de segurança do tick.js
+  // disparando quase juntos, ou vídeo + engine ambos avisando), sem essa
+  // proteção a gente consumiria/avançaria a rodada mais de uma vez —
+  // pulando o cantor errado sem querer. Ignora repetições dentro de uma
+  // janela curta.
+  if (handlingTrackEnded) return;
+  handlingTrackEnded = true;
+  setTimeout(() => { handlingTrackEnded = false; }, 800);
+
   if (singerModeEnabled) {
     handleSingerModeSongEnded();
   } else {
@@ -1727,11 +1767,14 @@ function renderSingerRoundView() {
     row.draggable = true;
     row.dataset.singerId = s.id;
 
-    const tri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    tri.setAttribute('viewBox', '0 0 24 24');
-    tri.setAttribute('fill', 'currentColor');
-    tri.setAttribute('class', 'play-tri');
-    tri.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    let tri = null;
+    if (isActive) {
+      tri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      tri.setAttribute('viewBox', '0 0 24 24');
+      tri.setAttribute('fill', 'currentColor');
+      tri.setAttribute('class', 'play-tri');
+      tri.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    }
 
     const posBadge = document.createElement('span');
     posBadge.className = 'pos-num-badge';
@@ -1758,17 +1801,7 @@ function renderSingerRoundView() {
       const waiting = document.createElement('div');
       waiting.className = 'singer-waiting-inline';
       waiting.textContent = 'Aguardando seleção de música';
-      const skipBtn = document.createElement('button');
-      skipBtn.className = 'skip-singer-inline-btn';
-      skipBtn.textContent = 'Pular cantor';
-      skipBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        singerManager.skipCurrentSinger();
-        loadCurrentSingerTurn(false);
-      });
-      waiting.appendChild(document.createElement('br'));
       meta.appendChild(waiting);
-      meta.appendChild(skipBtn);
     } else {
       const subLine = document.createElement('div');
       subLine.className = 'singer-sub-line';
@@ -1776,7 +1809,7 @@ function renderSingerRoundView() {
       meta.appendChild(subLine);
     }
 
-    row.appendChild(tri);
+    if (tri) row.appendChild(tri);
     row.appendChild(posBadge);
     row.appendChild(meta);
 
@@ -1786,12 +1819,6 @@ function renderSingerRoundView() {
       badge.textContent = 'TOCANDO';
       row.appendChild(badge);
     } else {
-      if (s.paused) {
-        const tag = document.createElement('span');
-        tag.className = 'paused-tag';
-        tag.textContent = 'PAUSADO';
-        row.appendChild(tag);
-      }
       const reorderControls = document.createElement('div');
       reorderControls.className = 'singer-reorder-controls';
       const upBtn = document.createElement('button');
@@ -1982,7 +2009,7 @@ function persistSingers() {
   try {
     const raw = singerManager.serialize();
     const safeSingers = raw.singers.map(s => ({
-      id: s.id, name: s.name, paused: s.paused,
+      id: s.id, name: s.name,
       songs: s.songs.map(song => ({
         code: song.code, artist: song.artist, title: song.title,
         format: song.format, type: song.type,
@@ -2187,7 +2214,7 @@ function renderManageSingersList() {
   const singers = singerManager.getAllSingers();
   singers.forEach((s, i) => {
     const row = document.createElement('div');
-    row.className = 'manage-singer-row' + (s.id === selectedManageSingerId ? ' selected' : '') + (s.paused ? ' paused' : '');
+    row.className = 'manage-singer-row' + (s.id === selectedManageSingerId ? ' selected' : '');
 
     const pos = document.createElement('span');
     pos.className = 'pos';
@@ -2206,7 +2233,7 @@ function renderManageSingersList() {
     nameLine.appendChild(nameEl);
     const count = document.createElement('div');
     count.className = 'count';
-    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} músicas${s.paused ? ' · pausado' : ''}`;
+    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} músicas`;
     info.appendChild(nameLine);
     info.appendChild(count);
 
@@ -2225,10 +2252,6 @@ function renderManageSingersList() {
 
     const actions = document.createElement('div');
     actions.className = 'row-actions';
-    const pauseBtn = document.createElement('button');
-    pauseBtn.textContent = s.paused ? '▶' : '⏸';
-    pauseBtn.title = s.paused ? 'Reativar' : 'Pausar';
-    pauseBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.setPaused(s.id, !s.paused); renderManageSingersList(); renderSingerRoundView(); });
     const delBtn = document.createElement('button');
     delBtn.textContent = '×';
     delBtn.title = 'Excluir';
@@ -2243,7 +2266,6 @@ function renderManageSingersList() {
         renderSingerRoundView();
       }
     });
-    actions.appendChild(pauseBtn);
     actions.appendChild(delBtn);
 
     row.appendChild(pos);
