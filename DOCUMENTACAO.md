@@ -712,6 +712,21 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Textos esquecidos na primeira passada do i18n, achados pelo
+  usuário via print**: a tela de espera da TELA PRINCIPAL (rótulos "A
+  seguir:", "Próximas músicas:", botão "Iniciar Agora") e a barra de
+  metadados embaixo do palco (Código/Artista/Música/Formato) nunca
+  tinham ganhado `data-i18n` — eu só tinha coberto a versão que vai pra
+  segunda tela via broadcast, esquecendo a versão local que aparece na
+  tela do próprio operador. Também achei o banner "Carregando
+  arquivo…" sem tradução. Corrigido, com teste reproduzindo o cenário
+  exato do print (labels em inglês, tela de espera em inglês, banner de
+  carregamento em inglês). **Lição**: a varredura por `textContent`/
+  `innerHTML`/`.title` no JS não é suficiente sozinha — vale sempre
+  também varrer o HTML estático (`data-i18n` ausente em texto visível),
+  são categorias de bug diferentes.
+
+
 - **Sistema de idiomas (EN/PT) implementado e validado ponta a ponta**
   (14 testes cobrindo padrão inglês, troca em tempo real, textos
   dinâmicos, mensagens de erro vindas de `singers.js`/`library.js`, e a

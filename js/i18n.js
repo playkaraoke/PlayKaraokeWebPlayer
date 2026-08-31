@@ -42,6 +42,8 @@ const TRANSLATIONS = {
     stage_drop_title: 'Drop a karaoke file here',
     stage_drop_desc: 'Drag one or more .ZIP (MP3+G) or .MP4 files — or click to choose files from your computer.',
     no_music_loaded: 'No music loaded',
+    meta_song_label: 'SONG',
+    loading_file: 'Loading file…',
     fullscreen_btn: 'Fullscreen',
 
     // Transport / footer
@@ -171,6 +173,7 @@ const TRANSLATIONS = {
     cd_label_starts_in: 'The song starts in:',
     cd_label_up_next: 'Up next:',
     cd_label_upcoming: 'Upcoming songs:',
+    cd_start_now_btn: 'Start Now',
     second_screen_focus: 'Focus window ↗',
     second_screen_open: 'Open window ↗',
     library_reconnect_needed: 'Reconnection needed',
@@ -213,6 +216,8 @@ const TRANSLATIONS = {
     stage_drop_title: 'Solte um arquivo de karaokê aqui',
     stage_drop_desc: 'Arraste um ou mais .ZIP (MP3+G) ou .MP4 — ou clique pra escolher arquivos do seu computador.',
     no_music_loaded: 'Nenhuma música carregada',
+    meta_song_label: 'MÚSICA',
+    loading_file: 'Carregando arquivo…',
     fullscreen_btn: 'Tela cheia',
 
     stop_btn_title: 'Parar (se travar, use esse botão pra resetar)',
@@ -332,6 +337,7 @@ const TRANSLATIONS = {
     cd_label_starts_in: 'A música inicia em:',
     cd_label_up_next: 'A seguir:',
     cd_label_upcoming: 'Próximas músicas:',
+    cd_start_now_btn: 'Iniciar Agora',
     second_screen_focus: 'Focar janela ↗',
     second_screen_open: 'Abrir janela ↗',
     library_reconnect_needed: 'Reconexão necessária',

@@ -1814,7 +1814,7 @@
 
   <div id="banners">
     <div id="error-banner" class="banner error hidden"></div>
-    <div id="loading-banner" class="banner loading hidden">Carregando arquivo…</div>
+    <div id="loading-banner" class="banner loading hidden" data-i18n="loading_file">Loading file…</div>
   </div>
 
   <div id="stage">
@@ -1841,28 +1841,28 @@
 
     <div id="countdown-overlay" class="hidden">
       <div id="countdown-timer-parts">
-        <span class="cd-label">A música inicia em:</span>
+        <span class="cd-label" data-i18n="cd_label_starts_in">The song starts in:</span>
         <span class="cd-number" id="cd-number">10</span>
         <span class="cd-next" id="cd-next-title"></span>
       </div>
 
       <div id="cd-singer-highlight" class="hidden">
-        <span class="cd-a-seguir-label">A seguir:</span>
+        <span class="cd-a-seguir-label" data-i18n="cd_label_up_next">Up next:</span>
         <div id="cd-singer-card">
           <div id="cd-singer-name-display">Mario</div>
           <div id="cd-singer-song-display">Música — Artista</div>
-          <div id="cd-singer-tone-display" class="hidden">Aguardando seleção de música</div>
+          <div id="cd-singer-tone-display" class="hidden" data-i18n="waiting_for_song">Waiting for song selection</div>
         </div>
       </div>
 
       <div id="cd-upcoming-section">
-        <span class="cd-proximas-label">Próximas músicas:</span>
+        <span class="cd-proximas-label" data-i18n="cd_label_upcoming">Upcoming songs:</span>
         <div id="cd-upcoming-list"></div>
       </div>
 
       <button id="cd-skip-btn" class="hidden">
         <svg fill="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
-        Iniciar Agora
+        <span data-i18n="cd_start_now_btn">Start Now</span>
       </button>
     </div>
 
@@ -2162,19 +2162,19 @@
 
   <div id="track-meta-bar">
     <div class="meta-field">
-      <span class="meta-label">Código</span>
+      <span class="meta-label" data-i18n="track_modal_code">CODE</span>
       <span class="meta-value" id="meta-code">—</span>
     </div>
     <div class="meta-field">
-      <span class="meta-label">Artista</span>
+      <span class="meta-label" data-i18n="track_modal_artist">ARTIST</span>
       <span class="meta-value" id="meta-artist">—</span>
     </div>
     <div class="meta-field song">
-      <span class="meta-label">Música</span>
-      <span class="meta-value" id="meta-song">Nenhuma música carregada</span>
+      <span class="meta-label" data-i18n="meta_song_label">SONG</span>
+      <span class="meta-value" id="meta-song">No music loaded</span>
     </div>
     <div class="meta-field format">
-      <span class="meta-label">Formato</span>
+      <span class="meta-label" data-i18n="track_modal_format">FORMAT</span>
       <span class="meta-value" id="meta-format"></span>
     </div>
   </div>
