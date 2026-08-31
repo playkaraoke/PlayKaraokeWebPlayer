@@ -229,6 +229,66 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// ---------- Modais próprios pra substituir prompt()/confirm() nativos ----------
+// Motivo: os diálogos nativos do navegador não têm como ser traduzidos
+// de forma confiável em todo navegador/SO, e destoam visualmente do
+// resto do app. Essas funções têm a MESMA assinatura de uso (via
+// await) que prompt()/confirm(), só que via modal próprio.
+
+const genericPromptBackdrop = el('generic-prompt-backdrop');
+const genericPromptTitle = el('generic-prompt-title');
+const genericPromptInput = el('generic-prompt-input');
+const genericPromptOkBtn = el('generic-prompt-ok-btn');
+const genericPromptCancelBtn = el('generic-prompt-cancel-btn');
+
+function showPromptModal(message, defaultValue) {
+  return new Promise((resolve) => {
+    genericPromptTitle.textContent = message;
+    genericPromptInput.value = defaultValue || '';
+    genericPromptBackdrop.classList.remove('hidden');
+    genericPromptInput.focus();
+    genericPromptInput.select();
+
+    const cleanup = () => {
+      genericPromptBackdrop.classList.add('hidden');
+      genericPromptOkBtn.removeEventListener('click', onOk);
+      genericPromptCancelBtn.removeEventListener('click', onCancel);
+      genericPromptInput.removeEventListener('keydown', onKeydown);
+    };
+    const onOk = () => { const v = genericPromptInput.value; cleanup(); resolve(v); };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter') onOk();
+      else if (e.key === 'Escape') onCancel();
+    };
+    genericPromptOkBtn.addEventListener('click', onOk);
+    genericPromptCancelBtn.addEventListener('click', onCancel);
+    genericPromptInput.addEventListener('keydown', onKeydown);
+  });
+}
+
+const genericConfirmBackdrop = el('generic-confirm-backdrop');
+const genericConfirmMessage = el('generic-confirm-message');
+const genericConfirmOkBtn = el('generic-confirm-ok-btn');
+const genericConfirmCancelBtn = el('generic-confirm-cancel-btn');
+
+function showConfirmModal(message) {
+  return new Promise((resolve) => {
+    genericConfirmMessage.textContent = message;
+    genericConfirmBackdrop.classList.remove('hidden');
+
+    const cleanup = () => {
+      genericConfirmBackdrop.classList.add('hidden');
+      genericConfirmOkBtn.removeEventListener('click', onOk);
+      genericConfirmCancelBtn.removeEventListener('click', onCancel);
+    };
+    const onOk = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    genericConfirmOkBtn.addEventListener('click', onOk);
+    genericConfirmCancelBtn.addEventListener('click', onCancel);
+  });
+}
+
 function showError(msg) {
   errorBanner.textContent = msg;
   errorBanner.classList.remove('hidden');
@@ -1869,7 +1929,14 @@ function renderSingerRoundView() {
     meta.className = 'singer-meta';
     const nameLine = document.createElement('div');
     nameLine.className = 'singer-name-line';
-    nameLine.textContent = s.name;
+    const nameText = document.createElement('span');
+    nameText.textContent = s.name;
+    const songCountBadge = document.createElement('span');
+    songCountBadge.className = 'singer-song-count-badge';
+    songCountBadge.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER}`;
+    if (s.songs.length === 0) songCountBadge.classList.add('empty');
+    nameLine.appendChild(nameText);
+    nameLine.appendChild(songCountBadge);
     meta.appendChild(nameLine);
 
     if (s.songs.length > 0) {
@@ -1922,9 +1989,9 @@ function renderSingerRoundView() {
       removeBtn.className = 'singer-remove-btn';
       removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
       removeBtn.title = window.i18n.t('remove_singer_title');
-      removeBtn.addEventListener('click', (e) => {
+      removeBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (confirm(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
+        if (await showConfirmModal(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
           singerManager.removeSinger(s.id);
         }
       });
@@ -2341,9 +2408,9 @@ function renderManageSingersList() {
     const delBtn = document.createElement('button');
     delBtn.textContent = '×';
     delBtn.title = window.i18n.t('delete_btn_title');
-    delBtn.addEventListener('click', (e) => {
+    delBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (confirm(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
+      if (await showConfirmModal(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
         singerManager.removeSinger(s.id);
         if (selectedManageSingerId === s.id) selectedManageSingerId = null;
         renderManageSingersList();
@@ -2365,8 +2432,8 @@ function renderManageSingersList() {
   });
 }
 
-addNewSingerBtn.addEventListener('click', () => {
-  const name = prompt(window.i18n.t('prompt_new_singer_name'));
+addNewSingerBtn.addEventListener('click', async () => {
+  const name = await showPromptModal(window.i18n.t('prompt_new_singer_name'));
   if (!name || !name.trim()) return;
   try {
     singerManager.addSinger(name);
@@ -2387,10 +2454,10 @@ function renderManageSingerDetail(singerId) {
   renderDetailHistoryList(singer);
 }
 
-detailEditNameBtn.addEventListener('click', () => {
+detailEditNameBtn.addEventListener('click', async () => {
   const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
   if (!singer) return;
-  const newName = prompt(window.i18n.t('prompt_rename_singer'), singer.name);
+  const newName = await showPromptModal(window.i18n.t('prompt_rename_singer'), singer.name);
   if (newName === null) return; // cancelou
   const trimmed = newName.trim();
   if (!trimmed || trimmed === singer.name) return;
@@ -2846,6 +2913,15 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
     playBtn.click();
+  }
+  // Ctrl/Cmd + Seta Direita = próxima música. Clicar no botão (em vez
+  // de chamar playNextInQueue direto) reaproveita o estado de
+  // habilitado/desabilitado que já existe — em modo cantores o botão
+  // fica sempre desabilitado (não existe "próxima" manual lá), então o
+  // atalho vira um no-op seguro nesse modo, sem precisar checar nada.
+  if ((e.ctrlKey || e.metaKey) && e.code === 'ArrowRight' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    nextBtn.click();
   }
 });
 

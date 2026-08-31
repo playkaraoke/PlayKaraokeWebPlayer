@@ -128,6 +128,7 @@ const TRANSLATIONS = {
     track_modal_format: 'FORMAT',
     tm_pitch_label: 'INITIAL PITCH',
     tm_cancel_btn: 'Cancel',
+    generic_ok_btn: 'OK',
     tm_apply_btn: 'Apply pitch',
     tm_play_btn: 'Play',
 
@@ -302,6 +303,7 @@ const TRANSLATIONS = {
     track_modal_format: 'FORMATO',
     tm_pitch_label: 'TOM INICIAL',
     tm_cancel_btn: 'Cancelar',
+    generic_ok_btn: 'OK',
     tm_apply_btn: 'Aplicar tom',
     tm_play_btn: 'Tocar',
 

@@ -970,6 +970,30 @@
   }
   .welcome-dont-show input{ width:14px;height:14px; accent-color:var(--primary); cursor:pointer; }
 
+  #generic-prompt-backdrop, #generic-confirm-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:140;
+  }
+  #generic-prompt-modal, #generic-confirm-modal{
+    background:var(--surface-container-low); border:1px solid var(--outline-variant);
+    border-radius:16px; padding:22px; max-width:360px; width:100%;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  #generic-prompt-title{
+    font-family:'Montserrat',sans-serif; font-weight:600; font-size:16px; margin:0;
+    color:var(--on-surface);
+  }
+  #generic-confirm-message{
+    font-size:13.5px; color:var(--on-surface); line-height:1.5; margin:0;
+  }
+  #generic-prompt-input{
+    background:var(--surface-container-high); border:1px solid var(--outline-variant);
+    border-radius:8px; padding:9px 12px; font-size:13px; color:var(--on-surface);
+    font-family:'Inter',sans-serif;
+  }
+  #generic-prompt-input:focus{ outline:none; border-color:var(--primary-bright); }
+  .generic-modal-actions{ display:flex; gap:10px; justify-content:flex-end; }
+
   #end-show-confirm-backdrop, #show-report-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,0.65);
     display:flex; align-items:center; justify-content:center; z-index:120;
@@ -1146,8 +1170,25 @@
     font-size:12.5px;
     font-weight:700;
     color:var(--on-surface);
+    display:flex;
+    align-items:center;
+    gap:6px;
   }
   .singer-playlist-item.active .singer-name-line{ color:var(--primary-bright); }
+  .singer-song-count-badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    font-weight:600;
+    color:var(--on-surface-variant);
+    background:var(--surface-container-high);
+    border-radius:6px;
+    padding:1px 6px;
+    flex-shrink:0;
+  }
+  .singer-song-count-badge.empty{
+    color:#f5a623;
+    background:rgba(245,166,35,0.12);
+  }
   .singer-playlist-item .singer-song-line{
     font-size:13px;
     font-weight:600;
@@ -1986,6 +2027,27 @@
       </label>
 
       <button id="welcome-start-btn" class="card-btn primary" style="width:100%;" data-i18n="welcome_start_btn">Got it, start Show Mode</button>
+    </div>
+  </div>
+
+  <div id="generic-prompt-backdrop" class="hidden">
+    <div id="generic-prompt-modal">
+      <h3 id="generic-prompt-title">—</h3>
+      <input type="text" id="generic-prompt-input"/>
+      <div class="generic-modal-actions">
+        <button id="generic-prompt-cancel-btn" class="card-btn secondary" data-i18n="tm_cancel_btn">Cancel</button>
+        <button id="generic-prompt-ok-btn" class="card-btn primary" data-i18n="generic_ok_btn">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="generic-confirm-backdrop" class="hidden">
+    <div id="generic-confirm-modal">
+      <p id="generic-confirm-message">—</p>
+      <div class="generic-modal-actions">
+        <button id="generic-confirm-cancel-btn" class="card-btn secondary" data-i18n="tm_cancel_btn">Cancel</button>
+        <button id="generic-confirm-ok-btn" class="card-btn primary" data-i18n="generic_ok_btn">OK</button>
+      </div>
     </div>
   </div>
 
