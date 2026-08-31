@@ -1,8 +1,4 @@
-========================================================================
- PLAY KARAOKE - USER MANUAL
-========================================================================
-
-Play Karaoke is a web-based karaoke player that runs entirely in your
+PlayKaraoke is a web-based karaoke player that runs entirely in your
 browser. It plays CDG (MP3+G) and MP4 karaoke files, supports a second
 screen for performers, and includes an optional "Show Mode" for
 managing a rotation of singers at a live event.
@@ -339,6 +335,3 @@ storing your data. Everything (queue, singers, settings, connected
 Library folders) is saved locally in your browser (localStorage/
 IndexedDB) and does not sync between different devices or browsers.
 Clearing your browser data will reset the app to a fresh state.
-
-For a full technical/architecture breakdown (useful for developers),
-see ARQUITETURA.md and DOCUMENTACAO.md in the project repository.
