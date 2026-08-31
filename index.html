@@ -912,6 +912,8 @@
   .detail-song-row .tone-val{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--tertiary); min-width:22px; text-align:center; }
   .detail-song-row .remove-song-btn{ width:20px;height:20px; background:none; border:none; color:var(--on-surface-variant); cursor:pointer; }
   #detail-add-song-search{ margin-top:10px; }
+  #detail-add-song-upload-row{ margin-bottom:10px; }
+  #detail-upload-file-btn{ width:100%; }
   #detail-song-search-box{
     display:flex; align-items:center; gap:8px;
     background:var(--surface-container); border:1px solid var(--outline-variant);
@@ -1723,12 +1725,12 @@
 <div id="auth-overlay">
   <div id="auth-card">
     <img src="assets/logo.svg" alt="Play Karaoke"/>
-    <h2>Acesso Restrito</h2>
-    <p>Digite a senha para acessar o console do operador</p>
+    <h2 data-i18n="auth_title">Restricted Access</h2>
+    <p data-i18n="auth_subtitle">Enter the password to continue</p>
     <form id="auth-form" onsubmit="return false;">
-      <input type="password" id="auth-password" placeholder="Senha de acesso" autocomplete="current-password" autofocus required />
-      <button type="submit" id="auth-submit-btn">Entrar</button>
-      <div id="auth-error" class="hidden">Senha incorreta. Tente novamente.</div>
+      <input type="password" id="auth-password" data-i18n-placeholder="auth_placeholder" placeholder="Password" autocomplete="current-password" autofocus required />
+      <button type="submit" id="auth-submit-btn" data-i18n="auth_button">Enter</button>
+      <div id="auth-error" class="hidden" data-i18n="auth_error">Incorrect password.</div>
     </form>
   </div>
 </div>
@@ -1737,35 +1739,35 @@
   <div id="sidebar-resize-handle"></div>
   <div id="logo-area">
     <img src="assets/logo.svg" alt="Play Karaoke"/>
-    <div class="brand-sub">PLAYER CDG &amp; MP4</div>
+    <div class="brand-sub" data-i18n="brand_sub">CDG & MP4 PLAYER</div>
   </div>
 
   <div id="sidebar-tabs">
-    <button class="sidebar-tab active" id="tab-fila-btn" type="button">Fila</button>
-    <button class="sidebar-tab" id="tab-biblioteca-btn" type="button">Biblioteca</button>
+    <button class="sidebar-tab active" id="tab-fila-btn" type="button" data-i18n="tab_queue">Queue</button>
+    <button class="sidebar-tab" id="tab-biblioteca-btn" type="button" data-i18n="tab_library">Library</button>
   </div>
 
   <div id="tab-fila-panel">
     <div id="playlist-header">
-      <span class="playlist-count" id="playlist-count">Fila (0)</span>
+      <span class="playlist-count" id="playlist-count">Queue (0)</span>
       <button id="add-music-btn">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-        Carregar Música
+        <span data-i18n="load_music_btn">Load Music</span>
       </button>
       <div id="sidebar-dropzone">
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/></svg>
-        <span>Arraste arquivos aqui</span>
+        <span data-i18n="dropzone_text">Drag files here</span>
       </div>
     </div>
 
     <div id="playlist">
-      <p id="playlist-empty-hint">Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.</p>
+      <p id="playlist-empty-hint" data-i18n="queue_empty_hint">Your queue appears here. Load one or more files to start.</p>
     </div>
 
     <div id="singer-round-view" class="hidden">
       <div id="current-singer-empty">
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="28" height="28"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
-        <p><strong>Nenhum cantor na rodada ainda.</strong><br/>Clique em "Carregar Música" acima — vai te perguntar de qual cantor é, e já cria ele na hora.</p>
+        <p><strong data-i18n="no_singers_yet">No singers in the rotation yet.</strong><br/><span data-i18n="no_singers_hint">Click "Load Music" above — it will ask which singer it's for, and create them on the spot.</span></p>
       </div>
       <div id="singer-list-full"></div>
     </div>
@@ -1775,36 +1777,36 @@
     <div id="library-search-row">
       <div id="library-search">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-        <input type="text" id="library-search-input" placeholder="Buscar por música, artista ou código..."/>
-        <button id="library-search-clear-btn" class="hidden" type="button">LIMPAR</button>
+        <input type="text" id="library-search-input" data-i18n-placeholder="library_search_placeholder" placeholder="Search by song, artist or code..."/>
+        <button id="library-search-clear-btn" class="hidden" type="button" data-i18n="library_clear_btn">CLEAR</button>
       </div>
     </div>
 
     <div id="library-unsupported" class="hidden">
-      <p>Seu navegador não suporta essa funcionalidade — funciona no Chrome, Edge e Opera (não funciona no Safari ou Firefox por enquanto).</p>
+      <p data-i18n="library_unsupported">Your browser doesn't support this feature — works on Chrome, Edge and Opera (not on Safari or Firefox yet).</p>
     </div>
 
     <div id="library-content">
       <div id="library-results"></div>
 
       <div id="library-folders-section">
-        <div class="library-section-label">Pastas conectadas</div>
+        <div class="library-section-label" data-i18n="library_folders_label">Connected folders</div>
         <div id="library-folders-list"></div>
-        <button id="connect-folder-btn" type="button">+ Conectar nova pasta</button>
+        <button id="connect-folder-btn" type="button" data-i18n="library_connect_folder_btn">+ Connect new folder</button>
       </div>
     </div>
   </div>
 
 
   <div id="sidebar-footer">
-    <button id="settings-btn" title="Configurações">
+    <button id="settings-btn" data-i18n-title="settings_title" title="Settings">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
     </button>
-    <button id="show-mode-btn" title="Modo Show">
+    <button id="show-mode-btn" data-i18n-title="start_show_mode" title="Start Show Mode">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"/></svg>
-      <span id="show-mode-btn-label">Iniciar Modo Show</span>
+      <span id="show-mode-btn-label" data-i18n="start_show_mode">Start Show Mode</span>
     </button>
-    <span id="version-tag">v2.0</span>
+    <span id="version-tag">v2.1</span>
   </div>
 </div>
 
@@ -1818,8 +1820,8 @@
   <div id="stage">
     <div id="stage-empty">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/></svg>
-      <h2>Solte um arquivo de karaokê aqui</h2>
-      <p>Arraste um ou mais .ZIP (MP3+G) ou .MP4 — ou clique para escolher arquivos do seu computador.</p>
+      <h2 data-i18n="stage_drop_title">Drop a karaoke file here</h2>
+      <p data-i18n="stage_drop_desc">Drag one or more .ZIP (MP3+G) or .MP4 files — or click to choose files from your computer.</p>
       <div class="formats">
         <span class="badge">ZIP · CDG</span>
         <span class="badge">MP4</span>
@@ -1828,7 +1830,7 @@
 
     <div id="stage-canvas-wrap" class="hidden">
       <canvas id="cdg-canvas" width="900" height="648"></canvas>
-      <button id="fullscreen-btn" title="Tela cheia">
+      <button id="fullscreen-btn" data-i18n-title="fullscreen_btn" title="Fullscreen">
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
       </button>
     </div>
@@ -1872,20 +1874,20 @@
 
   <div id="singer-picker-backdrop" class="hidden">
     <div id="singer-picker-modal">
-      <h3>Essa música é de qual cantor?</h3>
+      <h3 data-i18n="singer_picker_title">Who is this song for?</h3>
       <p id="singer-picker-filename" class="singer-picker-filename"></p>
 
       <select id="singer-picker-dropdown">
-        <option value="" disabled selected>Selecionar cantor existente...</option>
+        <option value="" disabled selected data-i18n="singer_picker_dropdown_default">Select an existing singer...</option>
       </select>
 
       <div id="singer-picker-new-row">
-        <input type="text" id="singer-picker-new-input" placeholder="Ou digite o nome de um cantor novo..."/>
-        <button id="singer-picker-new-btn" class="card-btn primary">Adicionar</button>
+        <input type="text" id="singer-picker-new-input" data-i18n-placeholder="singer_picker_new_placeholder" placeholder="Or type a new singer name..."/>
+        <button id="singer-picker-new-btn" class="card-btn primary" data-i18n="singer_picker_add_btn">Add</button>
       </div>
 
       <div id="singer-picker-actions">
-        <button id="singer-picker-cancel-btn" class="card-btn secondary">Cancelar</button>
+        <button id="singer-picker-cancel-btn" class="card-btn secondary" data-i18n="singer_picker_cancel_btn">Cancel</button>
       </div>
     </div>
   </div>
@@ -1893,34 +1895,38 @@
   <div id="manage-singers-backdrop" class="hidden">
     <div id="manage-singers-modal">
       <div id="manage-singers-header">
-        <h3>Gerenciar Cantores</h3>
+        <h3 data-i18n="manage_singers_title">Manage Singers</h3>
         <button id="manage-singers-close-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="manage-singers-body">
         <div id="manage-singers-left">
-          <div class="library-section-label">Lista da Noite</div>
+          <div class="library-section-label" data-i18n="manage_singers_night_list">Night list</div>
           <div id="manage-singers-list"></div>
-          <button id="add-new-singer-btn" class="card-btn" style="width:100%;">+ Adicionar Novo Cantor</button>
+          <button id="add-new-singer-btn" class="card-btn" style="width:100%;" data-i18n="manage_singers_add_new">+ Add New Singer</button>
         </div>
         <div id="manage-singers-right">
-          <div id="manage-singers-empty">Selecione um cantor na lista à esquerda.</div>
+          <div id="manage-singers-empty" data-i18n="manage_singers_select_hint">Select a singer from the list on the left.</div>
           <div id="manage-singers-detail" class="hidden">
             <div id="detail-singer-name-row">
               <h4 id="detail-singer-name">—</h4>
-              <button id="detail-edit-name-btn" title="Editar nome">
+              <button id="detail-edit-name-btn" data-i18n-title="edit_name_title" title="Edit name">
                 <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
               </button>
             </div>
             <div id="detail-tabs">
-              <button id="detail-tab-queue-btn" class="detail-tab active">Fila de Espera</button>
-              <button id="detail-tab-history-btn" class="detail-tab">Músicas Cantadas</button>
+              <button id="detail-tab-queue-btn" class="detail-tab active" data-i18n="manage_singers_tab_queue">Waiting Queue</button>
+              <button id="detail-tab-history-btn" class="detail-tab" data-i18n="manage_singers_tab_history">Songs Sung</button>
             </div>
             <div id="detail-queue-panel">
               <div id="detail-queue-list"></div>
-              <button id="detail-add-song-btn" class="card-btn" style="width:100%;">+ Adicionar Música</button>
+              <button id="detail-add-song-btn" class="card-btn" style="width:100%;" data-i18n="manage_singers_add_song_btn">+ Add Song</button>
               <div id="detail-add-song-search" class="hidden">
+                <div id="detail-add-song-upload-row">
+                  <button id="detail-upload-file-btn" class="card-btn secondary" type="button" data-i18n="detail_upload_btn">⬆ Upload file(s)</button>
+                  <input type="file" id="detail-upload-file-input" accept=".zip,.mp4" multiple class="hidden"/>
+                </div>
                 <div id="detail-song-search-box">
-                  <input type="text" id="detail-song-search-input" placeholder="Buscar na Biblioteca..."/>
+                  <input type="text" id="detail-song-search-input" data-i18n-placeholder="manage_singers_search_placeholder" placeholder="Search the Library..."/>
                 </div>
                 <div id="detail-song-search-results"></div>
               </div>
@@ -1936,40 +1942,40 @@
 
   <div id="show-mode-welcome-backdrop" class="hidden">
     <div id="show-mode-welcome-modal">
-      <h3>Bem-vindo ao Modo Show</h3>
-      <p class="welcome-intro">Em vez de uma fila comum de músicas, a fila passa a ser organizada por <strong>cantor</strong> — cada um com sua própria fila de até 5 músicas, em rodízio automático.</p>
+      <h3 data-i18n="welcome_title">Welcome to Show Mode</h3>
+      <p class="welcome-intro" data-i18n="welcome_intro">Instead of a regular song queue, the queue is now organized by <strong>singer</strong> — each with their own queue of up to 5 songs, in automatic rotation.</p>
 
       <div class="welcome-steps">
         <div class="welcome-step">
           <span class="welcome-step-num">1</span>
-          <span>Clique em <strong>"Carregar Música"</strong> (ou arraste um arquivo) — vai aparecer perguntando de qual cantor é essa música. Digite um nome novo pra criar o cantor na hora.</span>
+          <span data-i18n="welcome_step1">Click <strong>"Load Music"</strong> (or drag a file) — you'll be asked which singer this song is for. Type a new name to create the singer on the spot.</span>
         </div>
         <div class="welcome-step">
           <span class="welcome-step-num">2</span>
-          <span>Repita pra cada música/cantor da noite. A ordem de rodízio segue a ordem que você foi adicionando.</span>
+          <span data-i18n="welcome_step2">Repeat for each song/singer of the night. The rotation order follows the order you added them.</span>
         </div>
         <div class="welcome-step">
           <span class="welcome-step-num">3</span>
-          <span>Dê play — o sistema cuida de avançar pro próximo cantor sozinho. Pra editar nomes, reordenar ou adicionar mais músicas depois, use <strong>"Gerenciar Cantores"</strong> nas Configurações.</span>
+          <span data-i18n="welcome_step3">Hit play — the system takes care of moving to the next singer on its own. To edit names, reorder, or add more songs later, use <strong>"Manage Singers"</strong> in Settings.</span>
         </div>
       </div>
 
       <label class="welcome-dont-show">
         <input type="checkbox" id="welcome-dont-show-again"/>
-        <span>Não mostrar essa explicação de novo</span>
+        <span data-i18n="welcome_dont_show_again">Don't show this explanation again</span>
       </label>
 
-      <button id="welcome-start-btn" class="card-btn primary" style="width:100%;">Entendi, iniciar Modo Show</button>
+      <button id="welcome-start-btn" class="card-btn primary" style="width:100%;" data-i18n="welcome_start_btn">Got it, start Show Mode</button>
     </div>
   </div>
 
   <div id="end-show-confirm-backdrop" class="hidden">
     <div id="end-show-confirm-modal">
-      <h3>Encerrar o show?</h3>
-      <p>Isso vai gerar o relatório da noite. Você ainda poderá ver e exportar os dados antes de limpar tudo.</p>
+      <h3 data-i18n="end_show_confirm_title">End the show?</h3>
+      <p data-i18n="end_show_confirm_desc">This will generate the night's report. You'll still be able to view and export the data before clearing everything.</p>
       <div id="end-show-confirm-actions">
-        <button id="end-show-confirm-cancel-btn" class="card-btn secondary">Cancelar</button>
-        <button id="end-show-confirm-ok-btn" class="card-btn primary">Encerrar Show</button>
+        <button id="end-show-confirm-cancel-btn" class="card-btn secondary" data-i18n="end_show_confirm_cancel">Cancel</button>
+        <button id="end-show-confirm-ok-btn" class="card-btn primary" data-i18n="end_show_confirm_ok">End Show</button>
       </div>
     </div>
   </div>
@@ -1977,24 +1983,24 @@
   <div id="show-report-backdrop" class="hidden">
     <div id="show-report-modal">
       <div id="show-report-header">
-        <h3>Relatório do Show</h3>
+        <h3 data-i18n="show_report_title">Show Report</h3>
         <button id="show-report-close-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="show-report-cards">
-        <div class="report-card"><span class="report-card-label">Duração</span><span class="report-card-value" id="report-duration">—</span></div>
-        <div class="report-card"><span class="report-card-label">Músicas Cantadas</span><span class="report-card-value" id="report-total-songs">—</span></div>
-        <div class="report-card"><span class="report-card-label">Cantores Únicos</span><span class="report-card-value" id="report-unique-singers">—</span></div>
-        <div class="report-card"><span class="report-card-label">Destaque da Noite</span><span class="report-card-value" id="report-highlight">—</span></div>
+        <div class="report-card"><span class="report-card-label" data-i18n="report_duration">Duration</span><span class="report-card-value" id="report-duration">—</span></div>
+        <div class="report-card"><span class="report-card-label" data-i18n="report_total_songs">Songs Sung</span><span class="report-card-value" id="report-total-songs">—</span></div>
+        <div class="report-card"><span class="report-card-label" data-i18n="report_unique_singers">Unique Singers</span><span class="report-card-value" id="report-unique-singers">—</span></div>
+        <div class="report-card"><span class="report-card-label" data-i18n="report_highlight">Highlight of the Night</span><span class="report-card-value" id="report-highlight">—</span></div>
       </div>
       <div id="show-report-table-wrap">
         <table id="show-report-table">
-          <thead><tr><th>Horário</th><th>Cantor</th><th>Música</th><th>Artista</th><th>Tom</th></tr></thead>
+          <thead><tr><th data-i18n="report_col_time">Time</th><th data-i18n="report_col_singer">Singer</th><th data-i18n="report_col_song">Song</th><th data-i18n="report_col_artist">Artist</th><th data-i18n="report_col_pitch">Pitch</th></tr></thead>
           <tbody id="show-report-tbody"></tbody>
         </table>
       </div>
       <div id="show-report-actions">
-        <button id="export-csv-btn" class="card-btn">Exportar CSV</button>
-        <button id="new-show-btn" class="card-btn secondary">Iniciar Novo Show / Sair</button>
+        <button id="export-csv-btn" class="card-btn" data-i18n="export_csv_btn">Export CSV</button>
+        <button id="new-show-btn" class="card-btn secondary" data-i18n="new_show_btn">Start New Show / Exit</button>
       </div>
     </div>
   </div>
@@ -2003,31 +2009,31 @@
     <div id="track-modal">
       <div id="track-modal-header">
         <div class="tm-field">
-          <span class="tm-label">Código</span>
+          <span class="tm-label" data-i18n="track_modal_code">CODE</span>
           <span class="tm-value" id="tm-code">—</span>
         </div>
         <div class="tm-field">
-          <span class="tm-label">Artista</span>
+          <span class="tm-label" data-i18n="track_modal_artist">ARTIST</span>
           <span class="tm-value" id="tm-artist">—</span>
         </div>
         <div class="tm-field">
-          <span class="tm-label">Formato</span>
+          <span class="tm-label" data-i18n="track_modal_format">FORMAT</span>
           <span class="tm-value" id="tm-format">—</span>
         </div>
       </div>
-      <h3 id="tm-title">Nome da música</h3>
+      <h3 id="tm-title">Song name</h3>
 
       <div id="tm-pitch-row">
-        <span class="tm-label">Tom inicial</span>
+        <span class="tm-label" data-i18n="tm_pitch_label">INITIAL PITCH</span>
         <button id="tm-pitch-down-btn" class="pitch-mini-btn">−</button>
         <span id="tm-pitch-value">0</span>
         <button id="tm-pitch-up-btn" class="pitch-mini-btn">+</button>
       </div>
 
       <div id="track-modal-actions">
-        <button id="tm-cancel-btn" class="card-btn secondary">Cancelar</button>
-        <button id="tm-apply-btn" class="card-btn secondary">Aplicar tom</button>
-        <button id="tm-play-btn" class="card-btn primary">Tocar</button>
+        <button id="tm-cancel-btn" class="card-btn secondary" data-i18n="tm_cancel_btn">Cancel</button>
+        <button id="tm-apply-btn" class="card-btn secondary" data-i18n="tm_apply_btn">Apply pitch</button>
+        <button id="tm-play-btn" class="card-btn primary" data-i18n="tm_play_btn">Play</button>
       </div>
     </div>
   </div>
@@ -2035,8 +2041,8 @@
   <div id="settings-modal-backdrop" class="hidden">
    <div id="settings-modal">
     <div id="settings-modal-header">
-      <h3>Configurações</h3>
-      <button id="settings-close-btn" title="Fechar">
+      <h3 data-i18n="settings_title">Settings</h3>
+      <button id="settings-close-btn" data-i18n-title="tm_cancel_btn" title="Close">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -2044,27 +2050,27 @@
     <div id="settings-cards-grid">
       <div class="setting-card">
         <div class="setting-card-header">
-          <span class="setting-card-title">Autoplay</span>
+          <span class="setting-card-title" data-i18n="settings_autoplay_title">Autoplay</span>
           <button class="setting-toggle-indicator" id="autoplay-toggle-indicator" type="button">
-            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+            <span class="toggle-state-text">Off</span><span class="toggle-dot"></span>
           </button>
         </div>
         <div class="setting-card-body">
-          <span>Esperar</span>
+          <span data-i18n="settings_wait">Wait</span>
           <input type="number" id="autoplay-delay-input" class="delay-input" min="0" max="60" value="10"/>
-          <span>segundos nos intervalos entre as músicas</span>
+          <span data-i18n="settings_seconds_between">seconds between songs</span>
         </div>
       </div>
 
       <div class="setting-card">
         <div class="setting-card-header">
-          <span class="setting-card-title">Música Ambiente</span>
+          <span class="setting-card-title" data-i18n="settings_ambient_title">Ambient Music</span>
           <button class="setting-toggle-indicator" id="ambient-toggle-indicator" type="button">
-            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+            <span class="toggle-state-text">Off</span><span class="toggle-dot"></span>
           </button>
         </div>
         <div class="setting-card-body">
-          <span>Definir volume do fundo musical</span>
+          <span data-i18n="settings_ambient_volume">Set background volume</span>
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
           <input type="range" id="ambient-volume-slider" min="0" max="100" value="30"/>
           <span id="ambient-volume-pct">30%</span>
@@ -2073,58 +2079,71 @@
 
       <div class="setting-card">
         <div class="setting-card-header">
-          <span class="setting-card-title">Imagem de Fundo de Tela</span>
+          <span class="setting-card-title" data-i18n="settings_idle_image_title">Screen Background Image</span>
           <button class="setting-toggle-indicator" id="idle-image-toggle-indicator" type="button" disabled>
-            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+            <span class="toggle-state-text">Off</span><span class="toggle-dot"></span>
           </button>
         </div>
         <div class="setting-card-body">
-          <p class="setting-card-desc">Exibe uma imagem de fundo quando não estiver tocando nenhuma música. <em>Tamanho ideal 1920×1080 px.</em></p>
-          <button id="idle-image-upload-btn" class="card-btn primary" style="width:100%;">Fazer Upload de Imagem</button>
+          <p class="setting-card-desc" data-i18n="settings_idle_image_desc">Shows a background image when no music is playing. <em>Ideal size 1920×1080 px.</em></p>
+          <button id="idle-image-upload-btn" class="card-btn primary" style="width:100%;" data-i18n="settings_idle_image_upload">Upload Image</button>
           <div id="idle-image-filename" class="hidden"></div>
-          <button id="idle-image-remove-btn" class="card-btn secondary hidden" style="width:100%;">Remover imagem</button>
+          <button id="idle-image-remove-btn" class="card-btn secondary hidden" style="width:100%;" data-i18n="settings_idle_image_remove">Remove image</button>
         </div>
       </div>
       <input type="file" id="idle-image-input" accept="image/*" class="hidden"/>
 
       <div class="setting-card">
         <div class="setting-card-header">
-          <span class="setting-card-title">Modo Show</span>
-          <button class="setting-toggle-indicator" id="singer-mode-toggle-indicator" type="button" disabled title="Use o botão 'Iniciar Modo Show' na barra lateral">
-            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+          <span class="setting-card-title" data-i18n="settings_show_mode_title">Show Mode</span>
+          <button class="setting-toggle-indicator" id="singer-mode-toggle-indicator" type="button" disabled title="Use the 'Start Show Mode' button in the sidebar">
+            <span class="toggle-state-text">Off</span><span class="toggle-dot"></span>
           </button>
         </div>
         <div class="setting-card-body">
-          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-upcoming-toggle" checked/><span>Exibir lista dos próximos cantores</span></label>
-          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-titles-toggle"/><span>Exibir títulos das músicas</span></label>
-          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-counter-toggle" checked/><span>Exibir contador regressivo de Autoplay</span></label>
-          <button id="open-manage-singers-btn" class="card-btn primary" style="width:100%;">Gerenciar Cantores</button>
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-upcoming-toggle" checked/><span data-i18n="settings_show_upcoming">Show list of upcoming singers</span></label>
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-titles-toggle"/><span data-i18n="settings_show_titles">Show song titles</span></label>
+          <label class="mini-checkbox-row"><input type="checkbox" id="cd-show-counter-toggle" checked/><span data-i18n="settings_show_counter">Show autoplay countdown</span></label>
+          <button id="open-manage-singers-btn" class="card-btn primary" style="width:100%;" data-i18n="settings_manage_singers_btn">Manage Singers</button>
         </div>
       </div>
 
       <div class="setting-card">
         <div class="setting-card-header">
-          <span class="setting-card-title">Alterar Cores de CDG <em>(experimental)</em></span>
+          <span class="setting-card-title" data-i18n="settings_colors_title">Change CDG Colors <em>(experimental)</em></span>
           <button class="setting-toggle-indicator" id="custom-colors-toggle-indicator" type="button">
-            <span class="toggle-state-text">Desativado</span><span class="toggle-dot"></span>
+            <span class="toggle-state-text">Off</span><span class="toggle-dot"></span>
           </button>
         </div>
         <div class="setting-card-body">
-          <p class="setting-card-desc">Alterar cores da paleta do CDG de fundo, letras e sincronização. <em>Só funciona pra músicas em formato CDG (MP3+G) — não afeta vídeos MP4.</em></p>
+          <p class="setting-card-desc" data-i18n="settings_colors_desc">Change the CDG palette colors for background, lyrics and sync highlight. <em>Only works for CDG (MP3+G) songs.</em></p>
           <div id="color-pickers">
             <label class="color-field">
               <input type="color" id="color-background" value="#0e0e0e"/>
-              <span>FUNDO</span>
+              <span data-i18n="color_background">BACKGROUND</span>
             </label>
             <label class="color-field">
               <input type="color" id="color-text" value="#ffffff"/>
-              <span>TEXTO</span>
+              <span data-i18n="color_text">TEXT</span>
             </label>
             <label class="color-field">
               <input type="color" id="color-highlight" value="#4d8eff"/>
-              <span>DESTAQUE</span>
+              <span data-i18n="color_highlight">HIGHLIGHT</span>
             </label>
           </div>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-card-header">
+          <span class="setting-card-title" data-i18n="settings_language_title">Language</span>
+        </div>
+        <div class="setting-card-body">
+          <span data-i18n="settings_language_desc">Choose the app language.</span>
+          <select id="language-select" class="delay-input" style="width:auto; padding:6px 10px;">
+            <option value="en">English</option>
+            <option value="pt">Português (Brasil)</option>
+          </select>
         </div>
       </div>
     </div>
@@ -2173,26 +2192,26 @@
           <svg id="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           <svg id="pause-icon" fill="currentColor" viewBox="0 0 24 24" class="hidden"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
         </button>
-        <button id="stop-btn" disabled title="Parar (se travar, use esse botão pra resetar)">
+        <button id="stop-btn" disabled data-i18n-title="stop_btn_title" title="Stop (if it freezes, use this button to reset)">
           <svg fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
         </button>
-        <button id="next-btn" disabled title="Próxima música">
+        <button id="next-btn" disabled data-i18n-title="next_btn_title" title="Next song">
           <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 5v14l8-7-8-7zM16 5v14h2V5h-2z"/></svg>
         </button>
       </div>
 
       <div id="quick-toggles-row">
-        <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" title="Abrir/fechar a segunda tela">
-          <span class="dot"></span> Segunda Tela
+        <button class="quick-toggle-pill" id="quick-second-screen-btn" type="button" data-i18n-title="pill_second_screen_title" title="Open/close the second screen">
+          <span class="dot"></span> <span data-i18n="pill_second_screen">Second Screen</span>
         </button>
-        <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" title="Quando ligado, a próxima música da fila começa sozinha depois de um tempo de espera">
-          <span class="dot"></span> Autoplay
+        <button class="quick-toggle-pill" id="quick-autoplay-btn" type="button" data-i18n-title="pill_autoplay_title" title="When on, the next song in the queue starts automatically after a wait">
+          <span class="dot"></span> <span data-i18n="pill_autoplay">Autoplay</span>
         </button>
-        <button class="quick-toggle-pill" id="quick-applause-btn" type="button" title="Toca um som de aplausos automaticamente nos últimos segundos de cada música — não toca na hora que você liga">
-          <span class="dot"></span> Aplausos
+        <button class="quick-toggle-pill" id="quick-applause-btn" type="button" data-i18n-title="pill_applause_title" title="Plays an applause sound automatically in the last seconds of each song">
+          <span class="dot"></span> <span data-i18n="pill_applause">Applause</span>
         </button>
-        <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" title="Toca uma música de fundo suave só quando NÃO há nenhuma música em reprodução (silêncio entre uma apresentação e outra)">
-          <span class="dot"></span> Ambiente
+        <button class="quick-toggle-pill" id="quick-ambient-btn" type="button" data-i18n-title="pill_ambient_title" title="Plays soft background music only when NO song is currently playing">
+          <span class="dot"></span> <span data-i18n="pill_ambient">Ambient</span>
         </button>
       </div>
 
@@ -2204,11 +2223,11 @@
         </div>
 
         <div id="pitch-group">
-          <span id="pitch-label">TOM</span>
-          <button id="pitch-down-btn" title="Diminuir um semitom">−</button>
+          <span id="pitch-label" data-i18n="tom_label">PITCH</span>
+          <button id="pitch-down-btn" data-i18n-title="pitch_down_title" title="Decrease one semitone">−</button>
           <span id="pitch-value">0</span>
-          <button id="pitch-up-btn" title="Aumentar um semitom">+</button>
-          <button id="pitch-reset-btn" title="Resetar tom">RESET</button>
+          <button id="pitch-up-btn" data-i18n-title="pitch_up_title" title="Increase one semitone">+</button>
+          <button id="pitch-reset-btn" data-i18n-title="pitch_reset_title" title="Reset pitch">RESET</button>
         </div>
       </div>
     </div>
@@ -2222,6 +2241,7 @@
 <script src="js/cdg-player.js"></script>
 <script src="js/file-loader.js"></script>
 <script src="js/library.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/singers.js"></script>
 <script type="module" src="js/app.js"></script>
 
@@ -2235,6 +2255,7 @@
     const ACCESS_HASHES = [
       'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53', // plkplayer (principal)
       'ce60cc4e7842949b0a225e7d8a6819a7802425c4fe25581c8cb47ded0b645aa7', // plkbeta2026 (beta testers)
+      '636fe492ebc508b254b91b525f72bbaba1cbac5c9cca895a397109d04fdc7218', // demoplk
     ];
 
     async function calculateSHA256(str) {

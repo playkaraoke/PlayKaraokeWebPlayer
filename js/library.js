@@ -78,6 +78,16 @@ async function dbDeleteFolder(id) {
 // ---------- Escaneamento de pasta ----------
 
 /** Varre uma pasta recursivamente, catalogando .zip/.mp4 no array `results`. */
+let scanYieldCounter = 0;
+
+/** Devolve o controle pro navegador de vez em quando durante um
+ * escaneamento longo — sem isso, uma pasta com milhares de arquivos
+ * processa tudo numa rajada só, sem deixar a thread principal desenhar
+ * o CDG/vídeo nesse meio tempo (as letras "engasgam" enquanto escaneia). */
+function yieldToMainThread() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) {
   for await (const entry of dirHandle.values()) {
     if (entry.kind === 'directory') {
@@ -99,6 +109,11 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
         type: isMp4 ? 'video' : 'cdg',
         handle: entry,
       });
+
+      scanYieldCounter++;
+      if (scanYieldCounter % 40 === 0) {
+        await yieldToMainThread();
+      }
     }
   }
 }
@@ -111,6 +126,13 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
  * @param {() => void} callbacks.onIndexChange
  * @param {(msg: string) => void} callbacks.onError
  */
+function st(key, fallback, vars) {
+  if (window.i18n && typeof window.i18n.t === 'function') return window.i18n.t(key, vars);
+  let str = fallback;
+  if (vars) Object.keys(vars).forEach(k => { str = str.split(`{${k}}`).join(vars[k]); });
+  return str;
+}
+
 function createLibrary({ onFoldersChange, onIndexChange, onError }) {
   function notifyFolders() { onFoldersChange(connectedFolders); }
   function notifyIndex() { onIndexChange(); }
@@ -130,7 +152,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
       await scanDirectoryRecursive(handle, id, name, results);
     } catch (err) {
       console.error('[Library] Erro ao escanear pasta:', err);
-      onError(`Não foi possível escanear a pasta "${name}".`);
+      onError(st('err_library_scan_fail', `Não foi possível escanear a pasta "${name}".`, { name }));
     }
 
     libraryIndex = libraryIndex.filter(item => item.folderId !== id).concat(results);
@@ -145,7 +167,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
 
   async function connectNewFolder() {
     if (!SUPPORTS_FILE_SYSTEM_ACCESS) {
-      onError('Seu navegador não suporta essa funcionalidade (funciona no Chrome, Edge e Opera).');
+      onError(st('err_library_unsupported', 'Seu navegador não suporta essa funcionalidade (funciona no Chrome, Edge e Opera).'));
       return;
     }
     let handle;
@@ -154,7 +176,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('[Library] Erro ao abrir seletor de pasta:', err);
-        onError('Não foi possível abrir o seletor de pasta.');
+        onError(st('err_library_picker_fail', 'Não foi possível abrir o seletor de pasta.'));
       }
       return; // usuário cancelou, ou erro — não faz nada
     }
@@ -175,11 +197,11 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
       if (perm === 'granted') {
         await scanAndRegister(id, folder.name, folder.handle);
       } else {
-        onError('Permissão não concedida — a pasta continua desconectada.');
+        onError(st('err_library_permission_denied', 'Permissão não concedida — a pasta continua desconectada.'));
       }
     } catch (err) {
       console.error('[Library] Erro ao reconectar pasta:', err);
-      onError('Não foi possível reconectar essa pasta.');
+      onError(st('err_library_reconnect_fail', 'Não foi possível reconectar essa pasta.'));
     }
   }
 

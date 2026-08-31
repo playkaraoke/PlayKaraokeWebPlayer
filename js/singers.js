@@ -18,6 +18,17 @@
 
 const MAX_SONGS_PER_SINGER = 5;
 
+/** Traduz uma chave se o sistema de idiomas estiver disponível — com
+ * fallback pro texto em português, caso esse módulo seja carregado
+ * antes do i18n.js por algum motivo (não deveria acontecer, mas é uma
+ * rede de segurança barata). */
+function st(key, fallback, vars) {
+  if (window.i18n && typeof window.i18n.t === 'function') return window.i18n.t(key, vars);
+  let str = fallback;
+  if (vars) Object.keys(vars).forEach(k => { str = str.split(`{${k}}`).join(vars[k]); });
+  return str;
+}
+
 function createSingerManager({ onChange }) {
   let singers = []; // { id, name, paused, songs: [], history: [] }
   let currentSingerId = null;
@@ -36,8 +47,8 @@ function createSingerManager({ onChange }) {
 
   function addSinger(name) {
     const trimmed = (name || '').trim();
-    if (!trimmed) throw new Error('Nome do cantor não pode ser vazio.');
-    if (nameExists(trimmed)) throw new Error('Já existe um cantor com esse nome.');
+    if (!trimmed) throw new Error(st('err_singer_name_empty', 'Nome do cantor não pode ser vazio.'));
+    if (nameExists(trimmed)) throw new Error(st('err_singer_name_duplicate', 'Já existe um cantor com esse nome.'));
     const singer = { id: 'singer_' + (++idCounter), name: trimmed, songs: [], history: [] };
     singers.push(singer);
     if (currentSingerId === null) currentSingerId = singer.id;
@@ -47,8 +58,8 @@ function createSingerManager({ onChange }) {
 
   function renameSinger(id, newName) {
     const trimmed = (newName || '').trim();
-    if (!trimmed) throw new Error('Nome não pode ser vazio.');
-    if (nameExists(trimmed, id)) throw new Error('Já existe um cantor com esse nome.');
+    if (!trimmed) throw new Error(st('err_singer_name_empty', 'Nome não pode ser vazio.'));
+    if (nameExists(trimmed, id)) throw new Error(st('err_singer_name_duplicate', 'Já existe um cantor com esse nome.'));
     const singer = findSinger(id);
     if (singer) { singer.name = trimmed; notify(); }
   }
@@ -79,10 +90,10 @@ function createSingerManager({ onChange }) {
       singer = addSinger(singerIdOrNewName);
     } else {
       singer = findSinger(singerIdOrNewName);
-      if (!singer) throw new Error('Cantor não encontrado.');
+      if (!singer) throw new Error(st('err_singer_not_found', 'Cantor não encontrado.'));
     }
     if (singer.songs.length >= MAX_SONGS_PER_SINGER) {
-      throw new Error(`${singer.name} já tem o máximo de ${MAX_SONGS_PER_SINGER} músicas na fila.`);
+      throw new Error(st('err_singer_max_songs', `${singer.name} já tem o máximo de ${MAX_SONGS_PER_SINGER} músicas na fila.`, { name: singer.name, max: MAX_SONGS_PER_SINGER }));
     }
     singer.songs.push(song);
     notify();

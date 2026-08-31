@@ -82,6 +82,15 @@
   const channel = new BroadcastChannel('playkaraoke-second-screen');
 
   function renderCountdownContent(msg) {
+    if (msg.labels) {
+      const cdLabelEl = document.querySelector('#countdown-timer-parts .cd-label');
+      const aSeguirEl = document.querySelector('.cd-a-seguir-label');
+      const proximasEl = document.querySelector('.cd-proximas-label');
+      if (cdLabelEl) cdLabelEl.textContent = msg.labels.cdLabel;
+      if (aSeguirEl) aSeguirEl.textContent = msg.labels.aSeguir;
+      if (proximasEl) proximasEl.textContent = msg.labels.proximas;
+    }
+
     if (!msg.singerMode) {
       cdSingerHighlight.classList.add('hidden');
       cdUpcomingList.innerHTML = '';

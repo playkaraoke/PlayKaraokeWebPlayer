@@ -57,6 +57,9 @@ js/
   library.js                → window.createLibrary() (script solto). Indexação
                             de pastas locais via File System Access API.
   singers.js                → window.createSingerManager() (script solto).
+  i18n.js                   → window.i18n (script solto, carregado antes de
+                            todos os outros). Dicionário de traduções
+                            EN/PT + t()/setLanguage()/applyTranslations().
                             Toda a lógica de dados da rodada de cantores.
   second-screen.js          → roda dentro de second-screen.html. Recebe
                             mensagens via BroadcastChannel e renderiza.

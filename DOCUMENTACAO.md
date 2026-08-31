@@ -712,6 +712,65 @@ teste jsdom antes de considerar pronta.
 
 ## Decisões e trade-offs importantes (pra não repetir discussões)
 
+- **Sistema de idiomas (EN/PT) implementado e validado ponta a ponta**
+  (14 testes cobrindo padrão inglês, troca em tempo real, textos
+  dinâmicos, mensagens de erro vindas de `singers.js`/`library.js`, e a
+  segunda tela recebendo labels traduzidos via broadcast). Módulo
+  `js/i18n.js` novo, ~110 chaves. Fiz 3 varreduras sucessivas atrás de
+  texto português esquecido no meio do código (achei 12 casos que só
+  apareceram numa segunda/terceira passada) — vale sempre fazer essa
+  varredura de novo depois de qualquer feature nova que gere texto na
+  tela, é fácil esquecer um `textContent` solto.
+- **Armadilhas de teste encontradas e documentadas** (não são bugs de
+  produção, só do ambiente Node/jsdom): Node tem seu próprio
+  `CustomEvent` e `BroadcastChannel` nativos, diferentes dos do jsdom —
+  se o teste usa os dois ao mesmo tempo sem igualar explicitamente,
+  aparecem erros de tipo confusos que parecem bug real. A solução
+  definitiva foi trocar `document.dispatchEvent(CustomEvent)` por um
+  sistema de callbacks simples dentro do próprio `i18n.js`
+  (`onLanguageChange()`), que também é mais robusto que depender do
+  mecanismo de eventos do DOM pra uma comunicação interna do app.
+- **`README.txt` criado** como manual de usuário (não técnico) — em
+  inglês, já que é o idioma padrão agora. `LEIA-ME.md` removido.
+  `ARQUITETURA.md` e `DOCUMENTACAO.md` continuam sendo os documentos
+  técnicos (arquitetura e histórico/decisões, respectivamente).
+
+
+- **Regra nova, a partir de v2.1**: toda vez que uma novidade relevante
+  for adicionada, a versão (`#version-tag`) deve subir junto. Não
+  esperar "acumular" várias mudanças pra só depois bater a versão.
+- **Idiomas**: o plano original de 12 idiomas foi **reduzido pra só
+  Inglês + Português**, com Inglês como padrão (sem detecção automática
+  de navegador — sempre abre em inglês, a pessoa troca manualmente se
+  quiser). Motivo: com 12, toda mudança de texto futura viraria 12
+  sincronizações — inviável enquanto o produto ainda muda tanto. Os
+  outros 10 idiomas ficam pra quando o app estiver mais maduro (menos
+  mudanças de texto a cada rodada). **Ainda não implementado** — só o
+  escopo foi confirmado, aguardando sinal pra começar a codificar.
+- **Proteção de código-fonte**: pesquisado e esclarecido — repositório
+  privado (precisa de GitHub Pro, não Enterprise) esconde o histórico de
+  commits e impede achar o projeto navegando/buscando no GitHub, mas
+  **não** esconde o código do site publicado em si — isso é impossível
+  pra qualquer site 100% client-side (sem servidor), em qualquer
+  hospedagem, não é limitação específica do GitHub. A senha de acesso já
+  cumpre o papel de barrar visitante casual; repositório privado é um
+  reforço adicional válido, não uma proteção completa.
+
+
+- **Bug de performance real corrigido**: escaneamento de pastas da
+  Biblioteca (`scanDirectoryRecursive`) processava todos os arquivos
+  numa rajada contínua, sem nunca devolver o controle pro navegador —
+  com uma pasta de milhares de arquivos, isso travava a thread
+  principal por tempo suficiente pra fazer a renderização do CDG
+  engasgar visivelmente (mesma thread cuida das duas coisas). Corrigido
+  com um `yieldToMainThread()` a cada 40 arquivos processados
+  (`setTimeout(resolve, 0)`), testado confirmando que o número de
+  arquivos indexados não muda, só passa a "respirar" periodicamente.
+  Reduz mas **não elimina** lentidão em hardware muito fraco (4GB RAM é
+  um limite real também) — é uma melhoria real, não uma solução mágica
+  pra qualquer computador.
+
+
 - **Modo simples: música que termina agora sai da fila** — decisão do
   usuário, pra não ficar acumulando o que já foi cantado. Removida
   independente do autoplay estar ligado ou não (com autoplay desligado,

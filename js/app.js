@@ -40,6 +40,7 @@ const errorBanner = el('error-banner');
 const loadingBanner = el('loading-banner');
 
 const settingsBtn = el('settings-btn');
+const languageSelect = el('language-select');
 const autoplayToggleIndicator = el('autoplay-toggle-indicator');
 const ambientToggleIndicator = el('ambient-toggle-indicator');
 const idleImageToggleIndicator = el('idle-image-toggle-indicator');
@@ -108,6 +109,8 @@ const detailHistoryPanel = el('detail-history-panel');
 const detailQueueList = el('detail-queue-list');
 const detailHistoryList = el('detail-history-list');
 const detailAddSongBtn = el('detail-add-song-btn');
+const detailUploadFileBtn = el('detail-upload-file-btn');
+const detailUploadFileInput = el('detail-upload-file-input');
 const detailAddSongSearch = el('detail-add-song-search');
 const detailSongSearchInput = el('detail-song-search-input');
 const detailSongSearchResults = el('detail-song-search-results');
@@ -267,7 +270,7 @@ function updateMetaBar(item) {
   if (!item) {
     metaCode.textContent = '—';
     metaArtist.textContent = '—';
-    metaSong.textContent = 'Nenhuma música carregada';
+    metaSong.textContent = window.i18n.t('no_music_loaded');
     metaFormat.textContent = '';
     return;
   }
@@ -288,13 +291,13 @@ function hasNext() {
 }
 
 function renderPlaylist() {
-  playlistCount.textContent = `Fila (${playlist.length})`;
+  playlistCount.textContent = `${window.i18n.t('queue_label')} (${playlist.length})`;
   playlistEl.innerHTML = '';
 
   if (playlist.length === 0) {
     const hint = document.createElement('p');
     hint.id = 'playlist-empty-hint';
-    hint.textContent = 'Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.';
+    hint.textContent = window.i18n.t('queue_empty_hint');
     playlistEl.appendChild(hint);
     nextBtn.disabled = true;
     persistPlaylist();
@@ -327,12 +330,12 @@ function renderPlaylist() {
       const playingNow = mode !== null && (mode === 'video' ? !videoEl.paused : engine.isPlaying());
       nowPlayingBadge = document.createElement('span');
       nowPlayingBadge.className = 'now-playing-badge' + (playingNow ? '' : ' hidden');
-      nowPlayingBadge.textContent = 'TOCANDO';
+      nowPlayingBadge.textContent = window.i18n.t('now_playing_badge');
     }
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
-    removeBtn.title = 'Remover da fila';
+    removeBtn.title = window.i18n.t('remove_from_queue_title');
     removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -343,7 +346,7 @@ function renderPlaylist() {
     reorderBtns.className = 'reorder-btns';
     const upBtn = document.createElement('button');
     upBtn.className = 'reorder-btn';
-    upBtn.title = 'Mover pra cima';
+    upBtn.title = window.i18n.t('move_up_title');
     upBtn.disabled = i === 0;
     upBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5"/></svg>';
     upBtn.addEventListener('click', (e) => {
@@ -352,7 +355,7 @@ function renderPlaylist() {
     });
     const downBtn = document.createElement('button');
     downBtn.className = 'reorder-btn';
-    downBtn.title = 'Mover pra baixo';
+    downBtn.title = window.i18n.t('move_down_title');
     downBtn.disabled = i === playlist.length - 1;
     downBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>';
     downBtn.addEventListener('click', (e) => {
@@ -500,7 +503,7 @@ async function addFilesToQueue(files) {
   renderPlaylist();
 
   if (skippedAny) {
-    showError('Alguns arquivos foram ignorados: só .zip (MP3+G) e .mp4 são suportados.');
+    showError(window.i18n.t('err_unsupported_files'));
   }
 
   if (wasEmpty && firstNewIndex !== -1) {
@@ -593,7 +596,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   } catch (err) {
     if (!isCurrent()) return; // erro de uma chamada já obsoleta -- ignora silenciosamente
     console.error(err);
-    showError(err.message || 'Não foi possível carregar essa música.');
+    showError(err.message || window.i18n.t('err_load_generic'));
   } finally {
     if (isCurrent()) showLoading(false);
   }
@@ -804,7 +807,7 @@ playBtn.addEventListener('click', async () => {
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
-    showError('Não foi possível iniciar a reprodução: ' + (err.message || err));
+    showError(window.i18n.t('err_playback_start_fail', { msg: err.message || err }));
   }
 });
 
@@ -950,7 +953,7 @@ function syncToggleIndicator(indicatorEl, checkboxEl) {
     const on = checkboxEl.checked;
     indicatorEl.classList.toggle('on', on);
     const textEl = indicatorEl.querySelector('.toggle-state-text');
-    if (textEl) textEl.textContent = on ? 'Ativado' : 'Desativado';
+    if (textEl) textEl.textContent = on ? window.i18n.t('enabled') : window.i18n.t('disabled');
   };
   update();
   checkboxEl.addEventListener('change', update);
@@ -965,7 +968,7 @@ function syncToggleIndicator(indicatorEl, checkboxEl) {
 function updateIdleImageToggleIndicatorDisplay(hasImage) {
   idleImageToggleIndicator.classList.toggle('on', hasImage);
   const textEl = idleImageToggleIndicator.querySelector('.toggle-state-text');
-  if (textEl) textEl.textContent = hasImage ? 'Ativado' : 'Desativado';
+  if (textEl) textEl.textContent = hasImage ? window.i18n.t('enabled') : window.i18n.t('disabled');
 }
 
 syncToggleIndicator(autoplayToggleIndicator, autoplayToggle);
@@ -977,9 +980,9 @@ function updateAutoplayIndicator() {
   quickAutoplayBtn.classList.toggle('on', on);
   if (on) {
     const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
-    quickAutoplayBtn.title = `Autoplay ligado — aguarda ${delay}s entre músicas`;
+    quickAutoplayBtn.title = window.i18n.t('pill_autoplay_on_title', { delay });
   } else {
-    quickAutoplayBtn.title = 'Ligar/desligar autoplay';
+    quickAutoplayBtn.title = window.i18n.t('pill_autoplay_title');
   }
 }
 autoplayToggle.addEventListener('change', updateAutoplayIndicator);
@@ -1054,6 +1057,7 @@ function startSingerCountdown() {
     singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
     upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
     display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
+    labels: getCountdownLabels(),
   });
 
   if (delay <= 0) {
@@ -1122,7 +1126,7 @@ function startAutoplayCountdownIfNeeded() {
   countdownRemaining = delay;
   cdNumber.textContent = String(countdownRemaining);
   refreshIdleState();
-  broadcastToSecondScreen({ type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText });
+  broadcastToSecondScreen({ type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText, labels: getCountdownLabels() });
 
   if (delay <= 0) {
     finishCountdown();
@@ -1277,6 +1281,7 @@ function updateIdleOverlay() {
           singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
           upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
           display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
+          labels: getCountdownLabels(),
         });
       }
     } else if (!singerCountdownActive) {
@@ -1320,7 +1325,7 @@ idleImageInput.addEventListener('change', () => {
     idleImageRemoveBtn.classList.remove('hidden');
     broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
   };
-  reader.onerror = () => showError('Não foi possível ler essa imagem.');
+  reader.onerror = () => showError(window.i18n.t('err_image_read_fail'));
   reader.readAsDataURL(file);
   idleImageInput.value = '';
 });
@@ -1363,7 +1368,7 @@ engine.addEventListener('ended', () => {
   refreshIdleState();
 });
 engine.addEventListener('error', (e) => {
-  showError('Erro de áudio: ' + e.detail.message);
+  showError(window.i18n.t('err_audio_generic', { msg: e.detail.message }));
 });
 
 let lastUiUpdate = 0;
@@ -1478,6 +1483,17 @@ function ensureSecondScreenChannel() {
   return secondScreenChannel;
 }
 
+/** Textos fixos que a segunda tela precisa mostrar, já traduzidos no
+ * idioma atual — ela não tem seletor de idioma próprio, então recebe
+ * isso via broadcast toda vez que o countdown é montado. */
+function getCountdownLabels() {
+  return {
+    cdLabel: window.i18n.t('cd_label_starts_in'),
+    aSeguir: window.i18n.t('cd_label_up_next'),
+    proximas: window.i18n.t('cd_label_upcoming'),
+  };
+}
+
 function broadcastToSecondScreen(message) {
   if (!secondScreenWindow || secondScreenWindow.closed) return;
   const channel = ensureSecondScreenChannel();
@@ -1513,7 +1529,7 @@ openSecondBtn.addEventListener('click', toggleSecondScreen);
 function updateSecondScreenIndicator() {
   const open = !!(secondScreenWindow && !secondScreenWindow.closed);
   secondScreenStatus.classList.toggle('hidden', !open);
-  openSecondBtn.textContent = open ? 'Focar janela ↗' : 'Abrir janela ↗';
+  openSecondBtn.textContent = open ? window.i18n.t('second_screen_focus') : window.i18n.t('second_screen_open');
   quickSecondScreenBtn.classList.toggle('on', open);
 }
 
@@ -1625,7 +1641,7 @@ function renderLibraryFolders() {
     const countEl = document.createElement('div');
     if (folder.needsPermission) {
       countEl.className = 'folder-count warn';
-      countEl.textContent = 'Reconexão necessária';
+      countEl.textContent = window.i18n.t('library_reconnect_needed');
     } else if (folder.scanning) {
       countEl.className = 'folder-count';
       countEl.textContent = 'Escaneando...';
@@ -1650,7 +1666,7 @@ function renderLibraryFolders() {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'folder-remove-btn';
-    removeBtn.title = 'Remover pasta';
+    removeBtn.title = window.i18n.t('remove_folder_title');
     removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
     removeBtn.addEventListener('click', () => library.removeFolder(folder.id));
     row.appendChild(removeBtn);
@@ -1676,7 +1692,7 @@ function renderLibraryResults() {
   if (results.length === 0) {
     const hint = document.createElement('p');
     hint.className = 'library-empty-hint';
-    hint.textContent = 'Nada encontrado. Confira se a pasta certa está conectada.';
+    hint.textContent = window.i18n.t('library_no_results');
     libraryResults.appendChild(hint);
     return;
   }
@@ -1731,7 +1747,7 @@ async function addLibraryItemToQueue(item) {
     switchSidebarTab('fila');
   } catch (err) {
     console.error('[App] Erro ao ler arquivo da biblioteca:', err);
-    showError('Não foi possível ler esse arquivo — confira se a pasta/HD ainda está conectado.');
+    showError(window.i18n.t('err_library_read_fail'));
   }
 }
 
@@ -1759,10 +1775,10 @@ function applySingerModeVisibility() {
 
 function updateShowModeBtnDisplay() {
   showModeBtn.classList.toggle('active', singerModeEnabled);
-  showModeBtnLabel.textContent = singerModeEnabled ? 'Encerrar Show' : 'Iniciar Modo Show';
+  showModeBtnLabel.textContent = singerModeEnabled ? window.i18n.t('end_show') : window.i18n.t('start_show_mode');
   const indicatorText = singerModeToggleIndicator.querySelector('.toggle-state-text');
   singerModeToggleIndicator.classList.toggle('on', singerModeEnabled);
-  if (indicatorText) indicatorText.textContent = singerModeEnabled ? 'Ativado' : 'Desativado';
+  if (indicatorText) indicatorText.textContent = singerModeEnabled ? window.i18n.t('enabled') : window.i18n.t('disabled');
 }
 
 const SHOW_WELCOME_HIDE_KEY = 'playkaraoke-hide-show-welcome';
@@ -1865,12 +1881,12 @@ function renderSingerRoundView() {
     } else if (isActive) {
       const waiting = document.createElement('div');
       waiting.className = 'singer-waiting-inline';
-      waiting.textContent = 'Aguardando seleção de música';
+      waiting.textContent = window.i18n.t('waiting_for_song');
       meta.appendChild(waiting);
     } else {
       const subLine = document.createElement('div');
       subLine.className = 'singer-sub-line';
-      subLine.textContent = 'sem música na fila';
+      subLine.textContent = window.i18n.t('no_song_in_queue');
       meta.appendChild(subLine);
     }
 
@@ -1881,7 +1897,7 @@ function renderSingerRoundView() {
     if (isActive) {
       const badge = document.createElement('span');
       badge.className = 'now-playing-badge' + (isAnythingPlaying() ? '' : ' hidden');
-      badge.textContent = 'TOCANDO';
+      badge.textContent = window.i18n.t('now_playing_badge');
       row.appendChild(badge);
     } else {
       const reorderControls = document.createElement('div');
@@ -1901,7 +1917,7 @@ function renderSingerRoundView() {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'singer-remove-btn';
       removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
-      removeBtn.title = 'Remover cantor';
+      removeBtn.title = window.i18n.t('remove_singer_title');
       removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (confirm(`Remover ${s.name} e todas as músicas dele(a)?`)) {
@@ -1978,7 +1994,7 @@ function openSingerPickerModal(file) {
 }
 
 function renderSingerPickerList() {
-  singerPickerDropdown.innerHTML = '<option value="" disabled selected>Selecionar cantor existente...</option>';
+  singerPickerDropdown.innerHTML = `<option value="" disabled selected>${window.i18n.t('singer_picker_dropdown_default')}</option>`;
   singerManager.getAllSingers().forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
@@ -2004,7 +2020,7 @@ singerPickerNewBtn.addEventListener('click', () => {
   const name = singerPickerNewInput.value.trim();
   if (!name) return;
   if (singerManager.nameExists(name)) {
-    showError('Já existe um cantor com esse nome.');
+    showError(window.i18n.t('err_singer_name_duplicate'));
     return;
   }
   resolveSingerPicker({ singerId: name, isNew: true });
@@ -2040,7 +2056,7 @@ async function addFilesInSingerMode(list) {
       showError(err.message);
     }
   }
-  if (skippedAny) showError('Alguns arquivos foram ignorados: só .zip (MP3+G) e .mp4 são suportados.');
+  if (skippedAny) showError(window.i18n.t('err_unsupported_files'));
 
   if (mode === null) loadCurrentSingerTurn(false);
 }
@@ -2064,7 +2080,7 @@ async function addLibraryItemInSingerMode(item) {
     if (mode === null) loadCurrentSingerTurn(false);
   } catch (err) {
     console.error('[App] Erro ao ler arquivo da biblioteca:', err);
-    showError('Não foi possível ler esse arquivo.');
+    showError(window.i18n.t('err_library_read_fail'));
   }
 }
 
@@ -2142,7 +2158,7 @@ async function restoreSingersFromStorage() {
   if (singerModeEnabled) {
     renderSingerRoundView();
     if (droppedSongs > 0) {
-      showError(`${droppedSongs} música(s) de cantores não foram restauradas automaticamente (eram arquivos avulsos).`);
+      showError(window.i18n.t('err_singer_songs_dropped', { count: droppedSongs }));
     }
   }
 }
@@ -2219,7 +2235,7 @@ function renderRichCountdown(singer) {
   } else {
     cdSingerSongDisplay.classList.add('hidden');
     cdSingerToneDisplay.classList.remove('hidden');
-    cdSingerToneDisplay.textContent = 'Aguardando seleção de música';
+    cdSingerToneDisplay.textContent = window.i18n.t('waiting_for_song');
   }
 
   cdUpcomingList.innerHTML = '';
@@ -2240,7 +2256,7 @@ function renderRichCountdown(singer) {
       if (showTitles) {
         const songText = document.createElement('span');
         songText.className = 'song-info';
-        songText.textContent = s.songs.length > 0 ? [s.songs[0].title, s.songs[0].artist].filter(Boolean).join(' - ') : 'sem música';
+        songText.textContent = s.songs.length > 0 ? [s.songs[0].title, s.songs[0].artist].filter(Boolean).join(' - ') : window.i18n.t('no_song_in_queue');
         row.appendChild(songText);
       }
       cdUpcomingList.appendChild(row);
@@ -2298,7 +2314,7 @@ function renderManageSingersList() {
     nameLine.appendChild(nameEl);
     const count = document.createElement('div');
     count.className = 'count';
-    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} músicas`;
+    count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} ${window.i18n.t('manage_singers_songs_count')}`;
     info.appendChild(nameLine);
     info.appendChild(count);
 
@@ -2398,7 +2414,7 @@ function renderDetailQueueList(singer) {
   if (singer.songs.length === 0) {
     const hint = document.createElement('p');
     hint.className = 'empty-hint-small';
-    hint.textContent = 'Nenhuma música na fila desse cantor ainda.';
+    hint.textContent = window.i18n.t('manage_singers_queue_empty');
     detailQueueList.appendChild(hint);
   }
   singer.songs.forEach((song, i) => {
@@ -2420,7 +2436,7 @@ function renderDetailQueueList(singer) {
     const upBtn = document.createElement('button');
     upBtn.textContent = '▲';
     upBtn.disabled = i === 0;
-    upBtn.title = 'Mover pra cima';
+    upBtn.title = window.i18n.t('move_up_title');
     upBtn.addEventListener('click', () => {
       singerManager.reorderSongInSinger(singer.id, i, i - 1);
       renderDetailQueueList(singer);
@@ -2429,7 +2445,7 @@ function renderDetailQueueList(singer) {
     const downBtn = document.createElement('button');
     downBtn.textContent = '▼';
     downBtn.disabled = i === singer.songs.length - 1;
-    downBtn.title = 'Mover pra baixo';
+    downBtn.title = window.i18n.t('move_down_title');
     downBtn.addEventListener('click', () => {
       singerManager.reorderSongInSinger(singer.id, i, i + 2);
       renderDetailQueueList(singer);
@@ -2485,7 +2501,7 @@ function renderDetailHistoryList(singer) {
   if (singer.history.length === 0) {
     const hint = document.createElement('p');
     hint.className = 'empty-hint-small';
-    hint.textContent = 'Esse cantor ainda não cantou nenhuma música nessa sessão.';
+    hint.textContent = window.i18n.t('manage_singers_history_empty');
     detailHistoryList.appendChild(hint);
     return;
   }
@@ -2552,11 +2568,51 @@ detailSongSearchInput.addEventListener('input', () => {
         renderManageSingersList();
         renderSingerRoundView();
       } catch (err) {
-        showError(err.message || 'Não foi possível adicionar essa música.');
+        showError(err.message || window.i18n.t('err_load_generic'));
       }
     });
     detailSongSearchResults.appendChild(row);
   });
+});
+
+// Upload direto de arquivo(s) do computador, pra adicionar na fila do
+// cantor selecionado sem precisar passar pela Biblioteca.
+detailUploadFileBtn.addEventListener('click', () => detailUploadFileInput.click());
+detailUploadFileInput.addEventListener('change', async () => {
+  const files = Array.from(detailUploadFileInput.files || []);
+  detailUploadFileInput.value = ''; // permite selecionar o mesmo arquivo de novo depois, se precisar
+
+  let addedAny = false;
+  for (const file of files) {
+    const lower = file.name.toLowerCase();
+    const isZip = lower.endsWith('.zip');
+    const isMp4 = lower.endsWith('.mp4');
+    if (!isZip && !isMp4) {
+      showError(window.i18n.t('err_unsupported_files'));
+      continue;
+    }
+    const parsed = window.parseKaraokeFilename(file.name);
+    const song = {
+      id: 'track_' + (++playlistIdCounter),
+      file,
+      code: parsed.code, artist: parsed.artist, title: parsed.title,
+      format: isMp4 ? 'MP4' : 'MP3+G', type: isMp4 ? 'video' : 'cdg',
+      savedSemitones: 0,
+    };
+    try {
+      singerManager.addSongToSinger(selectedManageSingerId, false, song);
+      addedAny = true;
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  if (addedAny) {
+    detailAddSongSearch.classList.add('hidden');
+    renderManageSingerDetail(selectedManageSingerId);
+    renderManageSingersList();
+    renderSingerRoundView();
+  }
 });
 
 // ---------- Encerrar Show (feature 3) ----------
@@ -2726,7 +2782,7 @@ async function restorePlaylistFromStorage() {
     renderPlaylist();
   }
   if (droppedCount > 0) {
-    showError(`${droppedCount} música(s) da fila anterior não foram restauradas automaticamente (eram arquivos avulsos, ou a pasta da Biblioteca ainda não foi reconectada). Adicione-as de novo se precisar.`);
+    showError(window.i18n.t('err_playlist_songs_dropped', { count: droppedCount }));
   }
 }
 
@@ -2803,3 +2859,22 @@ renderPlaylist();
 restoreShowHistory();
 updateShowModeBtnDisplay();
 restoreCountdownSettings();
+
+// ---------- Idioma (i18n) ----------
+languageSelect.value = window.i18n.getCurrentLang();
+window.i18n.applyTranslations();
+languageSelect.addEventListener('change', () => {
+  window.i18n.setLanguage(languageSelect.value);
+});
+window.i18n.onLanguageChange(() => {
+  // Alguns textos são gerados dinamicamente (não têm data-i18n no HTML
+  // estático) — precisam ser re-renderizados manualmente quando o
+  // idioma muda, senão ficam "presos" no idioma anterior até a próxima
+  // ação do usuário atualizar aquele pedaço da tela.
+  renderPlaylist();
+  updateAutoplayIndicator();
+  updateApplauseIndicator();
+  updateAmbientIndicator();
+  if (singerModeEnabled) renderSingerRoundView();
+  if (mode === null) updateMetaBar(null);
+});
