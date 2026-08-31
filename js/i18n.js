@@ -44,6 +44,13 @@ const TRANSLATIONS = {
     no_music_loaded: 'No music loaded',
     meta_song_label: 'SONG',
     loading_file: 'Loading file…',
+    prompt_new_singer_name: 'New singer name:',
+    prompt_rename_singer: 'New name for this singer:',
+    confirm_remove_singer: 'Remove {name} and all of their songs?',
+    delete_btn_title: 'Delete',
+    library_scanning: 'Scanning…',
+    library_reconnect_btn: 'Reconnect',
+    library_files_count: '{count} files',
     fullscreen_btn: 'Fullscreen',
 
     // Transport / footer
@@ -218,6 +225,13 @@ const TRANSLATIONS = {
     no_music_loaded: 'Nenhuma música carregada',
     meta_song_label: 'MÚSICA',
     loading_file: 'Carregando arquivo…',
+    prompt_new_singer_name: 'Nome do novo cantor:',
+    prompt_rename_singer: 'Novo nome do cantor:',
+    confirm_remove_singer: 'Remover {name} e todas as músicas dele(a)?',
+    delete_btn_title: 'Excluir',
+    library_scanning: 'Escaneando...',
+    library_reconnect_btn: 'Reconectar',
+    library_files_count: '{count} arquivos',
     fullscreen_btn: 'Tela cheia',
 
     stop_btn_title: 'Parar (se travar, use esse botão pra resetar)',

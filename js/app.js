@@ -94,6 +94,7 @@ const cdShowTitlesToggle = el('cd-show-titles-toggle');
 const cdShowCounterToggle = el('cd-show-counter-toggle');
 
 const openManageSingersBtn = el('open-manage-singers-btn');
+const manageSingersSidebarBtn = el('manage-singers-sidebar-btn');
 const manageSingersBackdrop = el('manage-singers-backdrop');
 const manageSingersCloseBtn = el('manage-singers-close-btn');
 const manageSingersList = el('manage-singers-list');
@@ -1024,7 +1025,8 @@ function handleSingerModeSongEnded() {
   const singer = singerManager.getCurrentSinger();
   if (singer && singer.songs.length > 0) {
     const song = singer.songs[0];
-    logSongToShowHistory(singer.name, song, currentSemitones, Math.round(engine.getDuration ? engine.getDuration() : 0));
+    const duration = mode === 'video' ? (videoEl.duration || 0) : (engine.getDuration ? engine.getDuration() : 0);
+    logSongToShowHistory(singer.name, song, currentSemitones, Math.round(duration));
   }
   singerManager.consumeCurrentSongAndAdvance({ semitone: currentSemitones });
   if (!autoplayToggle.checked) {
@@ -1041,7 +1043,7 @@ function startSingerCountdown() {
   const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
   const songText = singer.songs.length > 0
     ? [singer.songs[0].artist, singer.songs[0].title].filter(Boolean).join(' — ')
-    : 'aguardando seleção de música';
+    : window.i18n.t('no_song_in_queue');
   const nextTitleText = `${singer.name} — ${songText}`;
   singerCountdownActive = true;
   renderRichCountdown(singer);
@@ -1107,6 +1109,7 @@ function removeFinishedTrackFromQueue() {
   playlist.splice(currentIndex, 1);
   currentIndex -= 1;
   renderPlaylist(); // já persiste a fila atualizada
+  if (playlist.length === 0) resetToEmptyState();
 }
 
 function handleSimpleModeSongEnded() {
@@ -1644,10 +1647,10 @@ function renderLibraryFolders() {
       countEl.textContent = window.i18n.t('library_reconnect_needed');
     } else if (folder.scanning) {
       countEl.className = 'folder-count';
-      countEl.textContent = 'Escaneando...';
+      countEl.textContent = window.i18n.t('library_scanning');
     } else {
       countEl.className = 'folder-count';
-      countEl.textContent = `${folder.fileCount.toLocaleString('pt-BR')} arquivos`;
+      countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en-US') });
     }
     textWrap.appendChild(nameEl);
     textWrap.appendChild(countEl);
@@ -1659,7 +1662,7 @@ function renderLibraryFolders() {
     if (folder.needsPermission) {
       const reconnectBtn = document.createElement('button');
       reconnectBtn.className = 'folder-reconnect-btn';
-      reconnectBtn.textContent = 'Reconectar';
+      reconnectBtn.textContent = window.i18n.t('library_reconnect_btn');
       reconnectBtn.addEventListener('click', () => library.reconnectFolder(folder.id));
       row.appendChild(reconnectBtn);
     }
@@ -1771,6 +1774,7 @@ const singerManager = window.createSingerManager({
 function applySingerModeVisibility() {
   el('playlist').classList.toggle('hidden', singerModeEnabled);
   singerRoundView.classList.toggle('hidden', !singerModeEnabled);
+  el('sidebar-manage-singers-row').classList.toggle('hidden', !singerModeEnabled);
 }
 
 function updateShowModeBtnDisplay() {
@@ -1920,7 +1924,7 @@ function renderSingerRoundView() {
       removeBtn.title = window.i18n.t('remove_singer_title');
       removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm(`Remover ${s.name} e todas as músicas dele(a)?`)) {
+        if (confirm(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
           singerManager.removeSinger(s.id);
         }
       });
@@ -2287,6 +2291,7 @@ function openManageSingersModal() {
   }
 }
 openManageSingersBtn.addEventListener('click', openManageSingersModal);
+manageSingersSidebarBtn.addEventListener('click', openManageSingersModal);
 manageSingersCloseBtn.addEventListener('click', () => manageSingersBackdrop.classList.add('hidden'));
 manageSingersBackdrop.addEventListener('click', (e) => { if (e.target === manageSingersBackdrop) manageSingersBackdrop.classList.add('hidden'); });
 
@@ -2335,10 +2340,10 @@ function renderManageSingersList() {
     actions.className = 'row-actions';
     const delBtn = document.createElement('button');
     delBtn.textContent = '×';
-    delBtn.title = 'Excluir';
+    delBtn.title = window.i18n.t('delete_btn_title');
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (confirm(`Remover ${s.name} e todas as músicas dele(a)?`)) {
+      if (confirm(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
         singerManager.removeSinger(s.id);
         if (selectedManageSingerId === s.id) selectedManageSingerId = null;
         renderManageSingersList();
@@ -2361,7 +2366,7 @@ function renderManageSingersList() {
 }
 
 addNewSingerBtn.addEventListener('click', () => {
-  const name = prompt('Nome do novo cantor:');
+  const name = prompt(window.i18n.t('prompt_new_singer_name'));
   if (!name || !name.trim()) return;
   try {
     singerManager.addSinger(name);
@@ -2385,7 +2390,7 @@ function renderManageSingerDetail(singerId) {
 detailEditNameBtn.addEventListener('click', () => {
   const singer = singerManager.getAllSingers().find(s => s.id === selectedManageSingerId);
   if (!singer) return;
-  const newName = prompt('Novo nome do cantor:', singer.name);
+  const newName = prompt(window.i18n.t('prompt_rename_singer'), singer.name);
   if (newName === null) return; // cancelou
   const trimmed = newName.trim();
   if (!trimmed || trimmed === singer.name) return;
