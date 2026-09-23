@@ -2801,7 +2801,13 @@ newShowBtn.addEventListener('click', () => {
 
 const PLAYLIST_STORAGE_KEY = 'playkaraoke-playlist-v1';
 
+// Fica false até a restauração terminar: a inicialização chama
+// renderPlaylist() com a fila ainda vazia, e sem essa trava isso gravava
+// uma fila vazia por cima da salva ANTES de ela ser lida.
+let playlistRestoreDone = false;
+
 function persistPlaylist() {
+  if (!playlistRestoreDone) return;
   try {
     const data = {
       items: playlist.map(item => ({
@@ -2864,6 +2870,8 @@ async function restorePlaylistFromStorage() {
 
   if (restoredCount > 0) {
     renderPlaylist();
+    // Deixa a primeira música carregada (pausada), pronta pra tocar.
+    if (mode === null && currentIndex === -1) await selectTrack(0, { autoplay: false, initialSemitones: playlist[0].savedSemitones || 0 });
   }
   if (droppedCount > 0) {
     showError(window.i18n.t('err_playlist_songs_dropped', { count: droppedCount }));
@@ -2871,12 +2879,17 @@ async function restorePlaylistFromStorage() {
 }
 
 // Tenta restaurar pastas já conectadas em sessões anteriores (silencioso).
-library.restoreSavedFolders().then(async () => {
-  await restoreSingersFromStorage();
-  if (singerModeEnabled) {
-    await loadCurrentSingerTurn(false);
-  } else {
-    await restorePlaylistFromStorage();
+const appReady = library.restoreSavedFolders().then(async () => {
+  try {
+    await restoreSingersFromStorage();
+    if (singerModeEnabled) {
+      await loadCurrentSingerTurn(false);
+    } else {
+      await restorePlaylistFromStorage();
+    }
+  } finally {
+    playlistRestoreDone = true;
+    persistPlaylist(); // grava o estado real (restaurado + o que o usuário tenha adicionado nesse meio tempo)
   }
 });
 

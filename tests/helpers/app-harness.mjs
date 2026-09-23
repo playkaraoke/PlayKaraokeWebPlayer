@@ -118,10 +118,10 @@ export async function createApp(opts = {}) {
   get singerModeEnabled() { return singerModeEnabled; },
   selectTrack, addFilesToQueue, removeFromPlaylist, handleTrackEnded, openShowReport, buildShowCsv,
   actuallyEnableSingerMode,
-  ready: window.__appReady,
+  ready: appReady,
 };`;
   win.eval(appSrc + testHook);
-  if (win.__appReady) await win.__appReady;
+  await win.__test.ready;
   await flush();
   return { dom, win, t: win.__test, $: (id) => win.document.getElementById(id) };
 }
