@@ -66,12 +66,22 @@
       idleOverlay.classList.add('hidden');
       canvasWrap.classList.add('hidden');
       videoWrap.classList.add('hidden');
+      syncVideoPlayback();
       return;
     }
     const showingMedia = isPlayingState && mode !== null;
     idleOverlay.classList.toggle('hidden', showingMedia);
     canvasWrap.classList.toggle('hidden', !showingMedia || mode !== 'cdg');
     videoWrap.classList.toggle('hidden', !showingMedia || mode !== 'video');
+    syncVideoPlayback();
+  }
+
+  /** O vídeo (mudo) só roda enquanto está visível — escondido na tela
+   * ociosa/contagem ele continuava decodificando à toa. */
+  function syncVideoPlayback() {
+    const shouldPlay = !countdownActive && isPlayingState && mode === 'video';
+    if (shouldPlay && videoEl.paused && videoEl.src) videoEl.play().catch(() => {});
+    else if (!shouldPlay && !videoEl.paused) videoEl.pause();
   }
 
   if (!('BroadcastChannel' in window)) {
@@ -206,6 +216,7 @@
         break;
       }
       case 'clear': {
+        if (!videoEl.paused) videoEl.pause();
         mode = null;
         isPlayingState = false;
         countdownActive = false;
@@ -223,9 +234,7 @@
   // Mantém o vídeo mudo sempre — o áudio já toca na janela principal, não
   // queremos duas fontes de som ao mesmo tempo.
   videoEl.muted = true;
-  videoEl.addEventListener('canplay', () => {
-    videoEl.play().catch(() => {});
-  });
+  videoEl.addEventListener('canplay', syncVideoPlayback);
 
   updateVisibility(); // estado inicial: tela ociosa (nada tocando ainda)
 })();

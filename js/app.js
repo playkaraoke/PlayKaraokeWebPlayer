@@ -308,10 +308,13 @@ function showConfirmModal(message) {
   });
 }
 
+let errorBannerTimerId = null;
 function showError(msg) {
   errorBanner.textContent = msg;
   errorBanner.classList.remove('hidden');
-  setTimeout(() => errorBanner.classList.add('hidden'), 5000);
+  // Reinicia o timer: senão o timer de um erro anterior escondia o novo antes da hora.
+  clearTimeout(errorBannerTimerId);
+  errorBannerTimerId = setTimeout(() => errorBanner.classList.add('hidden'), 5000);
 }
 
 let isTrackLoading = false;
@@ -3035,9 +3038,19 @@ const SIDEBAR_WIDTH_KEY = 'playkaraoke-sidebar-width';
 
 // ---------- Atalhos de teclado ----------
 
+/** Atalhos ficam desligados enquanto se digita ou com algum modal aberto
+ * (senão o Espaço num modal de confirmação dava play/pause por trás). */
+function shortcutsBlocked() {
+  const active = document.activeElement;
+  if (active && active.closest('input, textarea, select, [contenteditable="true"]')) return true;
+  return !!document.querySelector('[id$="-backdrop"]:not(.hidden)');
+}
+
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+  if (shortcutsBlocked()) return;
+  if (e.code === 'Space') {
     e.preventDefault();
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); // evita o Espaço "clicar" também o botão focado
     playBtn.click();
   }
   // Ctrl/Cmd + Seta Direita = próxima música. Clicar no botão (em vez
@@ -3045,7 +3058,7 @@ window.addEventListener('keydown', (e) => {
   // habilitado/desabilitado que já existe — em modo cantores o botão
   // fica sempre desabilitado (não existe "próxima" manual lá), então o
   // atalho vira um no-op seguro nesse modo, sem precisar checar nada.
-  if ((e.ctrlKey || e.metaKey) && e.code === 'ArrowRight' && document.activeElement.tagName !== 'INPUT') {
+  if ((e.ctrlKey || e.metaKey) && e.code === 'ArrowRight') {
     e.preventDefault();
     nextBtn.click();
   }
