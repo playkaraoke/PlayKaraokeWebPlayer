@@ -27,7 +27,14 @@ function installFakeWebAudio() {
   globalThis.window = globalThis;
   globalThis.AudioContext = FakeCtx;
   globalThis.AudioWorkletNode = class { constructor(ctx, name, opts) { this.opts = opts; this.parameters = new Map([['pitchRatio', { value: 1 }]]); created.workletNodes.push(this); } connect() {} };
-  globalThis.Worker = undefined; // força o fallback de setInterval
+  // Worker falso com a mesma interface do js/tick-worker.js.
+  globalThis.Worker = class {
+    postMessage({ command, intervalMs }) {
+      clearInterval(this._id);
+      if (command === 'start') this._id = setInterval(() => this.onmessage && this.onmessage({ data: 'tick' }), intervalMs);
+    }
+    terminate() { clearInterval(this._id); }
+  };
   return created;
 }
 

@@ -2381,7 +2381,8 @@
     seekBar.style.setProperty('--fill', pct + '%');
   }
   seekBar.addEventListener('input', updateFill);
-  new MutationObserver(updateFill).observe(seekBar, { attributes: true, attributeFilter: ['value'] });
+  // O app atualiza seekBar.value pela propriedade (não pelo atributo), o
+  // que nenhum evento/observer detecta — por isso o polling leve.
   setInterval(updateFill, 200);
 </script>
 

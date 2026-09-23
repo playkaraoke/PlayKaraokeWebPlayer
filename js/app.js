@@ -223,6 +223,9 @@ let videoPitchRouted = false; // true se o <video> atual está passando pelo pit
 // A música é identificada pelo objeto/ID, não por "songs[0] do cantor
 // atual", então mexer na fila durante a apresentação não confunde nada.
 let showTurn = null;
+// Buffer .cdg da música carregada — reenviado pra segunda tela quando ela
+// abre/recarrega, sem precisar extrair o zip de novo.
+let currentCdgBuffer = null;
 
 // ---------- Utilidades ----------
 
@@ -623,6 +626,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     setSemitones(initialSemitones || 0); // cada música começa no tom escolhido (ou original, por padrão)
 
     if (result.type === 'cdg') {
+      currentCdgBuffer = result.cdgBuffer;
       cdgPlayer.load(result.cdgBuffer);
       await engine.loadArrayBuffer(result.audioBuffer);
       if (!isCurrent()) return;
@@ -637,6 +641,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
         meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
       });
     } else if (result.type === 'video') {
+      currentCdgBuffer = null;
       videoEl.src = result.videoBlobUrl;
       setStage('video');
       videoEl.load();
@@ -824,6 +829,7 @@ tmPlayBtn.addEventListener('click', () => {
 
 function resetToEmptyState() {
   showTurn = null;
+  currentCdgBuffer = null;
   engine.stop();
   if (mode === 'video') {
     videoEl.pause();
@@ -1662,21 +1668,19 @@ function sendCurrentStateToSecondScreen() {
 
   if (currentIndex < 0 || !playlist[currentIndex]) return;
   broadcastToSecondScreen({ type: 'colors', colors: getActiveColors() });
-  if (mode === 'cdg') {
+  if (mode === 'cdg' && currentCdgBuffer) {
     // Reenvia o estado atual pra popup que acabou de abrir/recarregar.
-    // Precisamos re-extrair o arquivo já que não guardamos o buffer em cache.
-    window.loadKaraokeFile(playlist[currentIndex].file).then(result => {
-      if (result.type === 'cdg') {
-        broadcastToSecondScreen({
-          type: 'init-cdg',
-          cdgBuffer: result.cdgBuffer,
-          colors: getActiveColors(),
-          meta: playlist[currentIndex],
-        });
-      }
-    }).catch(() => {});
+    const item = playlist[currentIndex];
+    broadcastToSecondScreen({
+      type: 'init-cdg',
+      cdgBuffer: currentCdgBuffer,
+      colors: getActiveColors(),
+      meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
+    });
+    broadcastToSecondScreen({ type: 'time', currentTime: engine.getCurrentTime(), duration: engine.getDuration() });
   } else if (mode === 'video' && videoEl.src) {
-    broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: playlist[currentIndex] });
+    const item = playlist[currentIndex];
+    broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
   }
 }
 

@@ -88,8 +88,31 @@ function yieldToMainThread() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
+/**
+ * Remove acentos/diacríticos pra comparação (ex: "ê"->"e", "ã"->"a").
+ * Usa a normalização Unicode NFD, que separa a letra do acento, e
+ * depois descarta os acentos (intervalo de "combining diacritical
+ * marks"). Assim "Você" e "voce" batem na busca.
+ */
+function stripAccents(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Texto de busca de um item (título + artista + código), já em
+ * minúsculas e sem acento — calculado UMA vez no escaneamento, em vez de
+ * a cada tecla digitada pra cada um dos milhares de itens do índice. */
+function buildSearchText(item) {
+  return stripAccents([item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase());
+}
+
 async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) {
   for await (const entry of dirHandle.values()) {
+    // Conta TODA entrada (não só .zip/.mp4): pastas cheias de outros
+    // arquivos também precisam devolver o controle pro navegador.
+    scanYieldCounter++;
+    if (scanYieldCounter % 40 === 0) {
+      await yieldToMainThread();
+    }
     if (entry.kind === 'directory') {
       await scanDirectoryRecursive(entry, folderId, folderName, results);
     } else if (entry.kind === 'file') {
@@ -98,7 +121,7 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
       const isMp4 = lower.endsWith('.mp4');
       if (!isZip && !isMp4) continue;
       const parsed = window.parseKaraokeFilename(entry.name);
-      results.push({
+      const item = {
         folderId,
         folderName,
         name: entry.name,
@@ -108,12 +131,9 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
         format: isMp4 ? 'MP4' : 'MP3+G',
         type: isMp4 ? 'video' : 'cdg',
         handle: entry,
-      });
-
-      scanYieldCounter++;
-      if (scanYieldCounter % 40 === 0) {
-        await yieldToMainThread();
-      }
+      };
+      item.searchText = buildSearchText(item);
+      results.push(item);
     }
   }
 }
@@ -180,6 +200,16 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
       }
       return; // usuário cancelou, ou erro — não faz nada
     }
+    // Mesma pasta conectada de novo: só reescaneia a existente (evita
+    // resultados duplicados na busca).
+    for (const f of connectedFolders) {
+      try {
+        if (await f.handle.isSameEntry(handle)) {
+          await scanAndRegister(f.id, f.name, f.handle);
+          return;
+        }
+      } catch (err) { /* handle antigo inválido — segue o fluxo normal */ }
+    }
     const id = 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     try {
       await dbPutFolder(id, handle.name, handle);
@@ -241,17 +271,6 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     }
   }
 
-  /** Busca no índice em memória. Retorna até MAX_SEARCH_RESULTS itens. */
-  /**
-   * Remove acentos/diacríticos pra comparação (ex: "ê"->"e", "ã"->"a").
-   * Usa a normalização Unicode NFD, que separa a letra do acento, e
-   * depois descarta os acentos (intervalo de "combining diacritical
-   * marks"). Assim "Você" e "voce" batem na busca.
-   */
-  function stripAccents(s) {
-    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
-
   /**
    * Busca por múltiplas palavras: cada palavra digitada precisa aparecer
    * em algum lugar (título, artista ou código), em qualquer ordem — não
@@ -265,8 +284,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     if (words.length === 0) return [];
     const results = [];
     for (const item of libraryIndex) {
-      const haystack = stripAccents([item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase());
-      if (words.every(word => haystack.includes(word))) {
+      if (words.every(word => item.searchText.includes(word))) {
         results.push(item);
         if (results.length >= MAX_SEARCH_RESULTS) break;
       }
