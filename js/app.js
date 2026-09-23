@@ -590,6 +590,11 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   currentIndex = index;
   renderPlaylist();
 
+  // Para a mídia anterior ANTES de carregar a nova: sem isso, trocar de um
+  // CDG tocando pra um MP4 (ou vice-versa) deixava a anterior tocando por
+  // baixo — e o "ended" dela depois avançava a fila/rodada sozinho.
+  stopCurrentMedia();
+
   const item = playlist[index];
   showLoading(true);
   try {
@@ -661,6 +666,13 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   } finally {
     if (isCurrent()) showLoading(false);
   }
+}
+
+/** Para qualquer mídia tocando agora (CDG e/ou vídeo), sem mexer no palco. */
+function stopCurrentMedia() {
+  engine.stop();
+  if (!videoEl.paused) videoEl.pause();
+  updatePlayIcon();
 }
 
 function playNextInQueue() {
@@ -1427,7 +1439,7 @@ engine.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); })
 engine.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
 engine.addEventListener('ended', () => {
   updatePlayIcon();
-  handleTrackEnded();
+  if (mode === 'cdg') handleTrackEnded(); // "ended" de uma mídia que já não é a atual é ignorado
   refreshIdleState();
 });
 engine.addEventListener('error', (e) => {
@@ -1464,7 +1476,7 @@ videoEl.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); }
 videoEl.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
 videoEl.addEventListener('ended', () => {
   updatePlayIcon();
-  handleTrackEnded();
+  if (mode === 'video') handleTrackEnded(); // "ended" de uma mídia que já não é a atual é ignorado
   refreshIdleState();
 });
 videoEl.addEventListener('timeupdate', () => {
