@@ -56,6 +56,8 @@ const TRANSLATIONS = {
     // Transport / footer
     stop_btn_title: 'Stop (if it freezes, use this button to reset)',
     next_btn_title: 'Next song',
+    end_performance_title: 'End this performance and move to the next singer (counts as sung)',
+    confirm_end_performance: "End {name}'s performance now? The song counts as sung and the turn moves to the next singer.",
     tom_label: 'PITCH',
     pitch_down_title: 'Decrease one semitone',
     pitch_up_title: 'Increase one semitone',
@@ -237,6 +239,8 @@ const TRANSLATIONS = {
 
     stop_btn_title: 'Parar (se travar, use esse botão pra resetar)',
     next_btn_title: 'Próxima música',
+    end_performance_title: 'Encerrar esta apresentação e passar pro próximo cantor (conta como cantada)',
+    confirm_end_performance: 'Encerrar agora a apresentação de {name}? A música conta como cantada e a vez passa pro próximo cantor.',
     tom_label: 'TOM',
     pitch_down_title: 'Diminuir um semitom',
     pitch_up_title: 'Aumentar um semitom',

@@ -2354,9 +2354,6 @@
 
     if (sessionStorage.getItem('playkaraoke_auth') === 'true') {
       overlay.classList.add('unlocked');
-      if (!localStorage.getItem('playkaraoke-session-start')) {
-        localStorage.setItem('playkaraoke-session-start', String(Date.now()));
-      }
     }
 
     form.addEventListener('submit', async () => {
@@ -2366,7 +2363,6 @@
       const hash = await calculateSHA256(inputPass);
       if (ACCESS_HASHES.includes(hash)) {
         sessionStorage.setItem('playkaraoke_auth', 'true');
-        localStorage.setItem('playkaraoke-session-start', String(Date.now()));
         overlay.classList.add('unlocked');
         errorMsg.classList.add('hidden');
       } else {

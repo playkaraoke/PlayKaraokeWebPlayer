@@ -6,10 +6,11 @@
  *  - Cantor novo entra no FINAL da rodada atual.
  *  - Tocou a música #1 do cantor -> sai da lista dele (consumida).
  *  - Terminou o último cantor -> volta pro #1 automaticamente (loop).
- *  - Cantor sem música na vez dele -> fica "aguardando seleção".
- *  - "Pular cantor" marca ele como PAUSADO (não é só pular essa rodada) —
- *    fica pausado até alguém reativar manualmente.
- *  - Cantor pausado é pulado silenciosamente na rotação normal.
+ *  - Cantor sem música na vez dele -> fica "aguardando seleção" (não existe
+ *    pausa nem pulo automático).
+ *  - A música que está tocando é identificada pelo ID (não pela posição),
+ *    então o operador pode mexer na fila do cantor durante a apresentação
+ *    sem que a música errada seja consumida.
  *
  * Esse módulo só cuida dos DADOS e da lógica de rotação — quem toca a
  * música de verdade continua sendo o app.js (via engine/cdgPlayer), esse
@@ -30,7 +31,7 @@ function st(key, fallback, vars) {
 }
 
 function createSingerManager({ onChange }) {
-  let singers = []; // { id, name, paused, songs: [], history: [] }
+  let singers = []; // { id, name, songs: [], history: [] }
   let currentSingerId = null;
   let idCounter = 0;
 
@@ -65,10 +66,13 @@ function createSingerManager({ onChange }) {
   }
 
   function removeSinger(id) {
-    const wasCurrent = currentSingerId === id;
-    singers = singers.filter(s => s.id !== id);
-    if (wasCurrent) {
-      currentSingerId = singers.length > 0 ? singers[0].id : null;
+    const idx = singers.findIndex(s => s.id === id);
+    if (idx === -1) return;
+    singers.splice(idx, 1);
+    if (currentSingerId === id) {
+      // A vez passa pro PRÓXIMO da rodada (quem "escorregou" pra posição
+      // do removido), não pro primeiro da lista.
+      currentSingerId = singers.length > 0 ? singers[idx % singers.length].id : null;
     }
     notify();
   }
@@ -129,20 +133,28 @@ function createSingerManager({ onChange }) {
     return findSinger(currentSingerId);
   }
 
-  /** Consome a música do topo do cantor atual (ela já tocou), registra no
-   * histórico dele, e avança a vez pro próximo cantor da rodada. */
-  function consumeCurrentSongAndAdvance(playedInfo) {
-    const singer = getCurrentSinger();
-    if (singer && singer.songs.length > 0) {
-      const song = singer.songs.shift();
+  /**
+   * Fecha a vez de um cantor: tira a música cantada da fila dele (pelo ID —
+   * se o operador já tiver removido/reordenado, nada de errado é consumido),
+   * registra no histórico e passa a vez pro próximo da rodada.
+   * Se o cantor foi removido durante a apresentação, removeSinger() já
+   * passou a vez — aqui não avança de novo (senão pularia alguém).
+   * @param {string} singerId - cantor que estava cantando
+   * @param {object} song - a música que tocou (mesmo objeto da fila)
+   * @param {{semitone?: number}} [playedInfo]
+   */
+  function completeTurn(singerId, song, playedInfo) {
+    const singer = findSinger(singerId);
+    if (singer) {
+      const idx = singer.songs.findIndex(s => s.id === song.id);
+      if (idx !== -1) singer.songs.splice(idx, 1);
       singer.history.push({
         code: song.code, artist: song.artist, title: song.title,
         semitone: playedInfo && playedInfo.semitone || 0,
         timestamp: Date.now(),
       });
+      if (currentSingerId === singerId) currentSingerId = getNextActiveSingerId(singerId);
     }
-    const nextId = getNextActiveSingerId(currentSingerId);
-    currentSingerId = nextId;
     notify();
   }
 
@@ -182,7 +194,7 @@ function createSingerManager({ onChange }) {
   return {
     addSinger, renameSinger, removeSinger, reorderSinger,
     addSongToSinger, removeSongFromSinger, reorderSongInSinger,
-    getCurrentSinger, consumeCurrentSongAndAdvance,
+    getCurrentSinger, completeTurn,
     getUpcomingSingers, getNextActiveSingerId,
     getAllSingers: () => singers,
     nameExists,

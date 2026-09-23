@@ -219,6 +219,10 @@ let modalTrackIndex = -1; // índice da música que o modal de info está mostra
 let modalPitchValue = 0;
 let dragFromIndex = -1; // índice sendo arrastado na reordenação por drag&drop
 let videoPitchRouted = false; // true se o <video> atual está passando pelo pitch shifter
+// Modo Show: a vez carregada no player agora — { singerId, singerName, song }.
+// A música é identificada pelo objeto/ID, não por "songs[0] do cantor
+// atual", então mexer na fila durante a apresentação não confunde nada.
+let showTurn = null;
 
 // ---------- Utilidades ----------
 
@@ -360,7 +364,7 @@ function renderPlaylist() {
     hint.id = 'playlist-empty-hint';
     hint.textContent = window.i18n.t('queue_empty_hint');
     playlistEl.appendChild(hint);
-    nextBtn.disabled = true;
+    updateNextBtnState();
     persistPlaylist();
     return;
   }
@@ -471,7 +475,7 @@ function renderPlaylist() {
     playlistEl.appendChild(row);
   });
 
-  nextBtn.disabled = !hasNext();
+  updateNextBtnState();
   persistPlaylist();
 }
 
@@ -684,7 +688,40 @@ function playNextInQueue() {
   selectTrack(nextIndex, { autoplay: true, initialSemitones: nextItem.savedSemitones || 0 });
 }
 
-nextBtn.addEventListener('click', playNextInQueue);
+/** Posição atual de reprodução da mídia carregada (segundos). */
+function getCurrentPosition() {
+  if (mode === 'video') return videoEl.currentTime || 0;
+  if (mode === 'cdg') return engine.getCurrentTime();
+  return 0;
+}
+
+/** O botão "Próxima" muda de papel no Modo Show: lá ele encerra a
+ * apresentação atual (só depois que ela começou) e passa a vez. */
+function updateNextBtnState() {
+  if (singerModeEnabled) {
+    nextBtn.disabled = !(showTurn && mode !== null && (isAnythingPlaying() || getCurrentPosition() > 0));
+    nextBtn.title = window.i18n.t('end_performance_title');
+  } else {
+    nextBtn.disabled = !hasNext();
+    nextBtn.title = window.i18n.t('next_btn_title');
+  }
+}
+
+/** Modo Show: encerra a apresentação no meio (conta como cantada, com o
+ * tempo realmente cantado) e passa a vez pro próximo cantor. */
+async function endCurrentPerformance() {
+  if (!showTurn || mode === null) return;
+  const confirmed = await showConfirmModal(window.i18n.t('confirm_end_performance', { name: showTurn.singerName }));
+  if (!confirmed || !showTurn) return;
+  const elapsedSec = getCurrentPosition();
+  stopCurrentMedia();
+  await handleSingerModeSongEnded({ elapsedSec });
+}
+
+nextBtn.addEventListener('click', () => {
+  if (singerModeEnabled) endCurrentPerformance();
+  else playNextInQueue();
+});
 
 stopBtn.addEventListener('click', () => {
   // Invalida qualquer selectTrack() ainda em andamento (carregamento
@@ -777,6 +814,7 @@ tmPlayBtn.addEventListener('click', () => {
 // ---------- Reset (fila vazia) ----------
 
 function resetToEmptyState() {
+  showTurn = null;
   engine.stop();
   if (mode === 'video') {
     videoEl.pause();
@@ -860,6 +898,7 @@ function updatePlayIcon() {
   const badge = playlistEl.querySelector('.now-playing-badge');
   if (badge) badge.classList.toggle('hidden', !playing);
   if (singerModeEnabled) updateSingerNowPlayingBadge();
+  updateNextBtnState();
 }
 
 playBtn.addEventListener('click', async () => {
@@ -1089,23 +1128,23 @@ function finishCountdown() {
   playNextInQueue();
 }
 
-/** Chamado quando qualquer música termina, no modo cantores. A música
- * SEMPRE é consumida da fila do cantor (ela realmente aconteceu),
- * independente do autoplay estar ligado — só o "carregar a próxima
- * sozinho" depende do autoplay. */
-function handleSingerModeSongEnded() {
-  const singer = singerManager.getCurrentSinger();
-  if (singer && singer.songs.length > 0) {
-    const song = singer.songs[0];
-    const duration = mode === 'video' ? (videoEl.duration || 0) : (engine.getDuration ? engine.getDuration() : 0);
-    logSongToShowHistory(singer.name, song, currentSemitones, Math.round(duration));
+/** Chamado quando a apresentação termina no modo cantores (fim natural
+ * ou "encerrar apresentação"). A música SEMPRE é registrada como cantada.
+ * Em seguida a música do próximo cantor já fica carregada (pausada) — só
+ * começa sozinha, após a contagem, se o autoplay estiver ligado.
+ * @param {{elapsedSec?: number}} [opts] - tempo cantado, se foi interrompida */
+async function handleSingerModeSongEnded({ elapsedSec } = {}) {
+  const turn = showTurn;
+  showTurn = null;
+  if (turn) {
+    const singer = singerManager.getAllSingers().find(s => s.id === turn.singerId);
+    const fullDuration = mode === 'video' ? (videoEl.duration || 0) : engine.getDuration();
+    const duration = elapsedSec !== undefined ? elapsedSec : fullDuration;
+    logSongToShowHistory(singer ? singer.name : turn.singerName, turn.song, currentSemitones, Math.round(duration));
+    singerManager.completeTurn(turn.singerId, turn.song, { semitone: currentSemitones });
   }
-  singerManager.consumeCurrentSongAndAdvance({ semitone: currentSemitones });
-  if (!autoplayToggle.checked) {
-    renderSingerRoundView();
-    return;
-  }
-  startSingerCountdown();
+  await loadCurrentSingerTurn(false);
+  if (autoplayToggle.checked && showTurn) startSingerCountdown();
 }
 
 function startSingerCountdown() {
@@ -1148,7 +1187,28 @@ function startSingerCountdown() {
 
 function finishSingerCountdown() {
   cancelCountdown();
-  loadCurrentSingerTurn(true);
+  // Se a música do cantor da vez já está carregada (pré-carregada no fim da
+  // anterior), só dá play; senão (fila mudou, stop, etc.) carrega de novo.
+  const singer = singerManager.getCurrentSinger();
+  const loadedIsCurrent = showTurn && mode !== null && singer && showTurn.singerId === singer.id
+    && singer.songs.length > 0 && singer.songs[0].id === showTurn.song.id;
+  if (loadedIsCurrent) playLoadedTrack();
+  else loadCurrentSingerTurn(true);
+}
+
+/** Dá play na música que já está carregada no player. */
+async function playLoadedTrack() {
+  try {
+    if (mode === 'cdg') {
+      await engine.play();
+    } else if (mode === 'video') {
+      await videoEl.play();
+      updatePlayIcon();
+    }
+  } catch (err) {
+    console.error('Erro ao dar play:', err);
+    showError(window.i18n.t('err_playback_start_fail', { msg: err.message || err }));
+  }
 }
 
 /** Ponto único chamado sempre que uma música termina — decide qual dos
@@ -1862,7 +1922,11 @@ const showModeWelcomeBackdrop = el('show-mode-welcome-backdrop');
 const welcomeDontShowAgain = el('welcome-dont-show-again');
 const welcomeStartBtn = el('welcome-start-btn');
 
+const SHOW_START_KEY = 'playkaraoke-show-start';
+
 function actuallyEnableSingerMode() {
+  // A duração do show conta a partir daqui (não do login).
+  try { localStorage.setItem(SHOW_START_KEY, String(Date.now())); } catch (err) {}
   singerModeEnabled = true;
   applySingerModeVisibility();
   updateShowModeBtnDisplay();
@@ -2057,6 +2121,7 @@ async function loadCurrentSingerTurn(autoplay) {
   const song = singer.songs[0];
   playlist = [song];
   currentIndex = -1;
+  showTurn = { singerId: singer.id, singerName: singer.name, song };
   await selectTrack(0, { autoplay, initialSemitones: song.savedSemitones || 0 });
 }
 
@@ -2718,7 +2783,8 @@ function formatShowDuration(ms) {
 }
 
 function openShowReport() {
-  const startRaw = localStorage.getItem('playkaraoke-session-start');
+  const startRaw = localStorage.getItem(SHOW_START_KEY)
+    || (showHistory.length ? String(showHistory[0].horario) : null); // shows iniciados antes dessa chave existir
   const start = startRaw ? Number(startRaw) : Date.now();
   const duration = Date.now() - start;
 
@@ -2783,7 +2849,8 @@ newShowBtn.addEventListener('click', () => {
     localStorage.removeItem(SHOW_HISTORY_KEY);
     localStorage.removeItem(SINGERS_STORAGE_KEY);
     localStorage.removeItem(PLAYLIST_STORAGE_KEY);
-    localStorage.removeItem('playkaraoke-session-start');
+    localStorage.removeItem(SHOW_START_KEY);
+    localStorage.removeItem('playkaraoke-session-start'); // chave antiga (versões anteriores)
     sessionStorage.removeItem('playkaraoke_auth');
   } catch (err) {}
   window.location.reload();
