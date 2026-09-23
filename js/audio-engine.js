@@ -5,10 +5,8 @@
  *
  * Dois "motores" de processamento de áudio disponíveis:
  *
- * 1. 'scriptprocessor' (padrão) — usa a API mais antiga (ScriptProcessorNode),
- *    que roda NA MESMA thread principal que desenha a tela.
- *
- * 2. 'worklet' (experimental, opt-in) — usa a API mais nova (AudioWorklet),
+ * 1. 'worklet' (o que o app usa — app.js chama setPreferredBackend('worklet'))
+ *    — usa a API AudioWorklet,
  *    rodando numa thread separada, dedicada só ao áudio (mesma ideia de
  *    apps nativos como KaraFun). Esse motor usa um processador de pitch
  *    shift ESCRITO DO ZERO (js/pitch-worklet-processor.js) — depois de
@@ -21,9 +19,25 @@
  *    real) -> saída. Isso mantém a posição de reprodução sempre em
  *    sincronia 1:1 com o tempo real, o que é ótimo pra sincronizar com o
  *    CDG.
+ *
+ * 2. 'scriptprocessor' (fallback automático) — ScriptProcessorNode + a
+ *    biblioteca soundtouchjs, rodando na thread principal. Só é usado se o
+ *    worklet falhar ao carregar. A biblioteca vem de CDN e é importada SOB
+ *    DEMANDA: se o CDN estiver fora do ar, só o fallback é afetado — o app
+ *    continua funcionando normalmente com o worklet.
  */
 
-import { PitchShifter } from 'https://unpkg.com/soundtouchjs@0.3.0/dist/soundtouch.js';
+const SOUNDTOUCH_URL = 'https://unpkg.com/soundtouchjs@0.3.0/dist/soundtouch.js';
+let pitchShifterClassPromise = null;
+function loadPitchShifterClass() {
+  if (!pitchShifterClassPromise) {
+    pitchShifterClassPromise = import(SOUNDTOUCH_URL).then(m => m.PitchShifter).catch(err => {
+      pitchShifterClassPromise = null; // permite tentar de novo depois
+      throw err;
+    });
+  }
+  return pitchShifterClassPromise;
+}
 
 const WORKLET_PROCESSOR_URL = 'js/pitch-worklet-processor.js'; // arquivo local, mesmo servidor — sem CORS
 
@@ -48,14 +62,13 @@ class AudioEngine extends EventTarget {
     this._segmentStartCtxTime = 0;
     this._segmentStartOffset = 0;
     this._pausedOffset = 0;
-    this._intentionalStop = false;
 
     this._playing = false;
     this._semitones = 0;
     this._volume = 0.9;
     this._rafId = null;
 
-    this._preferredBackend = 'scriptprocessor'; // trocável via setPreferredBackend()
+    this._preferredBackend = 'scriptprocessor'; // trocável via setPreferredBackend() — o app usa 'worklet'
     this._backend = 'scriptprocessor';           // backend REALMENTE ativo após tentar carregar
     this._workletModuleLoaded = false;
 
@@ -123,14 +136,11 @@ class AudioEngine extends EventTarget {
   }
 
   async _loadScriptProcessor(arrayBuffer) {
+    const PitchShifter = await loadPitchShifterClass();
     const decoded = await this.audioCtx.decodeAudioData(arrayBuffer.slice(0));
     this.buffer = decoded;
 
-    this.shifter = new PitchShifter(this.audioCtx, this.buffer, 4096, () => {
-      this._playing = false;
-      this.dispatchEvent(new CustomEvent('ended'));
-      this._stopTicking();
-    });
+    this.shifter = new PitchShifter(this.audioCtx, this.buffer, 4096, () => this._finishPlayback());
     this.shifter.tempo = 1; // nunca mudamos o tempo, só o pitch
     this.shifter.pitchSemitones = this._semitones;
 
@@ -140,7 +150,10 @@ class AudioEngine extends EventTarget {
   async _loadWorklet(arrayBuffer) {
     await this._ensurePitchNode();
 
-    const decoded = await this.audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    // decodeAudioData "consome" (detach) o buffer passado. O app não reusa
+    // esse ArrayBuffer depois (é extraído do zip a cada carregamento), então
+    // não precisamos de uma cópia — economiza a memória do arquivo inteiro.
+    const decoded = await this.audioCtx.decodeAudioData(arrayBuffer);
     this.workletBuffer = decoded;
 
     this._pausedOffset = 0;
@@ -169,6 +182,11 @@ class AudioEngine extends EventTarget {
       numberOfInputs: 1,
       numberOfOutputs: 1,
       outputChannelCount: [2],
+      // Força a entrada a sempre chegar em estéreo: com o padrão ('max'),
+      // um arquivo mono chegava com 1 canal só e saía só no lado esquerdo.
+      channelCount: 2,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
     });
     this.pitchNode.onprocessorerror = (err) => {
       console.error('[AudioEngine] Erro dentro do AudioWorkletProcessor:', err);
@@ -227,26 +245,41 @@ class AudioEngine extends EventTarget {
     return this._videoSourceElement === videoEl && !!this._videoSourceNode;
   }
 
+  /** Para e descarta o AudioBufferSourceNode atual SEM disparar 'ended'
+   * (o onended é desligado antes — paradas intencionais nunca contam como
+   * "fim da música"). */
+  _discardWorkletSource() {
+    const source = this.workletSource;
+    if (!source) return;
+    this.workletSource = null;
+    source.onended = null;
+    try { source.stop(); } catch (e) {}
+    try { source.disconnect(); } catch (e) {}
+  }
+
+  /** Fim natural da música. Só dispara 'ended' UMA vez por reprodução,
+   * venha o aviso do evento nativo do navegador ou da rede de segurança
+   * do loop de tick (o que chegar primeiro). */
+  _finishPlayback() {
+    if (!this._playing) return;
+    this._playing = false;
+    this._stopTicking();
+    this._discardWorkletSource();
+    this._pausedOffset = 0; // um play() depois do fim recomeça do início
+    this.dispatchEvent(new CustomEvent('ended'));
+  }
+
   /** Cria e inicia um novo AudioBufferSourceNode a partir de `offsetSec`. */
   _workletStartSegment(offsetSec) {
-    if (this.workletSource) {
-      this._intentionalStop = true;
-      try { this.workletSource.stop(); } catch (e) {}
-      try { this.workletSource.disconnect(); } catch (e) {}
-    }
+    this._discardWorkletSource();
 
     const source = this.audioCtx.createBufferSource();
     source.buffer = this.workletBuffer;
     source.connect(this.pitchNode);
     source.onended = () => {
-      if (this._intentionalStop) {
-        this._intentionalStop = false;
-        return;
-      }
-      // Chegou ao fim do áudio naturalmente (não fomos nós que paramos).
-      this._playing = false;
-      this.dispatchEvent(new CustomEvent('ended'));
-      this._stopTicking();
+      // Chegou ao fim do áudio naturalmente (paradas intencionais desligam
+      // o onended antes, ver _discardWorkletSource).
+      if (source === this.workletSource) this._finishPlayback();
     };
     source.start(0, Math.max(0, offsetSec));
 
@@ -313,11 +346,7 @@ class AudioEngine extends EventTarget {
     if (!this._playing) return;
     if (this._backend === 'worklet') {
       this._pausedOffset = this.getCurrentTime();
-      if (this.workletSource) {
-        this._intentionalStop = true;
-        try { this.workletSource.stop(); } catch (e) {}
-        this.workletSource = null;
-      }
+      this._discardWorkletSource();
     } else {
       if (this.shifter) this.shifter.disconnect();
     }
@@ -331,12 +360,7 @@ class AudioEngine extends EventTarget {
   }
 
   stop() {
-    if (this.workletSource) {
-      this._intentionalStop = true;
-      try { this.workletSource.stop(); } catch (e) {}
-      try { this.workletSource.disconnect(); } catch (e) {}
-      this.workletSource = null;
-    }
+    this._discardWorkletSource();
     this._pausedOffset = 0;
     if (this.shifter) {
       try { this.shifter.disconnect(); } catch (e) {}
@@ -422,7 +446,8 @@ class AudioEngine extends EventTarget {
   getCurrentTime() {
     if (this._backend === 'worklet') {
       if (!this._playing) return this._pausedOffset;
-      return this._segmentStartOffset + (this.audioCtx.currentTime - this._segmentStartCtxTime);
+      const t = this._segmentStartOffset + (this.audioCtx.currentTime - this._segmentStartCtxTime);
+      return this.workletBuffer ? Math.min(t, this.workletBuffer.duration) : t;
     }
     return this.shifter ? this.shifter.timePlayed : 0;
   }
@@ -465,9 +490,7 @@ class AudioEngine extends EventTarget {
       // nativo), detectamos esse caso aqui e forçamos o fim manualmente,
       // em vez de depender só do navegador.
       if (duration > 0 && currentTime >= duration - 0.05) {
-        this._playing = false;
-        this.dispatchEvent(new CustomEvent('ended'));
-        this._stopTicking();
+        this._finishPlayback();
         return;
       }
 

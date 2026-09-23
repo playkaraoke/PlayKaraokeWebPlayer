@@ -79,7 +79,11 @@ class PitchShifterProcessor extends AudioWorkletProcessor {
     }
 
     const pitchRatio = parameters.pitchRatio[0];
-    const numChannels = Math.min(input.length, output.length, 2);
+    const numChannels = Math.min(output.length, 2);
+    // Rede de segurança pra áudio mono (o node já força entrada estéreo via
+    // channelCountMode 'explicit', mas se chegar 1 canal, duplica pros dois
+    // lados em vez de deixar o direito mudo).
+    const inputs2 = [input[0], input[1] || input[0]];
     const blockSize = input[0].length;
     const passthrough = Math.abs(pitchRatio - 1) < 0.001;
 
@@ -89,12 +93,12 @@ class PitchShifterProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < blockSize; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
-        this.delayBuffers[ch][wi] = input[ch][i];
+        this.delayBuffers[ch][wi] = inputs2[ch][i];
       }
 
       if (passthrough) {
         for (let ch = 0; ch < numChannels; ch++) {
-          output[ch][i] = input[ch][i];
+          output[ch][i] = inputs2[ch][i];
         }
       } else {
         d1 -= (pitchRatio - 1);
