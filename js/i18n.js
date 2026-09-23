@@ -61,6 +61,13 @@ const TRANSLATIONS = {
     tom_label: 'PITCH',
     pitch_down_title: 'Decrease one semitone',
     pitch_up_title: 'Increase one semitone',
+    pitch_unavailable_video: 'Pitch shifting is not available for video in this browser',
+    library_results_count: '{count} results',
+    library_results_count_one: '1 result',
+    history_pitch_label: 'pitch',
+    report_col_datetime: 'Date/Time',
+    report_col_code: 'Code',
+    report_col_duration: 'Duration (s)',
     pitch_reset_title: 'Reset pitch',
     pill_second_screen: 'Second Screen',
     pill_second_screen_title: 'Open/close the second screen',
@@ -245,6 +252,13 @@ const TRANSLATIONS = {
     tom_label: 'TOM',
     pitch_down_title: 'Diminuir um semitom',
     pitch_up_title: 'Aumentar um semitom',
+    pitch_unavailable_video: 'Ajuste de tom indisponível pra vídeo neste navegador',
+    library_results_count: '{count} resultados',
+    library_results_count_one: '1 resultado',
+    history_pitch_label: 'tom',
+    report_col_datetime: 'Data/Hora',
+    report_col_code: 'Código',
+    report_col_duration: 'Duração (s)',
     pitch_reset_title: 'Resetar tom',
     pill_second_screen: 'Segunda Tela',
     pill_second_screen_title: 'Abrir/fechar a segunda tela',
@@ -392,6 +406,7 @@ function t(key, vars) {
 
 function applyTranslations(root) {
   const scope = root || document;
+  if (!root) document.documentElement.lang = currentLang === 'pt' ? 'pt-BR' : 'en';
   scope.querySelectorAll('[data-i18n]').forEach(el => {
     el.innerHTML = t(el.getAttribute('data-i18n'));
   });

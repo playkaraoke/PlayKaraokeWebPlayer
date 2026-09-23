@@ -226,6 +226,18 @@ let showTurn = null;
 
 // ---------- Utilidades ----------
 
+/** Locale de datas/números conforme o idioma ativo. */
+function getLocale() {
+  return window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en-US';
+}
+
+/** Tooltips do +/- de tom: avisa quando o vídeo atual não aceita ajuste. */
+function updatePitchButtonTitles() {
+  const unavailable = mode === 'video' && !videoPitchRouted;
+  pitchDownBtn.title = unavailable ? window.i18n.t('pitch_unavailable_video') : window.i18n.t('pitch_down_title');
+  pitchUpBtn.title = unavailable ? window.i18n.t('pitch_unavailable_video') : window.i18n.t('pitch_up_title');
+}
+
 function formatTime(sec) {
   if (!isFinite(sec) || sec < 0) sec = 0;
   const m = Math.floor(sec / 60);
@@ -638,10 +650,6 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
       if (!videoPitchRouted) {
         console.warn('[App] Ajuste de tom não disponível pra esse vídeo neste navegador.');
       }
-      pitchDownBtn.title = videoPitchRouted || mode !== 'video'
-        ? 'Diminuir um semitom'
-        : 'Ajuste de tom indisponível pra vídeo neste navegador';
-      pitchUpBtn.title = pitchDownBtn.title;
 
       broadcastToSecondScreen({
         type: 'init-video',
@@ -650,6 +658,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
       });
     }
 
+    updatePitchButtonTitles();
     playBtn.disabled = false;
     stopBtn.disabled = false;
     settingsBtn.classList.remove('hidden');
@@ -1794,7 +1803,7 @@ function renderLibraryFolders() {
       countEl.textContent = window.i18n.t('library_scanning');
     } else {
       countEl.className = 'folder-count';
-      countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en-US') });
+      countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(getLocale()) });
     }
     textWrap.appendChild(nameEl);
     textWrap.appendChild(countEl);
@@ -1833,7 +1842,7 @@ function renderLibraryResults() {
 
   const label = document.createElement('span');
   label.className = 'library-result-count';
-  label.textContent = results.length === 0 ? '0 resultados' : `${results.length} resultado${results.length > 1 ? 's' : ''}`;
+  label.textContent = window.i18n.t(results.length === 1 ? 'library_results_count_one' : 'library_results_count', { count: results.length });
   libraryResults.appendChild(label);
 
   if (results.length === 0) {
@@ -2676,7 +2685,7 @@ function renderDetailHistoryList(singer) {
     title.textContent = h.title;
     const sub = document.createElement('div');
     sub.className = 'sub';
-    sub.textContent = `${h.artist || ''} · tom ${h.semitone > 0 ? '+' : ''}${h.semitone}`;
+    sub.textContent = `${h.artist || ''} · ${window.i18n.t('history_pitch_label')} ${h.semitone > 0 ? '+' : ''}${h.semitone}`;
     info.appendChild(title);
     info.appendChild(sub);
     row.appendChild(info);
@@ -2817,7 +2826,7 @@ function openShowReport() {
   showReportTbody.innerHTML = '';
   showHistory.slice().reverse().forEach(h => {
     const tr = document.createElement('tr');
-    const time = new Date(h.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(h.horario).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
     [time, h.cantor, h.musica, h.artista, `${h.tom > 0 ? '+' : ''}${h.tom}`].forEach(val => {
       const td = document.createElement('td');
       td.textContent = val;
@@ -2831,16 +2840,25 @@ function openShowReport() {
 
 showReportCloseBtn.addEventListener('click', () => showReportBackdrop.classList.add('hidden'));
 
+/** Célula de CSV: entre aspas, e com um apóstrofo na frente se começar
+ * com = + @ (evita o Excel interpretar um nome digitado como fórmula). */
+function csvCell(v) {
+  let str = String(v ?? '');
+  if (/^[=+@\t\r]/.test(str)) str = "'" + str;
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function buildShowCsv() {
+  const t = window.i18n.t;
   const lines = [];
-  lines.push('Horário,Cantor,Música,Artista,Código,Tom,Duração(s)');
+  lines.push([t('report_col_datetime'), t('report_col_singer'), t('report_col_song'), t('report_col_artist'),
+    t('report_col_code'), t('report_col_pitch'), t('report_col_duration')].map(csvCell).join(','));
   showHistory.forEach(h => {
-    const time = new Date(h.horario).toLocaleTimeString('pt-BR');
-    const row = [time, h.cantor, h.musica, h.artista, h.codigo, h.tom, h.duracao]
-      .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
-    lines.push(row);
+    const time = new Date(h.horario).toLocaleString(getLocale());
+    lines.push([time, h.cantor, h.musica, h.artista, h.codigo, h.tom, h.duracao].map(csvCell).join(','));
   });
-  return lines.join('\n');
+  // BOM no início: sem ele o Excel abre o UTF-8 como Latin-1 e quebra os acentos.
+  return '\uFEFF' + lines.join('\r\n');
 }
 
 exportCsvBtn.addEventListener('click', () => {
@@ -3062,4 +3080,7 @@ window.i18n.onLanguageChange(() => {
   updateAmbientIndicator();
   if (singerModeEnabled) renderSingerRoundView();
   if (mode === null) updateMetaBar(null);
+  updateNextBtnState();
+  updatePitchButtonTitles();
+  if (librarySearchInput.value.trim()) renderLibraryResults();
 });

@@ -102,3 +102,12 @@ test('duração do show conta a partir do início do Modo Show, não do login', 
   t.openShowReport();
   assert.equal($('report-duration').textContent, '0min');
 });
+
+test('CSV do show tem BOM (acentos no Excel) e cabeçalho no idioma ativo', async () => {
+  const { t } = await showWith3Singers();
+  t.engine.finish(); await flush();
+  const csv = t.buildShowCsv();
+  assert.equal(csv.charCodeAt(0), 0xFEFF);
+  assert.match(csv, /^﻿"Date\/Time","Singer","Song"/);
+  assert.match(csv, /"Ana","Musica1","Ana"/);
+});
