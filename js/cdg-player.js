@@ -82,8 +82,8 @@ class CDGPlayer {
     this.backgroundIndex = 0;
     this.colorUsageCount = new Array(16).fill(0);
     this.customColors = null; // null = usa as cores originais do arquivo
-    this.renderMode = 'sharp'; // 'sharp' (nítido/pixelado) ou 'smooth' (suavizado/borrado)
-    this.zoom = 1.0; // 1.0 = tela cheia; > 1.0 corta as bordas e amplia o centro (letras maiores)
+    this.renderMode = 'sharp'; // 'sharp' ou 'smooth' — o app sempre usa 'smooth' (setRenderMode)
+    this.zoom = 1.0; // 1.0 = tela cheia. O app não usa mais zoom (cortava a letra perto das bordas).
   }
 
   /**

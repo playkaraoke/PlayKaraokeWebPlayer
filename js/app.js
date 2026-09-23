@@ -116,7 +116,6 @@ const detailAddSongSearch = el('detail-add-song-search');
 const detailSongSearchInput = el('detail-song-search-input');
 const detailSongSearchResults = el('detail-song-search-results');
 
-const endShowBtn = null; // removido: agora é o showModeBtn que assume esse papel
 const singerModeToggleIndicator = el('singer-mode-toggle-indicator');
 const endShowConfirmBackdrop = el('end-show-confirm-backdrop');
 const endShowConfirmCancelBtn = el('end-show-confirm-cancel-btn');
@@ -2153,7 +2152,6 @@ async function loadCurrentSingerTurn(autoplay) {
   await selectTrack(0, { autoplay, initialSemitones: song.savedSemitones || 0 });
 }
 
-// (o "Pular cantor" agora é renderizado dentro da própria linha ativa em renderSingerRoundView, quando ela não tem música)
 
 // ---------- Modal "Escolher cantor" (aparece ao adicionar música em modo cantores) ----------
 
