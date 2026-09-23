@@ -1125,7 +1125,7 @@ function cancelCountdown() {
 
 function finishCountdown() {
   cancelCountdown();
-  playNextInQueue();
+  playLoadedTrack(); // a próxima já foi pré-carregada no fim da anterior
 }
 
 /** Chamado quando a apresentação termina no modo cantores (fim natural
@@ -1244,17 +1244,29 @@ function removeFinishedTrackFromQueue() {
   if (playlist.length === 0) resetToEmptyState();
 }
 
-function handleSimpleModeSongEnded() {
+/** Fim de música no modo simples: tira a que acabou da fila e deixa a
+ * próxima carregada (pausada). Ela só começa sozinha, após a contagem, se
+ * o autoplay estiver ligado. Sem próxima, o palco volta ao estado vazio
+ * (senão o Play tocaria de novo a música que já saiu da fila). */
+async function handleSimpleModeSongEnded() {
   removeFinishedTrackFromQueue();
+  if (playlist.length === 0) return; // removeFinishedTrackFromQueue já resetou
+  if (!hasNext()) {
+    currentIndex = -1;
+    resetToEmptyState();
+    return;
+  }
+  const nextIndex = currentIndex + 1;
+  await selectTrack(nextIndex, { autoplay: false, initialSemitones: playlist[nextIndex].savedSemitones || 0 });
   startAutoplayCountdownIfNeeded();
 }
 
 function startAutoplayCountdownIfNeeded() {
-  if (!autoplayToggle.checked || !hasNext()) return;
+  if (!autoplayToggle.checked || mode === null || currentIndex < 0) return;
   resetCountdownDisplayToSimple();
 
   const delay = Math.max(0, parseInt(autoplayDelayInput.value, 10) || 0);
-  const nextItem = playlist[currentIndex + 1];
+  const nextItem = playlist[currentIndex];
   const nextTitleText = [nextItem.artist, nextItem.title].filter(Boolean).join(' — ');
   cdNextTitle.textContent = nextTitleText;
   countdownOverlay.classList.remove('hidden');
