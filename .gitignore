@@ -8,3 +8,4 @@ DOCUMENTACAO.md
 
 # Dependências de desenvolvimento (testes)
 node_modules/
+.wrangler/

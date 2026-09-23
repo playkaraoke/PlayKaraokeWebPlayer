@@ -13,6 +13,7 @@
 (function () {
   const canvasWrap = document.getElementById('canvas-wrap');
   const videoWrap = document.getElementById('video-wrap');
+  const youtubeWrap = document.getElementById('youtube-wrap');
   const canvas = document.getElementById('cdg-canvas');
   const videoEl = document.getElementById('video-el');
   const fsBtn = document.getElementById('fs-btn');
@@ -42,7 +43,14 @@
   const cdgPlayer = new CDGPlayer(canvas);
   cdgPlayer.setRenderMode('smooth');
 
-  let mode = null; // 'cdg' | 'video' | null (nada carregado ainda)
+  let mode = null; // 'cdg' | 'video' | 'youtube' | null (nada carregado ainda)
+  // Player do YouTube só é criado (e a API baixada) na primeira música Online.
+  let ytPlayer = null;
+  let ytVideoId = null;
+  function getYtPlayer() {
+    if (!ytPlayer) ytPlayer = window.createYouTubePlayer(document.getElementById('youtube-host'), { muted: true });
+    return ytPlayer;
+  }
   let isPlayingState = false;
   let countdownActive = false;
   let lastVideoUrl = null;
@@ -66,6 +74,7 @@
       idleOverlay.classList.add('hidden');
       canvasWrap.classList.add('hidden');
       videoWrap.classList.add('hidden');
+      youtubeWrap.classList.add('hidden');
       syncVideoPlayback();
       return;
     }
@@ -73,6 +82,7 @@
     idleOverlay.classList.toggle('hidden', showingMedia);
     canvasWrap.classList.toggle('hidden', !showingMedia || mode !== 'cdg');
     videoWrap.classList.toggle('hidden', !showingMedia || mode !== 'video');
+    youtubeWrap.classList.toggle('hidden', !showingMedia || mode !== 'youtube');
     syncVideoPlayback();
   }
 
@@ -82,6 +92,12 @@
     const shouldPlay = !countdownActive && isPlayingState && mode === 'video';
     if (shouldPlay && videoEl.paused && videoEl.src) videoEl.play().catch(() => {});
     else if (!shouldPlay && !videoEl.paused) videoEl.pause();
+
+    if (ytPlayer && ytVideoId) {
+      const ytShouldPlay = !countdownActive && isPlayingState && mode === 'youtube';
+      if (ytShouldPlay && !ytPlayer.isPlaying()) ytPlayer.play();
+      else if (!ytShouldPlay && ytPlayer.isPlaying()) ytPlayer.pause();
+    }
   }
 
   if (!('BroadcastChannel' in window)) {
@@ -154,13 +170,25 @@
 
     switch (msg.type) {
       case 'init-cdg': {
+        if (ytPlayer) { ytPlayer.stop(); }
         cdgPlayer.load(msg.cdgBuffer);
         if (msg.colors) cdgPlayer.setCustomColors(msg.colors);
         mode = 'cdg';
         updateVisibility();
         break;
       }
+      case 'init-youtube': {
+        if (!videoEl.paused) videoEl.pause();
+        mode = 'youtube';
+        if (msg.videoId !== ytVideoId) {
+          ytVideoId = msg.videoId;
+          getYtPlayer().load(msg.videoId, { autoplay: false }).then(syncVideoPlayback).catch(() => {});
+        }
+        updateVisibility();
+        break;
+      }
       case 'init-video': {
+        if (ytPlayer) { ytPlayer.stop(); }
         if (msg.videoUrl !== lastVideoUrl) {
           videoEl.src = msg.videoUrl;
           lastVideoUrl = msg.videoUrl;
@@ -172,6 +200,11 @@
       case 'time': {
         if (mode === 'cdg') {
           cdgPlayer.update(msg.currentTime);
+        } else if (mode === 'youtube') {
+          // Tolerância maior que a do <video>: seek no YouTube rebufferiza.
+          if (ytPlayer && ytVideoId && Math.abs(ytPlayer.getCurrentTime() - msg.currentTime) > 1.0) {
+            ytPlayer.seekTo(msg.currentTime);
+          }
         } else if (mode === 'video') {
           // Corrige deriva sem forçar o tempo a cada mensagem (evita
           // engasgo por ficar resetando o currentTime toda hora).
@@ -217,6 +250,8 @@
       }
       case 'clear': {
         if (!videoEl.paused) videoEl.pause();
+        if (ytPlayer) ytPlayer.clear();
+        ytVideoId = null;
         mode = null;
         isPlayingState = false;
         countdownActive = false;

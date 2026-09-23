@@ -1,0 +1,16 @@
+# Cloudflare Worker da busca Online do Play Karaoke.
+# Deploy: ver worker/README.md
+name = "playkaraoke-search"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Cache das buscas (24h). O id é gerado pelo comando
+#   npx wrangler kv namespace create SEARCH_CACHE
+# e colado aqui.
+[[kv_namespaces]]
+binding = "SEARCH_CACHE"
+id = "COLE_AQUI_O_ID_DO_KV"
+
+# A chave da API do YouTube NÃO fica neste arquivo (ele é público). Ela é
+# guardada como secret com:
+#   npx wrangler secret put YOUTUBE_API_KEY

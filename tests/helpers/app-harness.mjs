@@ -90,9 +90,38 @@ export async function createApp(opts = {}) {
   for (const [k, v] of Object.entries(opts.localStorage || {})) win.localStorage.setItem(k, v);
 
   installDomStubs(win);
-  for (const f of ['js/cdg-player.js', 'js/file-loader.js', 'js/library.js', 'js/i18n.js', 'js/singers.js']) {
+  for (const f of ['js/cdg-player.js', 'js/file-loader.js', 'js/library.js', 'js/i18n.js', 'js/singers.js', 'js/online-search.js', 'js/youtube-player.js']) {
     win.eval(read(f));
   }
+
+  // Player do YouTube falso (mesma API de js/youtube-player.js).
+  win.createYouTubePlayer = (host, cbs = {}) => {
+    const p = {
+      videoId: null, playing: false, time: 0, duration: 200, volume: 0.9, loads: [],
+      async load(id) { this.videoId = id; this.playing = false; this.time = 0; this.loads.push(id); },
+      play() { if (!this.videoId || this.playing) return; this.playing = true; cbs.onPlay && cbs.onPlay(); },
+      pause() { if (!this.playing) return; this.playing = false; cbs.onPause && cbs.onPause(); },
+      stop() { this.playing = false; },
+      clear() { this.stop(); this.videoId = null; },
+      seekTo(t) { this.time = t; }, setVolume(v) { this.volume = v; },
+      getCurrentTime() { return this.time; }, getDuration() { return this.videoId ? this.duration : 0; },
+      isPlaying() { return this.playing; }, getVideoId() { return this.videoId; },
+      /** Helper de teste: simula o fim do vídeo. */
+      finish() { this.playing = false; cbs.onEnded && cbs.onEnded(); },
+    };
+    win.__ytPlayer = p;
+    return p;
+  };
+  // Busca Online falsa: opts.onlineResults (array) ou opts.onlineError (código).
+  win.createOnlineSearch = () => ({
+    isConfigured: () => true,
+    searches: [],
+    async search(q) {
+      win.__onlineSearches = (win.__onlineSearches || []).concat(q);
+      if (opts.onlineError) { const e = new Error(opts.onlineError); e.code = opts.onlineError; throw e; }
+      return opts.onlineResults || [];
+    },
+  });
 
   // Arquivos falsos: o conteúdo é irrelevante, o loader falso decide pelo nome.
   win.loadKaraokeFile = async (file) => {
@@ -110,7 +139,7 @@ export async function createApp(opts = {}) {
   );
   const testHook = `
 ;window.__test = {
-  engine, videoEl, library, singerManager,
+  engine, videoEl, library, singerManager, ytPlayer,
   get playlist() { return playlist; },
   get currentIndex() { return currentIndex; },
   get mode() { return mode; },

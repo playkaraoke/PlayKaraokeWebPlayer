@@ -13,6 +13,7 @@ const stageCanvasWrap = el('stage-canvas-wrap');
 const stageVideoWrap = el('stage-video-wrap');
 const cdgCanvas = el('cdg-canvas');
 const videoEl = el('video-el');
+const stageYoutubeWrap = el('stage-youtube-wrap');
 const fullscreenBtn = el('fullscreen-btn');
 
 const metaCode = el('meta-code');
@@ -199,6 +200,30 @@ cdgPlayer.setRenderMode('smooth');
 // explicitamente no painel de configurações se quiser recolorir.
 cdgPlayer.setCustomColors(null);
 
+// Músicas Online (YouTube) tocam pelo player oficial do YouTube, no palco.
+// Sem ajuste de tom e sem detecção de silêncio (o áudio do iframe não é
+// acessível) — ver js/youtube-player.js.
+const ytPlayer = window.createYouTubePlayer(el('youtube-host'), {
+  onPlay: () => { updatePlayIcon(); refreshIdleState(); },
+  onPause: () => { updatePlayIcon(); refreshIdleState(); },
+  onEnded: () => {
+    updatePlayIcon();
+    if (mode === 'youtube') handleTrackEnded();
+    refreshIdleState();
+  },
+  onError: () => { if (mode === 'youtube') showError(window.i18n.t('youtube_err_unavailable')); },
+  onTime: (currentTime, duration) => {
+    if (mode !== 'youtube') return;
+    checkApplause(currentTime, duration);
+    broadcastToSecondScreen({ type: 'time', currentTime, duration });
+    if (seeking) return;
+    seekBar.max = String(Math.floor(duration * 1000));
+    seekBar.value = String(Math.floor(currentTime * 1000));
+    timeCurrent.textContent = formatTime(currentTime);
+    timeDuration.textContent = formatTime(duration);
+  },
+});
+
 // ---------- Estado ----------
 
 let mode = null; // 'cdg' | 'video'
@@ -233,11 +258,14 @@ function getLocale() {
   return window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en-US';
 }
 
-/** Tooltips do +/- de tom: avisa quando o vídeo atual não aceita ajuste. */
+/** Tooltips do +/- de tom: avisa quando a música atual não aceita ajuste
+ * (vídeo sem roteamento de áudio, ou música Online do YouTube). */
 function updatePitchButtonTitles() {
-  const unavailable = mode === 'video' && !videoPitchRouted;
-  pitchDownBtn.title = unavailable ? window.i18n.t('pitch_unavailable_video') : window.i18n.t('pitch_down_title');
-  pitchUpBtn.title = unavailable ? window.i18n.t('pitch_unavailable_video') : window.i18n.t('pitch_up_title');
+  const reason = mode === 'youtube' ? 'pitch_unavailable_online'
+    : (mode === 'video' && !videoPitchRouted) ? 'pitch_unavailable_video' : null;
+  pitchDownBtn.title = reason ? window.i18n.t(reason) : window.i18n.t('pitch_down_title');
+  pitchUpBtn.title = reason ? window.i18n.t(reason) : window.i18n.t('pitch_up_title');
+  updatePitchLabel(currentSemitones);
 }
 
 function formatTime(sec) {
@@ -346,6 +374,7 @@ function setStage(newMode) {
   stageEmpty.classList.toggle('hidden', !!mode);
   stageCanvasWrap.classList.toggle('hidden', mode !== 'cdg');
   stageVideoWrap.classList.toggle('hidden', mode !== 'video');
+  stageYoutubeWrap.classList.toggle('hidden', mode !== 'youtube');
 }
 
 function updateMetaBar(item) {
@@ -403,13 +432,14 @@ function renderPlaylist() {
     titleEl.textContent = item.title;
     const subEl = document.createElement('div');
     subEl.className = 'song-sub';
-    subEl.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || item.format;
+    subEl.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || (item.type === 'youtube' ? item.channel : item.format);
+    if (item.type === 'youtube') subEl.appendChild(createOnlineBadge());
     meta.appendChild(titleEl);
     meta.appendChild(subEl);
 
     let nowPlayingBadge = null;
     if (i === currentIndex) {
-      const playingNow = mode !== null && (mode === 'video' ? !videoEl.paused : engine.isPlaying());
+      const playingNow = isAnythingPlaying();
       nowPlayingBadge = document.createElement('span');
       nowPlayingBadge.className = 'now-playing-badge' + (playingNow ? '' : ' hidden');
       nowPlayingBadge.textContent = window.i18n.t('now_playing_badge');
@@ -494,6 +524,14 @@ function renderPlaylist() {
 
   updateNextBtnState();
   persistPlaylist();
+}
+
+/** Selo "ONLINE · SEM TOM" das músicas do YouTube (fila, cantores). */
+function createOnlineBadge() {
+  const badge = document.createElement('span');
+  badge.className = 'online-badge';
+  badge.textContent = window.i18n.t('online_badge');
+  return badge;
 }
 
 function moveTrack(index, direction) {
@@ -624,7 +662,9 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
   const item = playlist[index];
   showLoading(true);
   try {
-    const result = await window.loadKaraokeFile(item.file);
+    const result = item.type === 'youtube'
+      ? { type: 'youtube', videoId: item.videoId }
+      : await window.loadKaraokeFile(item.file);
     if (!isCurrent()) return; // uma chamada mais nova já assumiu, descarta essa
     applauseTriggered = false;
     silenceAccumMs = 0;
@@ -668,6 +708,23 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
         videoUrl: result.videoBlobUrl,
         meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
       });
+    } else if (result.type === 'youtube') {
+      currentCdgBuffer = null;
+      setStage('youtube');
+      try {
+        await ytPlayer.load(result.videoId, { autoplay: false });
+      } catch (err) {
+        throw new Error(window.i18n.t('youtube_err_load'));
+      }
+      if (!isCurrent()) return;
+      ytPlayer.setVolume(Number(volumeSlider.value) / 100);
+      timeDuration.textContent = formatTime(ytPlayer.getDuration());
+      seekBar.value = '0';
+      broadcastToSecondScreen({
+        type: 'init-youtube',
+        videoId: result.videoId,
+        meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
+      });
     }
 
     updatePitchButtonTitles();
@@ -675,14 +732,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     stopBtn.disabled = false;
     settingsBtn.classList.remove('hidden');
 
-    if (autoplay) {
-      if (mode === 'cdg') {
-        await engine.play();
-      } else if (mode === 'video') {
-        await videoEl.play();
-        updatePlayIcon();
-      }
-    }
+    if (autoplay) await playLoadedTrack();
     refreshIdleState();
   } catch (err) {
     if (!isCurrent()) return; // erro de uma chamada já obsoleta -- ignora silenciosamente
@@ -697,6 +747,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
 function stopCurrentMedia() {
   engine.stop();
   if (!videoEl.paused) videoEl.pause();
+  ytPlayer.stop();
   updatePlayIcon();
 }
 
@@ -712,6 +763,7 @@ function playNextInQueue() {
 /** Posição atual de reprodução da mídia carregada (segundos). */
 function getCurrentPosition() {
   if (mode === 'video') return videoEl.currentTime || 0;
+  if (mode === 'youtube') return ytPlayer.getCurrentTime();
   if (mode === 'cdg') return engine.getCurrentTime();
   return 0;
 }
@@ -784,6 +836,10 @@ function openTrackModal(index) {
   tmPlayBtn.classList.toggle('hidden', isActive);
 
   updateTmPitchLabel();
+  // Músicas Online não aceitam ajuste de tom — esconde o seletor e o "Aplicar tom".
+  const noPitch = item.type === 'youtube';
+  el('tm-pitch-row').classList.toggle('hidden', noPitch);
+  tmApplyBtn.classList.toggle('hidden', noPitch);
 
   trackModalBackdrop.classList.remove('hidden');
 }
@@ -843,6 +899,7 @@ function resetToEmptyState() {
     videoEl.removeAttribute('src');
     videoEl.load();
   }
+  ytPlayer.clear();
   cdgPlayer.reset();
   cdgPlayer.clearScreen();
   applauseAudio.pause();
@@ -913,7 +970,7 @@ window.addEventListener('drop', (e) => {
 // ---------- Transporte (play/pause/seek) ----------
 
 function updatePlayIcon() {
-  const playing = mode === 'video' ? !videoEl.paused : engine.isPlaying();
+  const playing = isAnythingPlaying();
   playIcon.classList.toggle('hidden', playing);
   pauseIcon.classList.toggle('hidden', !playing);
 
@@ -938,6 +995,8 @@ playBtn.addEventListener('click', async () => {
         videoEl.pause();
       }
       updatePlayIcon();
+    } else if (mode === 'youtube') {
+      if (ytPlayer.isPlaying()) ytPlayer.pause(); else ytPlayer.play();
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
@@ -956,6 +1015,8 @@ seekBar.addEventListener('change', () => {
     cdgPlayer.update(sec);
   } else if (mode === 'video') {
     videoEl.currentTime = sec;
+  } else if (mode === 'youtube') {
+    ytPlayer.seekTo(sec);
   }
   seeking = false;
 });
@@ -971,6 +1032,7 @@ volumeSlider.addEventListener('input', () => {
   // duas vezes. Só controlamos videoEl.volume direto quando ele NÃO está
   // roteado (tocando o áudio nativo dele mesmo).
   videoEl.volume = videoPitchRouted ? 1 : vol;
+  ytPlayer.setVolume(vol);
   volumePct.textContent = pct + '%';
 });
 volumePct.textContent = volumeSlider.value + '%';
@@ -982,8 +1044,10 @@ let currentSemitones = 0;
 function updatePitchLabel(semitones) {
   const sign = semitones > 0 ? '+' : '';
   pitchValue.textContent = `${sign}${semitones}`;
-  pitchDownBtn.disabled = semitones <= -12;
-  pitchUpBtn.disabled = semitones >= 12;
+  const noPitch = mode === 'youtube'; // o áudio do YouTube não passa pelo nosso motor
+  pitchDownBtn.disabled = noPitch || semitones <= -12;
+  pitchUpBtn.disabled = noPitch || semitones >= 12;
+  pitchResetBtn.disabled = noPitch;
 }
 
 function setSemitones(semitones) {
@@ -1049,6 +1113,7 @@ function checkSilenceForApplause(currentTime, duration, remaining) {
   if (applauseTriggered) { silenceAccumMs = 0; return; }
   if (remaining > SILENCE_ARM_WINDOW_SEC || remaining <= 0) { silenceAccumMs = 0; return; }
   if (mode === 'video' && !videoPitchRouted) return; // sem sinal real pra analisar nesse caso
+  if (mode === 'youtube') return; // áudio do YouTube não é acessível — só vale a regra dos 5s
 
   const analyser = engine.getAnalyser();
   if (!analyser) return;
@@ -1160,7 +1225,8 @@ async function handleSingerModeSongEnded({ elapsedSec } = {}) {
   showTurn = null;
   if (turn) {
     const singer = singerManager.getAllSingers().find(s => s.id === turn.singerId);
-    const fullDuration = mode === 'video' ? (videoEl.duration || 0) : engine.getDuration();
+    const fullDuration = mode === 'video' ? (videoEl.duration || 0)
+      : mode === 'youtube' ? ytPlayer.getDuration() : engine.getDuration();
     const duration = elapsedSec !== undefined ? elapsedSec : fullDuration;
     logSongToShowHistory(singer ? singer.name : turn.singerName, turn.song, currentSemitones, Math.round(duration));
     singerManager.completeTurn(turn.singerId, turn.song, { semitone: currentSemitones });
@@ -1226,6 +1292,8 @@ async function playLoadedTrack() {
     } else if (mode === 'video') {
       await videoEl.play();
       updatePlayIcon();
+    } else if (mode === 'youtube') {
+      ytPlayer.play();
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
@@ -1409,6 +1477,7 @@ ambientAudio.addEventListener('ended', () => {
 function isAnythingPlaying() {
   if (mode === 'cdg') return engine.isPlaying();
   if (mode === 'video') return !videoEl.paused;
+  if (mode === 'youtube') return ytPlayer.isPlaying();
   return false;
 }
 
@@ -1685,6 +1754,10 @@ function sendCurrentStateToSecondScreen() {
       meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
     });
     broadcastToSecondScreen({ type: 'time', currentTime: engine.getCurrentTime(), duration: engine.getDuration() });
+  } else if (mode === 'youtube' && ytPlayer.getVideoId()) {
+    const item = playlist[currentIndex];
+    broadcastToSecondScreen({ type: 'init-youtube', videoId: ytPlayer.getVideoId(), meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
+    broadcastToSecondScreen({ type: 'time', currentTime: ytPlayer.getCurrentTime(), duration: ytPlayer.getDuration() });
   } else if (mode === 'video' && videoEl.src) {
     const item = playlist[currentIndex];
     broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
@@ -1918,12 +1991,168 @@ async function addLibraryItemToQueue(item) {
   }
 }
 
-librarySearchInput.addEventListener('input', renderLibraryResults);
+librarySearchInput.addEventListener('input', () => {
+  if (librarySource === 'device') renderLibraryResults();
+  else librarySearchClearBtn.classList.toggle('hidden', !librarySearchInput.value.trim());
+});
+librarySearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && librarySource === 'online') runOnlineSearch();
+});
 librarySearchClearBtn.addEventListener('click', () => {
   librarySearchInput.value = '';
-  renderLibraryResults();
+  if (librarySource === 'device') renderLibraryResults();
+  else { librarySearchClearBtn.classList.add('hidden'); onlineResults.innerHTML = ''; }
   librarySearchInput.focus();
 });
+
+// ---------- Busca Online (YouTube, via Cloudflare Worker) ----------
+//
+// Diferente da busca em Dispositivos (instantânea, em memória), cada busca
+// Online gasta cota da API do YouTube — por isso só roda com Enter ou no
+// botão da lupa, nunca a cada tecla.
+
+const onlineSearch = window.createOnlineSearch();
+const librarySourceDeviceBtn = el('library-source-device-btn');
+const librarySourceOnlineBtn = el('library-source-online-btn');
+const onlineSearchBtn = el('online-search-btn');
+const onlineContent = el('online-content');
+const onlineResults = el('online-results');
+const libraryContent = el('library-content');
+
+let librarySource = 'device'; // 'device' | 'online'
+let onlineSearchGeneration = 0;
+// Termo digitado em cada fonte — trocar de aba não perde o que foi digitado.
+const librarySourceQueries = { device: '', online: '' };
+
+function setLibrarySource(source) {
+  if (source === librarySource) return;
+  librarySourceQueries[librarySource] = librarySearchInput.value;
+  librarySource = source;
+  const online = source === 'online';
+  librarySourceDeviceBtn.classList.toggle('active', !online);
+  librarySourceOnlineBtn.classList.toggle('active', online);
+  onlineSearchBtn.classList.toggle('hidden', !online);
+  onlineContent.classList.toggle('hidden', !online);
+  libraryContent.classList.toggle('hidden', online);
+  libraryUnsupported.classList.toggle('hidden', online || library.isSupported());
+  librarySearchInput.placeholder = window.i18n.t(online ? 'online_placeholder' : 'library_search_placeholder');
+  librarySearchInput.value = librarySourceQueries[source];
+  librarySearchClearBtn.classList.toggle('hidden', !librarySearchInput.value.trim());
+  if (!online) renderLibraryResults();
+  librarySearchInput.focus();
+}
+// Enquanto o Worker não estiver configurado (ONLINE_SEARCH_ENDPOINT vazio),
+// a opção Online nem aparece — ninguém vê uma função que não funciona.
+if (!onlineSearch.isConfigured()) el('library-source-toggle').classList.add('hidden');
+
+librarySourceDeviceBtn.addEventListener('click', () => setLibrarySource('device'));
+librarySourceOnlineBtn.addEventListener('click', () => setLibrarySource('online'));
+onlineSearchBtn.addEventListener('click', runOnlineSearch);
+
+function showOnlineMessage(key, warn) {
+  onlineResults.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'online-message' + (warn ? ' warn' : '');
+  p.textContent = window.i18n.t(key);
+  onlineResults.appendChild(p);
+}
+
+async function runOnlineSearch() {
+  const query = librarySearchInput.value.trim();
+  if (!query) return;
+  const myGeneration = ++onlineSearchGeneration;
+  onlineSearchBtn.disabled = true;
+  showOnlineMessage('online_searching');
+  try {
+    const results = await onlineSearch.search(query);
+    if (myGeneration !== onlineSearchGeneration) return;
+    renderOnlineResults(results);
+  } catch (err) {
+    if (myGeneration !== onlineSearchGeneration) return;
+    const code = err && err.code ? err.code : 'server';
+    showOnlineMessage('online_err_' + code, true);
+  } finally {
+    if (myGeneration === onlineSearchGeneration) onlineSearchBtn.disabled = false;
+  }
+}
+
+function renderOnlineResults(results) {
+  onlineResults.innerHTML = '';
+  if (!results.length) {
+    showOnlineMessage('online_no_results');
+    return;
+  }
+  results.forEach((r) => {
+    const card = document.createElement('div');
+    card.className = 'online-card';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = '';
+    if (r.thumbnail) img.src = r.thumbnail;
+    const info = document.createElement('div');
+    info.className = 'oc-info';
+    const title = document.createElement('div');
+    title.className = 'oc-title';
+    title.textContent = r.title;
+    const channel = document.createElement('div');
+    channel.className = 'oc-channel';
+    channel.textContent = r.channel;
+    info.appendChild(title);
+    info.appendChild(channel);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'oc-add';
+    addBtn.title = window.i18n.t('online_add_title');
+    addBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+    card.appendChild(img);
+    card.appendChild(info);
+    card.appendChild(addBtn);
+    card.addEventListener('click', () => addOnlineResultToQueue(r));
+    onlineResults.appendChild(card);
+  });
+}
+
+/** Transforma um resultado Online num item de fila. Tenta separar
+ * "Artista - Música" do título do vídeo; o canal fica guardado à parte. */
+function buildOnlineItem(r) {
+  const cleanTitle = r.title.replace(/\s*[([]?\s*karaok[eê]\s*(version|versão)?\s*[)\]]?\s*/gi, ' ').replace(/\s+/g, ' ').trim() || r.title;
+  const parts = cleanTitle.split(/\s+[-–—|]\s+/).map(p => p.trim()).filter(Boolean);
+  return {
+    id: 'track_' + (++playlistIdCounter),
+    type: 'youtube',
+    format: 'YouTube',
+    file: null,
+    videoId: r.videoId,
+    thumbnail: r.thumbnail || '',
+    channel: r.channel || '',
+    code: null,
+    artist: parts.length >= 2 ? parts[0] : null,
+    title: parts.length >= 2 ? parts.slice(1).join(' - ') : cleanTitle,
+    savedSemitones: 0,
+  };
+}
+
+async function addOnlineResultToQueue(r) {
+  const item = buildOnlineItem(r);
+  if (singerModeEnabled) {
+    const choice = await openSingerPickerModal({ name: r.title });
+    if (!choice) return;
+    try {
+      singerManager.addSongToSinger(choice.singerId, choice.isNew, item);
+    } catch (err) {
+      showError(err.message);
+      return;
+    }
+    switchSidebarTab('fila');
+    if (mode === null) loadCurrentSingerTurn(false);
+    return;
+  }
+  const wasEmpty = playlist.length === 0;
+  playlist.push(item);
+  renderPlaylist();
+  switchSidebarTab('fila');
+  if (wasEmpty) await selectTrack(playlist.length - 1, { autoplay: false });
+}
 connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
 
 // ---------- Rodada de cantores ----------
@@ -2054,7 +2283,8 @@ function renderSingerRoundView() {
       songLine.textContent = song.title;
       const subLine = document.createElement('div');
       subLine.className = 'singer-sub-line';
-      subLine.textContent = [song.artist, song.code].filter(Boolean).join(' · ') || song.format;
+      subLine.textContent = [song.artist, song.code].filter(Boolean).join(' · ') || (song.type === 'youtube' ? song.channel : song.format);
+      if (song.type === 'youtube') subLine.appendChild(createOnlineBadge());
       meta.appendChild(songLine);
       meta.appendChild(subLine);
     } else if (isActive) {
@@ -2275,6 +2505,7 @@ function persistSingers() {
         format: song.format, type: song.type,
         savedSemitones: song.savedSemitones || 0,
         librarySource: song.librarySource || null,
+        ...(song.type === 'youtube' ? { videoId: song.videoId, thumbnail: song.thumbnail, channel: song.channel } : {}),
       })),
       history: s.history,
     }));
@@ -2310,6 +2541,10 @@ async function restoreSingersFromStorage() {
   const restoredSingers = (saved.singers || []).map(s => {
     const songs = [];
     for (const song of (s.songs || [])) {
+      if (song.type === 'youtube' && song.videoId) {
+        songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null });
+        continue;
+      }
       if (song.librarySource) {
         const found = library.findByFolderAndName(song.librarySource.folderId, song.librarySource.fileName);
         if (found) {
@@ -2668,6 +2903,7 @@ function renderDetailQueueList(singer) {
       renderSingerRoundView();
     });
 
+    if (song.type === 'youtube') toneControls.replaceChildren(createOnlineBadge()); // sem ajuste de tom
     row.appendChild(info);
     row.appendChild(reorderMini);
     row.appendChild(toneControls);
@@ -2925,6 +3161,7 @@ function persistPlaylist() {
         type: item.type,
         librarySource: item.librarySource || null,
         savedSemitones: item.savedSemitones || 0,
+        ...(item.type === 'youtube' ? { videoId: item.videoId, thumbnail: item.thumbnail, channel: item.channel } : {}),
       })),
     };
     localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(data));
@@ -2949,6 +3186,12 @@ async function restorePlaylistFromStorage() {
 
   for (const savedItem of saved.items) {
     let restored = false;
+    // Músicas Online só precisam do ID do vídeo — sempre restauráveis.
+    if (savedItem.type === 'youtube' && savedItem.videoId) {
+      playlist.push({ ...savedItem, id: 'track_' + (++playlistIdCounter), file: null, format: 'YouTube', code: null });
+      restoredCount++;
+      continue;
+    }
     if (savedItem.librarySource) {
       const found = library.findByFolderAndName(savedItem.librarySource.folderId, savedItem.librarySource.fileName);
       if (found) {
@@ -3102,5 +3345,6 @@ window.i18n.onLanguageChange(() => {
   if (mode === null) updateMetaBar(null);
   updateNextBtnState();
   updatePitchButtonTitles();
-  if (librarySearchInput.value.trim()) renderLibraryResults();
+  librarySearchInput.placeholder = window.i18n.t(librarySource === 'online' ? 'online_placeholder' : 'library_search_placeholder');
+  if (librarySource === 'device' && librarySearchInput.value.trim()) renderLibraryResults();
 });

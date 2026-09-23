@@ -14,7 +14,12 @@
     justify-content:center;
     font-family:'Inter',sans-serif;
   }
-  #canvas-wrap, #video-wrap{
+  #youtube-host{
+    width:min(100vw, calc(100vh * 16 / 9));
+    aspect-ratio:16/9;
+  }
+  #youtube-host iframe{ width:100%; height:100%; border:0; pointer-events:none; }
+  #canvas-wrap, #video-wrap, #youtube-wrap{
     width:100vw;
     height:100vh;
     display:flex;
@@ -179,6 +184,10 @@
   <video id="video-el" muted playsinline></video>
 </div>
 
+<div id="youtube-wrap" class="hidden">
+  <div id="youtube-host"></div>
+</div>
+
 <div id="idle-overlay">
   <img id="idle-logo" src="assets/logo.svg" alt=""/>
   <div id="idle-custom-image" class="hidden"></div>
@@ -209,6 +218,7 @@
 </button>
 
 <script src="js/cdg-player.js"></script>
+<script src="js/youtube-player.js"></script>
 <script src="js/second-screen.js"></script>
 </body>
 </html>
