@@ -547,8 +547,13 @@ function removeFromPlaylist(index) {
   renderPlaylist();
 }
 
+/** Arquivos-fantasma "._nome" que o macOS cria em HDs exFAT/FAT (metadados, não músicas). */
+function isGhostFile(file) {
+  return file.name.startsWith('._');
+}
+
 async function addFilesToQueue(files) {
-  const list = Array.from(files || []);
+  const list = Array.from(files || []).filter(f => !isGhostFile(f));
   if (!list.length) return;
 
   if (singerModeEnabled) {
@@ -2754,7 +2759,7 @@ detailSongSearchInput.addEventListener('input', () => {
 // cantor selecionado sem precisar passar pela Biblioteca.
 detailUploadFileBtn.addEventListener('click', () => detailUploadFileInput.click());
 detailUploadFileInput.addEventListener('change', async () => {
-  const files = Array.from(detailUploadFileInput.files || []);
+  const files = Array.from(detailUploadFileInput.files || []).filter(f => !isGhostFile(f));
   detailUploadFileInput.value = ''; // permite selecionar o mesmo arquivo de novo depois, se precisar
 
   let addedAny = false;

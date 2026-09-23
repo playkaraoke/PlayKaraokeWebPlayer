@@ -10,3 +10,11 @@ test('app carrega e adiciona músicas na fila', async () => {
   assert.equal(t.currentIndex, 0);
   assert.equal(t.mode, 'cdg');
 });
+
+test('arquivos-fantasma ._ do macOS são ignorados ao arrastar/carregar', async () => {
+  const { win, t, $ } = await createApp();
+  await t.addFilesToQueue([fakeFile(win, '._A - Um.zip'), fakeFile(win, 'A - Um.zip')]);
+  await flush();
+  assert.equal(t.playlist.length, 1);
+  assert.equal($('error-banner').classList.contains('hidden'), true);
+});

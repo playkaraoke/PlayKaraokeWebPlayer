@@ -113,6 +113,10 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
     if (scanYieldCounter % 40 === 0) {
       await yieldToMainThread();
     }
+    // Arquivos/pastas ocultos de sistema: "._Musica.zip" (metadados que o
+    // macOS cria em HDs formatados em exFAT/FAT — não são músicas de
+    // verdade), __MACOSX, .Trashes, .Spotlight-V100, .fseventsd etc.
+    if (entry.name.startsWith('.') || entry.name === '__MACOSX') continue;
     if (entry.kind === 'directory') {
       await scanDirectoryRecursive(entry, folderId, folderName, results);
     } else if (entry.kind === 'file') {

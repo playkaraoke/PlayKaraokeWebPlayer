@@ -27,7 +27,10 @@ const acervo = fakeDir('HD', [
   f('EJBg-0020 - Kansas - Play the Game Tonight.zip'),
   f('Planta e Raiz - Com Certeza.zip'),
   f('leia-me.txt'),
-  fakeDir('Sub', [f('Os Aviões - Voando Alto.mp4')]),
+  f('._PLK-1766 - Air Supply - Even The Nights Are Better.zip'), // fantasma do macOS
+  fakeDir('Sub', [f('Os Aviões - Voando Alto.mp4'), f('._Os Aviões - Voando Alto.mp4')]),
+  fakeDir('.Trashes', [f('Apagada - Musica.zip')]),
+  fakeDir('__MACOSX', [f('Lixo - Musica.zip')]),
 ]);
 
 test('busca multi-palavra, sem acento, em subpastas, ignorando outros formatos', async () => {
@@ -39,6 +42,7 @@ test('busca multi-palavra, sem acento, em subpastas, ignorando outros formatos',
   assert.equal(lib.search('avioes')[0].artist, 'Os Aviões');
   assert.equal(lib.search('ejbg-0020').length, 1);
   assert.equal(lib.search('inexistente').length, 0);
+  assert.equal(lib.search('even nights').length, 0, 'arquivo fantasma ._ foi indexado');
 });
 
 test('conectar a mesma pasta duas vezes não duplica os resultados', async () => {
