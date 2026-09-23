@@ -2327,17 +2327,17 @@
 <script src="js/singers.js"></script>
 <script type="module" src="js/app.js"></script>
 
-<!-- Script de Autenticação com o seu Hash -->
+<!-- Script de autenticação (filtro casual por hash SHA-256) -->
 <script>
   (function() {
-    // Lista de senhas válidas (cada uma como hash SHA-256, nunca a senha
-    // em texto puro). Pra REMOVER o acesso de um beta tester, é só tirar
-    // a linha correspondente daqui e dar git push de novo — sem precisar
-    // de nenhum servidor ou banco de dados.
+    // Lista de senhas válidas, cada uma como hash SHA-256. NUNCA escreva a
+    // senha em texto puro aqui (nem em comentário) — este arquivo é público.
+    // Pra REMOVER um acesso, tire a linha correspondente e dê git push.
+    // Filtro casual apenas: não é segurança real (site 100% estático).
     const ACCESS_HASHES = [
-      'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53', // plkplayer (principal)
-      'ce60cc4e7842949b0a225e7d8a6819a7802425c4fe25581c8cb47ded0b645aa7', // plkbeta2026 (beta testers)
-      '636fe492ebc508b254b91b525f72bbaba1cbac5c9cca895a397109d04fdc7218', // demoplk
+      'f29d9bd92cffddbdfd51487bcf98b0f84eba168f86530fcbb40086d7ce7ebe53', // principal
+      'ce60cc4e7842949b0a225e7d8a6819a7802425c4fe25581c8cb47ded0b645aa7', // beta testers
+      '636fe492ebc508b254b91b525f72bbaba1cbac5c9cca895a397109d04fdc7218', // demo
     ];
 
     async function calculateSHA256(str) {
