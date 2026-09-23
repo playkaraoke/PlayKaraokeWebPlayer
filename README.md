@@ -72,37 +72,6 @@ Queen - Bohemian Rhapsody.mp4                     → artist, title
 - **Surviving a page reload:** songs added from the **Library** are restored automatically. Files added by drag & drop or the file picker can't be reopened by the browser after a reload and have to be added again.
 - **The access password is a casual filter, not security.** The site is fully static.
 
-## Development
-
-Plain HTML/CSS/JavaScript: no framework and no build step. To run it locally, serve the folder over HTTP (ES modules and AudioWorklet don't work from `file://`):
-
-```bash
-python3 -m http.server 8000   # then open http://localhost:8000
-```
-
-Tests (Node 20+) load the real `index.html` in jsdom:
-
-```bash
-npm install
-npm test
-```
-
-| Path | What it does |
-|---|---|
-| `index.html` | Main screen (HTML + CSS) and login |
-| `second-screen.html` | Second screen window |
-| `js/app.js` | App state and UI: queue, Show Mode, autoplay, applause, ambient, second-screen sync |
-| `js/audio-engine.js` | Audio playback and key change (AudioWorklet, with a ScriptProcessor fallback) |
-| `js/pitch-worklet-processor.js` | Pitch-shift processor (runs on the audio thread) |
-| `js/cdg-player.js` | CDG parser and renderer |
-| `js/file-loader.js` | ZIP/MP4 loading and file-name parsing |
-| `js/library.js` | Local folder indexing and search |
-| `js/singers.js` | Singer rotation logic |
-| `js/i18n.js` | Translations (EN/PT) |
-| `tests/` | Automated tests (`npm test`) |
-
-Deploys automatically from `main` via GitHub Pages.
-
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE) — free for noncommercial use. For commercial use, contact the author.
+© 2026 Play Karaoke. Licensed under [PolyForm Noncommercial 1.0.0](LICENSE): personal, noncommercial use only. Copying, redistributing or reusing this code in commercial products is not permitted without written authorization.
