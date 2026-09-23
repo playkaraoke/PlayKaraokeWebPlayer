@@ -67,27 +67,30 @@ async function loadKaraokeFile(file) {
     const arrayBuffer = await file.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
 
-    let cdgEntry = null;
-    let audioEntry = null;
-    let audioExt = null;
+    const cdgEntries = [];
+    const audioEntries = []; // { entry, ext }
 
     zip.forEach((relPath, entry) => {
+      if (entry.dir || isJunkZipEntry(relPath)) return;
       const lower = relPath.toLowerCase();
       if (lower.endsWith('.cdg')) {
-        cdgEntry = entry;
-      } else {
-        for (const ext of AUDIO_EXTENSIONS) {
-          if (lower.endsWith(ext)) {
-            audioEntry = entry;
-            audioExt = ext;
-          }
-        }
+        cdgEntries.push(entry);
+        return;
       }
+      const ext = AUDIO_EXTENSIONS.find(e => lower.endsWith(e));
+      if (ext) audioEntries.push({ entry, ext });
     });
 
-    if (!cdgEntry || !audioEntry) {
-      throw new Error('O ZIP precisa conter um arquivo .cdg e um arquivo de áudio (.mp3/.wav).');
+    const cdgEntry = cdgEntries[0] || null;
+    // Com mais de um áudio no zip, prefere o que tem o mesmo nome do .cdg.
+    const cdgBase = cdgEntry ? baseNameNoExt(cdgEntry.name) : null;
+    const audioChoice = audioEntries.find(a => baseNameNoExt(a.entry.name) === cdgBase) || audioEntries[0] || null;
+
+    if (!cdgEntry || !audioChoice) {
+      throw new Error(tr('err_zip_invalid', 'O ZIP precisa conter um arquivo .cdg e um arquivo de áudio (.mp3/.wav).'));
     }
+    const audioEntry = audioChoice.entry;
+    const audioExt = audioChoice.ext;
 
     const [cdgBuffer, audioBuffer] = await Promise.all([
       cdgEntry.async('arraybuffer'),
@@ -103,7 +106,25 @@ async function loadKaraokeFile(file) {
     };
   }
 
-  throw new Error('Formato não suportado. Envie um .zip (MP3+G) ou .mp4.');
+  throw new Error(tr('err_unsupported_format', 'Formato não suportado. Envie um .zip (MP3+G) ou .mp4.'));
+}
+
+/** Traduz via i18n quando disponível (fallback em português). */
+function tr(key, fallback) {
+  return window.i18n && typeof window.i18n.t === 'function' ? window.i18n.t(key) : fallback;
+}
+
+/** Lixo que o macOS/Windows colocam dentro de zips: a pasta __MACOSX/ e
+ * os arquivos "._nome" (metadados AppleDouble, que também terminam em
+ * .cdg/.mp3 e eram escolhidos no lugar do arquivo de verdade). */
+function isJunkZipEntry(relPath) {
+  if (/(^|\/)__MACOSX\//i.test(relPath)) return true;
+  const base = relPath.split('/').pop();
+  return base.startsWith('._') || base === '.DS_Store' || base.toLowerCase() === 'thumbs.db';
+}
+
+function baseNameNoExt(relPath) {
+  return relPath.split('/').pop().replace(/\.[^.]+$/, '').toLowerCase();
 }
 
 function cleanTitle(filename) {

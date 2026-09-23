@@ -169,6 +169,7 @@ const TRANSLATIONS = {
 
     // Errors / messages
     err_zip_invalid: 'The ZIP must contain a .cdg file and an audio file (.mp3/.wav).',
+    err_unsupported_format: 'Unsupported format. Use a .zip (MP3+G) or .mp4 file.',
     err_load_generic: 'Could not load this song.',
     err_singer_name_empty: "Singer name can't be empty.",
     err_singer_name_duplicate: 'A singer with that name already exists.',
@@ -343,6 +344,7 @@ const TRANSLATIONS = {
     new_show_btn: 'Iniciar Novo Show / Sair',
 
     err_zip_invalid: 'O ZIP precisa conter um arquivo .cdg e um arquivo de áudio (.mp3/.wav).',
+    err_unsupported_format: 'Formato não suportado. Envie um .zip (MP3+G) ou .mp4.',
     err_load_generic: 'Não foi possível carregar essa música.',
     err_singer_name_empty: 'Nome do cantor não pode ser vazio.',
     err_singer_name_duplicate: 'Já existe um cantor com esse nome.',
