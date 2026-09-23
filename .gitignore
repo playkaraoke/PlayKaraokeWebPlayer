@@ -5,3 +5,6 @@ desktop.ini
 LEIA-ME.md
 ARQUITETURA.md
 DOCUMENTACAO.md
+
+# Dependências de desenvolvimento (testes)
+node_modules/

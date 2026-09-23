@@ -1,0 +1,12 @@
+{
+  "name": "playkaraoke-webplayer",
+  "private": true,
+  "description": "Testes automatizados do Play Karaoke (o app em si não tem build nem dependências de runtime).",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1",
+    "jszip": "^3.10.2"
+  }
+}
