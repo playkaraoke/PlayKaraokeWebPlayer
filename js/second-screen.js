@@ -54,15 +54,23 @@
     if (!ytPlayer) {
       ytPlayer = window.createYouTubePlayer(document.getElementById('youtube-host'), {
         muted: true,
-        onPlay: reportYtState,
-        onPause: reportYtState,
+        onPlay: onYtStateChange,
+        onPause: onYtStateChange,
         onTime: reportYtState,
-        onEnded: () => { if (ytRemoteMode) channel.postMessage({ type: 'yt-ended', videoId: ytVideoId }); },
+        onEnded: () => {
+          updateVisibility();
+          if (ytRemoteMode) channel.postMessage({ type: 'yt-ended', videoId: ytVideoId });
+        },
         onError: (code) => { if (ytRemoteMode) channel.postMessage({ type: 'yt-error', videoId: ytVideoId, code }); },
       });
     }
     return ytPlayer;
   }
+  function onYtStateChange() {
+    updateVisibility();
+    reportYtState();
+  }
+
   /** Modo player principal: conta pra tela principal onde o vídeo está. */
   function reportYtState() {
     if (!ytRemoteMode || !ytPlayer) return;
@@ -100,11 +108,17 @@
       syncVideoPlayback();
       return;
     }
-    const showingMedia = isPlayingState && mode !== null;
+    // YouTube: o que vale é o player DESTA tela estar tocando de fato.
+    // Carregando, pausado ou encerrado, o player do YouTube desenha por cima
+    // do vídeo título, "Mais vídeos", ícone de pausa... — nesses momentos
+    // mostramos a nossa tela de espera no lugar. O iframe continua
+    // exibido (só coberto), senão ele não consegue começar a tocar.
+    const ytPlaying = mode === 'youtube' && !!ytPlayer && ytPlayer.isPlaying();
+    const showingMedia = mode === 'youtube' ? ytPlaying : (isPlayingState && mode !== null);
     idleOverlay.classList.toggle('hidden', showingMedia);
     canvasWrap.classList.toggle('hidden', !showingMedia || mode !== 'cdg');
     videoWrap.classList.toggle('hidden', !showingMedia || mode !== 'video');
-    youtubeWrap.classList.toggle('hidden', mode !== 'youtube' || !(showingMedia || ytRemoteMode));
+    youtubeWrap.classList.toggle('hidden', mode !== 'youtube' || !(isPlayingState || ytRemoteMode));
     syncVideoPlayback();
   }
 

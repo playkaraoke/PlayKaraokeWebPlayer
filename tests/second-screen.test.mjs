@@ -86,3 +86,17 @@ test('modo player principal: toca com som no ponto pedido, obedece comandos e av
   win.dispatchEvent(new win.Event('pagehide'));
   assert.equal(posted.at(-1).type, 'bye');
 });
+
+test('YouTube carregando/pausado: segunda tela mostra a tela de espera por cima do player', async () => {
+  const { win, yt, send } = setup();
+  const idle = win.document.getElementById('idle-overlay');
+  send({ type: 'init-youtube', videoId: 'v3', remote: true, autoplay: false, startAt: 0 });
+  await new Promise(r => setTimeout(r, 0));
+  yt.playing = false;
+  send({ type: 'playing' }); // tela principal acha que está tocando, mas o player daqui ainda não começou
+  assert.equal(idle.classList.contains('hidden'), false, 'player parado deveria ficar coberto');
+  assert.equal(win.document.getElementById('youtube-wrap').classList.contains('hidden'), false, 'iframe precisa continuar exibido pra conseguir tocar');
+  yt.playing = true;
+  send({ type: 'playing' });
+  assert.equal(idle.classList.contains('hidden'), true);
+});

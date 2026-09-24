@@ -7,7 +7,7 @@
 2. [The screen at a glance](#2-the-screen-at-a-glance)
 3. [Loading music](#3-loading-music)
 4. [Playback controls](#4-playback-controls)
-5. [The Library (Devices and Online)](#5-the-library-devices-and-online)
+5. [The Library (Devices and YouTube)](#5-the-library-devices-and-youtube)
 6. [The second screen](#6-the-second-screen)
 7. [Show Mode (singer rotation)](#7-show-mode-singer-rotation)
 8. [Settings](#8-settings)
@@ -31,7 +31,7 @@ Enter the password you were given. You stay logged in until you close the browse
 |---|---|
 | Button | **Load Music**, then pick one or more files |
 | Drag & drop | Onto the sidebar dropzone or the stage |
-| Library | Search your drives or online, then click a result ([section 5](#5-the-library-devices-and-online)) |
+| Library | Search your drives or online, then click a result ([section 5](#5-the-library-devices-and-youtube)) |
 
 **Supported:** `.zip` containing a `.cdg` + audio file (`.mp3`, `.wav`, `.ogg`, `.m4a`), and `.mp4`. Other files are skipped, with a warning.
 
@@ -62,7 +62,7 @@ Enter the password you were given. You stay logged in until you close the browse
 | **Applause** | Applause plays automatically in the last seconds of each song, or earlier if the song goes silent near the end |
 | **Ambient** | Background music plays only while no song is playing |
 
-## 5. The Library (Devices and Online)
+## 5. The Library (Devices and YouTube)
 
 Two buttons at the top of the Library tab choose where to search.
 
@@ -76,16 +76,17 @@ Search a large local collection, such as an external drive, without browsing fol
 
 Connected folders and their index are remembered, so opening the app doesn't rescan your drive. Click the **update** button (↻) on a folder after adding or removing files. If the browser asks for permission again, click **Reconnect**. Hidden system files, such as the `._` files macOS creates on external drives, are ignored.
 
-### Online
+### YouTube
 Find karaoke videos on YouTube. Works in any browser, as long as you're connected to the internet.
 
-1. Click **Online**, type the song, and press **Enter** or the search button. Online search doesn't run as you type, to save the daily search limit.
+1. Click **YouTube**, type the song, and press **Enter** or the search button. The search doesn't run as you type, to save the daily search limit.
 2. Click a card, or its **+** button, to add the song to the queue. In Show Mode, you'll be asked which singer it's for.
 
-Online songs show an **ONLINE · NO KEY** badge. They work in the queue, Show Mode and the second screen, and survive a page reload. Limitations:
+YouTube songs show a **YOUTUBE** badge. They work in the queue, Show Mode and the second screen, and survive a page reload. Limitations:
 - **No key change.** YouTube doesn't let the app access the audio.
 - **Ads may appear.** They come from YouTube and can't be blocked, but you can click the video to skip them when YouTube allows.
 - **Applause** plays in the last 5 seconds only (no silence detection).
+- While a YouTube video is loading or paused, the second screen shows the waiting screen (logo or your image) instead of YouTube's own title and buttons. YouTube still shows the video title for the first few seconds of playback.
 - **Daily limit:** there's a daily cap on new online searches. Repeated searches don't count. When it's reached, the app tells you; use Devices until the next day.
 - A video can become unavailable (removed or blocked). The app shows a warning. Remove it from the queue, or press **Next**.
 
