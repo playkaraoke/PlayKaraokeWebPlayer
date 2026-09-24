@@ -67,6 +67,7 @@ class AudioEngine extends EventTarget {
     this._semitones = 0;
     this._volume = 0.9;
     this._rafId = null;
+    this._lastTickMs = 0;
 
     this._preferredBackend = 'scriptprocessor'; // trocável via setPreferredBackend() — o app usa 'worklet'
     this._backend = 'scriptprocessor';           // backend REALMENTE ativo após tentar carregar
@@ -478,6 +479,12 @@ class AudioEngine extends EventTarget {
 
     const onTick = () => {
       if (!this._playing) return;
+      // Num PC lento, os tiques da worker se acumulam na fila enquanto a
+      // thread principal está ocupada e chegavam em rajada (cada um
+      // redesenhando o CDG) — o "engasgo". Tiques colados são descartados.
+      const nowMs = performance.now();
+      if (nowMs - this._lastTickMs < TICK_INTERVAL_MS / 2) return;
+      this._lastTickMs = nowMs;
       const currentTime = this.getCurrentTime();
       const duration = this.getDuration();
 

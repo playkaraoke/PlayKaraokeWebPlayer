@@ -47,10 +47,6 @@ class CDGPlayer {
     this.offscreen.height = CDG_SCREEN_HEIGHT;
     this.offctx = this.offscreen.getContext('2d', { alpha: false });
     this.imageData = this.offctx.createImageData(CDG_SCREEN_WIDTH, CDG_SCREEN_HEIGHT);
-    // Visão 32-bit do mesmo buffer: escreve 1 pixel (RGBA) por operação em
-    // vez de 4 — bem mais rápido nos repaints completos.
-    this.imageData32 = new Uint32Array(this.imageData.data.buffer);
-    this._lut = new Uint32Array(16); // cor final (RGBA empacotado) de cada índice da paleta, recalculada por frame
 
     // Buffer de índices de cor (0-15) por pixel
     this.pixels = new Uint8Array(CDG_SCREEN_WIDTH * CDG_SCREEN_HEIGHT);
@@ -143,15 +139,14 @@ class CDGPlayer {
       this.reset();
     }
 
+    let processed = false;
     for (let i = this.lastProcessedIndex + 1; i <= targetIndex; i++) {
       this._processPacket(this.packets[i]);
+      processed = true;
     }
     this.lastProcessedIndex = targetIndex;
 
-    // Só redesenha se algo mudou de verdade. A maioria dos 300 pacotes/s
-    // não desenha nada — antes, qualquer pacote processado disparava o
-    // upscale completo pro canvas ~60x/s, o que engasgava em PC antigo.
-    if (this.fullDirty || this.dirtyTiles.size) {
+    if (processed || this.fullDirty || this.dirtyTiles.size) {
       this._render();
     }
   }
@@ -415,26 +410,24 @@ class CDGPlayer {
     return this.palette[colorIndex] || [0, 0, 0];
   }
 
-  /** Recalcula a tabela índice -> cor RGBA empacotada (16 entradas). */
-  _buildLut() {
-    const lut = this._lut;
-    for (let i = 0; i < 16; i++) {
-      const c = this._getRenderColor(i);
-      // Little-endian (todas as plataformas-alvo): bytes na memória = R,G,B,A.
-      lut[i] = ((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0;
-    }
+  _writePixelToImageData(idx) {
+    const data = this.imageData.data;
+    const color = this._getRenderColor(this.pixels[idx]);
+    const o = idx * 4;
+    data[o] = color[0];
+    data[o + 1] = color[1];
+    data[o + 2] = color[2];
+    data[o + 3] = 255;
   }
 
   _writeTilePixels(row, col) {
-    const lut = this._lut;
-    const pixels = this.pixels;
-    const out = this.imageData32;
     const baseX = col * CDG_TILE_WIDTH;
     const baseY = row * CDG_TILE_HEIGHT;
     for (let ty = 0; ty < CDG_TILE_HEIGHT; ty++) {
-      const rowStart = (baseY + ty) * CDG_SCREEN_WIDTH + baseX;
+      const py = baseY + ty;
+      const rowOffset = py * CDG_SCREEN_WIDTH;
       for (let tx = 0; tx < CDG_TILE_WIDTH; tx++) {
-        out[rowStart + tx] = lut[pixels[rowStart + tx]];
+        this._writePixelToImageData(rowOffset + baseX + tx);
       }
     }
   }
@@ -444,17 +437,20 @@ class CDGPlayer {
     // desprezível: só 16 posições) e guarda em cache pra _getRenderColor
     // não recalcular por pixel.
     this._dominantTextIndexCache = this.customColors ? this._findDominantTextIndex() : -1;
-    this._buildLut();
 
     if (this.fullDirty) {
-      // Repaint completo: memory preset / scroll / troca de paleta / troca
-      // de cores personalizadas. Tabela de 16 cores + escrita de 32 bits por
-      // pixel — sem chamada de função por pixel.
-      const lut = this._lut;
+      // Repaint completo: só acontece em memory preset / scroll / troca de
+      // paleta / troca de cores personalizadas — eventos raros, o custo de
+      // varrer os 64.800 pixels aqui é ok.
+      const data = this.imageData.data;
       const pixels = this.pixels;
-      const out = this.imageData32;
       for (let i = 0; i < pixels.length; i++) {
-        out[i] = lut[pixels[i]];
+        const color = this._getRenderColor(pixels[i]);
+        const o = i * 4;
+        data[o] = color[0];
+        data[o + 1] = color[1];
+        data[o + 2] = color[2];
+        data[o + 3] = 255;
       }
       this.offctx.putImageData(this.imageData, 0, 0);
       this.fullDirty = false;
