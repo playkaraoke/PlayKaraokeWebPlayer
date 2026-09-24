@@ -689,6 +689,16 @@
     border:1px solid var(--outline-variant);
     color:var(--on-surface-variant);
   }
+  #stage-remote-placeholder{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    width:100%; height:100%; text-align:center; padding:24px;
+  }
+  #remote-thumb{ width:min(420px, 80%); aspect-ratio:16/9; object-fit:cover; border-radius:12px; opacity:0.85; }
+  #remote-title{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:20px; }
+  #remote-hint{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--primary-bright);
+  }
   #stage-youtube-wrap{
     width:100%; height:100%; display:flex; align-items:center; justify-content:center;
   }
@@ -1939,7 +1949,7 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"/></svg>
       <span id="show-mode-btn-label" data-i18n="start_show_mode">Start Show Mode</span>
     </button>
-    <span id="version-tag">v2.3</span>
+    <span id="version-tag">v2.5</span>
   </div>
 </div>
 
@@ -1974,6 +1984,12 @@
 
     <div id="stage-youtube-wrap" class="hidden">
       <div id="youtube-host"></div>
+    </div>
+
+    <div id="stage-remote-placeholder" class="hidden">
+      <img id="remote-thumb" class="hidden" alt=""/>
+      <div id="remote-title"></div>
+      <div id="remote-hint" data-i18n="remote_playing_hint">Playing on the second screen</div>
     </div>
 
     <div id="countdown-overlay" class="hidden">
@@ -2408,6 +2424,7 @@
 <input type="file" id="file-input" accept=".zip,.mp4" multiple class="hidden"/>
 <audio id="applause-audio" src="assets/aplausos.mp3" preload="auto"></audio>
 <audio id="ambient-audio" preload="auto"></audio>
+<audio id="audio-el" preload="auto"></audio>
 
 <script src="js/cdg-player.js"></script>
 <script src="js/file-loader.js"></script>

@@ -16,8 +16,11 @@ function setup() {
   win.HTMLMediaElement.prototype.pause = () => {};
   win.HTMLMediaElement.prototype.play = () => Promise.resolve();
   let listener = null;
-  win.BroadcastChannel = class { postMessage() {} addEventListener(_, fn) { listener = fn; } };
-  const yt = { t: 0, playing: false, seeks: [], async load() {}, play() { this.playing = true; }, pause() { this.playing = false; },
+  const posted = [];
+  win.BroadcastChannel = class { postMessage(m) { posted.push(m); } addEventListener(_, fn) { listener = fn; } };
+  const yt = { t: 0, playing: false, seeks: [], muted: true, loads: [], cmds: [],
+    async load(id, o) { this.loads.push({ id, ...o }); if (o && o.autoplay) this.playing = true; },
+    setMuted(m) { this.muted = m; }, setVolume(v) { this.vol = v; }, getDuration() { return 200; }, play() { this.playing = true; }, pause() { this.playing = false; },
     stop() {}, clear() {}, seekTo(t) { this.seeks.push(t); this.t = t; }, getCurrentTime() { return this.t; }, isPlaying() { return this.playing; } };
   win.createYouTubePlayer = () => yt;
   win.console.info = () => {};
@@ -27,7 +30,7 @@ function setup() {
   send({ type: 'init-youtube', videoId: 'v1' });
   send({ type: 'playing' });
   yt.playing = true;
-  return { win, yt, send };
+  return { win, yt, send, posted };
 }
 const time = (currentTime) => ({ type: 'time', currentTime, duration: 200, sentAt: Date.now() });
 
@@ -62,4 +65,24 @@ test('pausado não corrige', () => {
   yt.playing = false; yt.t = 10;
   send(time(60));
   assert.equal(yt.seeks.length, 0);
+});
+
+test('modo player principal: toca com som no ponto pedido, obedece comandos e avisa a principal', async () => {
+  const { win, yt, send, posted } = setup();
+  send({ type: 'init-youtube', videoId: 'v2', remote: true, autoplay: true, startAt: 42, volume: 0.5 });
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(yt.muted, false);
+  assert.equal(yt.vol, 0.5);
+  assert.deepEqual({ ...yt.loads.at(-1) }, { id: 'v2', autoplay: true, startAt: 42 });
+  assert.equal(posted.find(m => m.type === 'yt-loaded').videoId, 'v2');
+  send({ type: 'yt-command', cmd: 'pause' });
+  assert.equal(yt.playing, false);
+  assert.equal(posted.at(-1).type, 'yt-state');
+  assert.equal(posted.at(-1).playing, false);
+  // no modo player principal, não se ressincroniza com a outra tela
+  yt.playing = true; yt.t = 10;
+  send({ type: 'time', currentTime: 90, duration: 200, sentAt: Date.now() });
+  assert.equal(yt.seeks.length, 0);
+  win.dispatchEvent(new win.Event('pagehide'));
+  assert.equal(posted.at(-1).type, 'bye');
 });

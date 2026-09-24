@@ -1,6 +1,6 @@
 # Play Karaoke — User Manual
 
-> Applies to **v2.3**. For a short overview, see the [README](../README.md).
+> Applies to **v2.5**. For a short overview, see the [README](../README.md).
 
 **Contents**
 1. [Logging in](#1-logging-in)
@@ -74,7 +74,7 @@ Search a large local collection, such as an external drive, without browsing fol
 3. Type in the search box. It matches title, artist or code, in any order, and ignores case and accents: `avioes` finds *Aviões*.
 4. Click a result to add it to the queue. In Show Mode, you'll be asked which singer it's for.
 
-Connected folders are remembered. If the browser asks for permission again, click **Reconnect**. Hidden system files, such as the `._` files macOS creates on external drives, are ignored.
+Connected folders and their index are remembered, so opening the app doesn't rescan your drive. Click the **update** button (↻) on a folder after adding or removing files. If the browser asks for permission again, click **Reconnect**. Hidden system files, such as the `._` files macOS creates on external drives, are ignored.
 
 ### Online
 Find karaoke videos on YouTube. Works in any browser, as long as you're connected to the internet.
@@ -96,6 +96,12 @@ A controls-free window for a TV, projector or singer-facing monitor.
 1. Click the **Second Screen** toggle. If nothing opens, allow pop-ups for this site.
 2. Drag the window to the other display and make it fullscreen (hover for the fullscreen button, or press `F11`).
 3. It stays in sync: lyrics, video, countdown, upcoming singers, and the idle image.
+
+**While the second screen is open, it becomes the main player** for video, which saves memory and processing on the operator's computer:
+- **YouTube:** the video plays with sound **only on the second screen**. The main screen shows the cover and the controls (play/pause, seek bar, volume). If you use a key-change browser extension, apply it on the second screen window.
+- **MP4:** the main screen plays only the audio (with the app's key change), and the video is decoded only on the second screen.
+- **CDG:** the audio stays on the main screen, and the main screen uses lightweight drawing (it becomes a preview).
+- Opening or closing the second screen mid-song hands playback over at the same point.
 
 Click the toggle again to close it.
 
@@ -137,6 +143,7 @@ Click the gear icon at the bottom of the sidebar.
 | **Screen Background Image** | Image shown when nothing is playing (ideal 1920×1080). Lasts for the current session |
 | **Show Mode** | What the waiting screen shows (upcoming singers, song titles, countdown), plus **Manage Singers** |
 | **Change CDG Colors** | Override background, text and highlight colors (CDG only, experimental) |
+| **Performance** | **Light mode** for older computers: CDG lyrics use much less processing (the look changes very slightly) |
 | **Language** | English or Português (Brasil). The second screen follows automatically |
 
 ## 9. Troubleshooting

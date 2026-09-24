@@ -33,6 +33,7 @@ const TRANSLATIONS = {
     // Library
     library_search_placeholder: 'Search by song, artist or code...',
     library_clear_btn: 'CLEAR',
+    remote_playing_hint: 'Playing on the second screen',
     settings_performance_title: 'Performance',
     settings_light_mode_desc: '<strong>Light mode</strong> for older computers: CDG lyrics use less processing. <em>The look changes very slightly.</em>',
     library_source_device: 'Devices',
@@ -248,6 +249,7 @@ const TRANSLATIONS = {
 
     library_search_placeholder: 'Buscar por música, artista ou código...',
     library_clear_btn: 'LIMPAR',
+    remote_playing_hint: 'Tocando na segunda tela',
     settings_performance_title: 'Desempenho',
     settings_light_mode_desc: '<strong>Modo leve</strong> para computadores antigos: a letra do CDG usa menos processamento. <em>O visual muda muito pouco.</em>',
     library_source_device: 'Dispositivos',

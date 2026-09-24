@@ -16,8 +16,9 @@ function setup() {
     Player: class {
       constructor(el, cfg) { this.cfg = cfg; this.calls = []; this.t = 0; players.push(this); setTimeout(() => cfg.events.onReady()); }
       emit(state) { this.cfg.events.onStateChange({ data: state }); }
-      cueVideoById(id) { this.calls.push(['cue', id]); setTimeout(() => this.emit(5)); }
-      loadVideoById(id) { this.calls.push(['load', id]); setTimeout(() => this.emit(1)); }
+      cueVideoById(a) { this.calls.push(['cue', a.videoId, a.startSeconds]); setTimeout(() => this.emit(5)); }
+      loadVideoById(a) { this.calls.push(['load', a.videoId, a.startSeconds]); setTimeout(() => this.emit(1)); }
+      unMute() { this.muted = false; }
       playVideo() { this.calls.push(['play']); this.emit(1); }
       pauseVideo() { this.calls.push(['pause']); this.emit(2); }
       stopVideo() { this.calls.push(['stop']); this.emit(5); }
@@ -37,7 +38,7 @@ test('carrega engatilhado (pausado), toca, pausa e termina uma vez só', async (
   });
   await p.load('abc');
   const yt = players[0];
-  assert.deepEqual(yt.calls[0], ['cue', 'abc']);
+  assert.deepEqual(yt.calls[0], ['cue', 'abc', 0]);
   assert.equal(p.isPlaying(), false);
   p.play(); assert.equal(p.isPlaying(), true);
   p.pause(); assert.equal(ev.pause, 1);

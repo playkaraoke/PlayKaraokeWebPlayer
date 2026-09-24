@@ -221,19 +221,21 @@ class AudioEngine extends EventTarget {
   }
 
   /**
-   * Conecta um <video> ao pitchNode, uma única vez por elemento (o
+   * Conecta um <video>/<audio> ao pitchNode, uma única vez por elemento (o
    * navegador não deixa chamar createMediaElementSource() mais de uma vez
    * pro mesmo elemento — por isso reaproveitamos a mesma conexão mesmo
-   * quando o .src do vídeo muda pra uma música diferente).
+   * quando o .src muda pra uma música diferente). Aceita vários elementos
+   * (o app usa um <video> e, com a segunda tela aberta, um <audio>).
    * @returns {boolean} true se conectado (ou já estava) com sucesso
    */
-  attachVideoElement(videoEl) {
-    if (this._videoSourceElement === videoEl && this._videoSourceNode) return true;
+  attachVideoElement(mediaEl) {
+    if (!this._mediaSources) this._mediaSources = new Map();
+    if (this._mediaSources.has(mediaEl)) return true;
     if (!this.pitchNode) return false;
     try {
-      this._videoSourceNode = this.audioCtx.createMediaElementSource(videoEl);
-      this._videoSourceElement = videoEl;
-      this._videoSourceNode.connect(this.pitchNode);
+      const source = this.audioCtx.createMediaElementSource(mediaEl);
+      source.connect(this.pitchNode);
+      this._mediaSources.set(mediaEl, source);
       return true;
     } catch (err) {
       console.warn('[AudioEngine] Falha ao conectar o vídeo ao pitch shifter:', err);
@@ -241,9 +243,9 @@ class AudioEngine extends EventTarget {
     }
   }
 
-  /** true se o <video> atual está roteado pelo pitch shifter (ver attachVideoElement). */
-  isVideoPitchRouted(videoEl) {
-    return this._videoSourceElement === videoEl && !!this._videoSourceNode;
+  /** true se o elemento está roteado pelo pitch shifter (ver attachVideoElement). */
+  isVideoPitchRouted(mediaEl) {
+    return !!(this._mediaSources && this._mediaSources.has(mediaEl));
   }
 
   /** Para e descarta o AudioBufferSourceNode atual SEM disparar 'ended'

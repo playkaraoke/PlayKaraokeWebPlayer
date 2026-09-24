@@ -47,9 +47,29 @@
   // Player do YouTube só é criado (e a API baixada) na primeira música Online.
   let ytPlayer = null;
   let ytVideoId = null;
+  // true = esta janela é o player principal do YouTube (com som, comandado
+  // pela tela principal). false = cópia muda que só acompanha a principal.
+  let ytRemoteMode = false;
   function getYtPlayer() {
-    if (!ytPlayer) ytPlayer = window.createYouTubePlayer(document.getElementById('youtube-host'), { muted: true });
+    if (!ytPlayer) {
+      ytPlayer = window.createYouTubePlayer(document.getElementById('youtube-host'), {
+        muted: true,
+        onPlay: reportYtState,
+        onPause: reportYtState,
+        onTime: reportYtState,
+        onEnded: () => { if (ytRemoteMode) channel.postMessage({ type: 'yt-ended', videoId: ytVideoId }); },
+        onError: (code) => { if (ytRemoteMode) channel.postMessage({ type: 'yt-error', videoId: ytVideoId, code }); },
+      });
+    }
     return ytPlayer;
+  }
+  /** Modo player principal: conta pra tela principal onde o vídeo está. */
+  function reportYtState() {
+    if (!ytRemoteMode || !ytPlayer) return;
+    channel.postMessage({
+      type: 'yt-state', videoId: ytVideoId,
+      currentTime: ytPlayer.getCurrentTime(), duration: ytPlayer.getDuration(), playing: ytPlayer.isPlaying(),
+    });
   }
   let isPlayingState = false;
   let countdownActive = false;
@@ -74,7 +94,9 @@
       idleOverlay.classList.add('hidden');
       canvasWrap.classList.add('hidden');
       videoWrap.classList.add('hidden');
-      youtubeWrap.classList.add('hidden');
+      // Como player principal, o iframe nunca é escondido (escondido ele pode
+      // parar) — a contagem fica por cima dele.
+      youtubeWrap.classList.toggle('hidden', !(ytRemoteMode && mode === 'youtube'));
       syncVideoPlayback();
       return;
     }
@@ -82,7 +104,7 @@
     idleOverlay.classList.toggle('hidden', showingMedia);
     canvasWrap.classList.toggle('hidden', !showingMedia || mode !== 'cdg');
     videoWrap.classList.toggle('hidden', !showingMedia || mode !== 'video');
-    youtubeWrap.classList.toggle('hidden', !showingMedia || mode !== 'youtube');
+    youtubeWrap.classList.toggle('hidden', mode !== 'youtube' || !(showingMedia || ytRemoteMode));
     syncVideoPlayback();
   }
 
@@ -93,7 +115,7 @@
     if (shouldPlay && videoEl.paused && videoEl.src) videoEl.play().catch(() => {});
     else if (!shouldPlay && !videoEl.paused) videoEl.pause();
 
-    if (ytPlayer && ytVideoId) {
+    if (ytPlayer && ytVideoId && !ytRemoteMode) { // no modo player principal, quem manda é a tela principal
       const ytShouldPlay = !countdownActive && isPlayingState && mode === 'youtube';
       if (ytShouldPlay && !ytPlayer.isPlaying()) ytPlayer.play();
       else if (!ytShouldPlay && ytPlayer.isPlaying()) ytPlayer.pause();
@@ -129,6 +151,7 @@
   const ytSyncStats = window.__ytSyncStats = { corrections: 0, since: Date.now(), last: [] };
 
   function syncYouTube(msg) {
+    if (ytRemoteMode) return; // aqui é a fonte do tempo, não quem acompanha
     if (!ytPlayer || !ytVideoId || !ytPlayer.isPlaying()) { ytDriftReadings = 0; return; }
     const now = Date.now();
     const transit = msg.sentAt ? Math.min(1, Math.max(0, (now - msg.sentAt) / 1000)) : 0;
@@ -213,6 +236,7 @@
     switch (msg.type) {
       case 'init-cdg': {
         if (ytPlayer) { ytPlayer.stop(); }
+        ytRemoteMode = false;
         cdgPlayer.load(msg.cdgBuffer);
         if (msg.colors) cdgPlayer.setCustomColors(msg.colors);
         mode = 'cdg';
@@ -222,17 +246,44 @@
       case 'init-youtube': {
         if (!videoEl.paused) videoEl.pause();
         mode = 'youtube';
-        if (msg.videoId !== ytVideoId) {
+        ytRemoteMode = !!msg.remote;
+        const player = getYtPlayer();
+        player.setMuted(!ytRemoteMode);
+        if (ytRemoteMode && typeof msg.volume === 'number') player.setVolume(msg.volume);
+        // Como player principal, sempre (re)carrega no ponto pedido (troca de
+        // tela no meio da música). Como cópia muda, só se o vídeo mudou.
+        if (ytRemoteMode || msg.videoId !== ytVideoId) {
           ytVideoId = msg.videoId;
           ytDriftReadings = 0;
           ytLastSeekAt = 0;
-          getYtPlayer().load(msg.videoId, { autoplay: false }).then(syncVideoPlayback).catch(() => {});
+          const videoId = msg.videoId;
+          player.load(videoId, { autoplay: ytRemoteMode && !!msg.autoplay, startAt: msg.startAt || 0 })
+            .then(() => {
+              if (ytRemoteMode && videoId === ytVideoId) {
+                channel.postMessage({ type: 'yt-loaded', videoId, duration: player.getDuration() });
+                reportYtState();
+              } else {
+                syncVideoPlayback();
+              }
+            })
+            .catch(() => {});
         }
         updateVisibility();
         break;
       }
+      case 'yt-command': {
+        if (!ytRemoteMode || !ytPlayer) break;
+        if (msg.cmd === 'play') ytPlayer.play();
+        else if (msg.cmd === 'pause') ytPlayer.pause();
+        else if (msg.cmd === 'stop') ytPlayer.stop();
+        else if (msg.cmd === 'seek') ytPlayer.seekTo(msg.value);
+        else if (msg.cmd === 'volume') ytPlayer.setVolume(msg.value);
+        reportYtState();
+        break;
+      }
       case 'init-video': {
         if (ytPlayer) { ytPlayer.stop(); }
+        ytRemoteMode = false;
         if (msg.videoUrl !== lastVideoUrl) {
           videoEl.src = msg.videoUrl;
           lastVideoUrl = msg.videoUrl;
@@ -297,6 +348,7 @@
         if (!videoEl.paused) videoEl.pause();
         if (ytPlayer) ytPlayer.clear();
         ytVideoId = null;
+        ytRemoteMode = false;
         mode = null;
         isPlayingState = false;
         countdownActive = false;
@@ -310,6 +362,9 @@
   // (ela responde reenviando o CDG/vídeo + tempo em andamento + a imagem
   // de fundo customizada, se houver).
   channel.postMessage({ type: 'ready' });
+  // Fechando/recarregando: a tela principal retoma a mídia na hora (sem
+  // esperar perceber que a janela fechou).
+  window.addEventListener('pagehide', () => channel.postMessage({ type: 'bye' }));
 
   // Mantém o vídeo mudo sempre — o áudio já toca na janela principal, não
   // queremos duas fontes de som ao mesmo tempo.

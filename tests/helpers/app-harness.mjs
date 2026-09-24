@@ -68,11 +68,23 @@ function installDomStubs(win) {
   proto.play = function () { if (this._paused === false) return Promise.resolve(); this._paused = false; this.dispatchEvent(new win.Event('play')); return Promise.resolve(); };
   proto.pause = function () { if (this._paused === false) { this._paused = true; this.dispatchEvent(new win.Event('pause')); } };
   proto.load = function () {};
+  Object.defineProperty(proto, 'readyState', { configurable: true, get() { return this.getAttribute('src') ? 1 : 0; } });
 
-  win.BroadcastChannel = class { constructor() { this.sent = []; } postMessage(m) { this.sent.push(m); } addEventListener() {} close() {} };
+  // BroadcastChannel falso: guarda o que foi enviado e deixa o teste
+  // simular mensagens chegando da segunda tela (win.__fromSecondScreen).
+  win.__channels = [];
+  win.BroadcastChannel = class {
+    constructor() { this.sent = []; this.listeners = []; win.__channels.push(this); }
+    postMessage(m) { this.sent.push(m); }
+    addEventListener(_, fn) { this.listeners.push(fn); }
+    close() {}
+  };
+  win.__fromSecondScreen = (msg) => win.__channels.forEach(c => c.listeners.forEach(fn => fn({ data: msg })));
+  win.__sentToSecondScreen = () => win.__channels.flatMap(c => c.sent);
   win.URL.createObjectURL = () => 'blob:fake/' + Math.random().toString(36).slice(2);
   win.URL.revokeObjectURL = () => {};
-  win.open = () => null;
+  // window.open falso: a "segunda tela" fica aberta até o teste fechar.
+  win.open = () => { const w = { closed: false, focus() {}, close() { this.closed = true; } }; win.__secondWindow = w; return w; };
 }
 
 /**
@@ -80,12 +92,19 @@ function installDomStubs(win) {
  * @param {Record<string,string>} [opts.localStorage] - estado inicial do localStorage
  * @param {(win: Window) => void} [opts.beforeApp] - roda antes do app.js (ex: stubar a Biblioteca)
  */
+const openDoms = [];
+/** Fecha todas as janelas jsdom criadas (limpa timers como o polling da segunda tela). */
+export function closeAllApps() {
+  while (openDoms.length) openDoms.pop().window.close();
+}
+
 export async function createApp(opts = {}) {
   const html = read('index.html')
     // Os <script> do HTML são executados manualmente abaixo (na ordem certa, com stubs).
     .replace(/<script[\s\S]*?<\/script>/g, '');
   const dom = new JSDOM(html, { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
   const win = dom.window;
+  openDoms.push(dom);
 
   for (const [k, v] of Object.entries(opts.localStorage || {})) win.localStorage.setItem(k, v);
 
@@ -98,11 +117,11 @@ export async function createApp(opts = {}) {
   win.createYouTubePlayer = (host, cbs = {}) => {
     const p = {
       videoId: null, playing: false, time: 0, duration: 200, volume: 0.9, loads: [],
-      async load(id) { this.videoId = id; this.playing = false; this.time = 0; this.loads.push(id); },
+      async load(id, o = {}) { this.videoId = id; this.playing = false; this.time = o.startAt || 0; this.loads.push(id); if (o.autoplay) this.play(); },
       play() { if (!this.videoId || this.playing) return; this.playing = true; cbs.onPlay && cbs.onPlay(); },
       pause() { if (!this.playing) return; this.playing = false; cbs.onPause && cbs.onPause(); },
       stop() { this.playing = false; },
-      clear() { this.stop(); this.videoId = null; },
+      clear() { this.stop(); this.videoId = null; }, setMuted() {},
       seekTo(t) { this.time = t; }, setVolume(v) { this.volume = v; },
       getCurrentTime() { return this.time; }, getDuration() { return this.videoId ? this.duration : 0; },
       isPlaying() { return this.playing; }, getVideoId() { return this.videoId; },
@@ -139,7 +158,8 @@ export async function createApp(opts = {}) {
   );
   const testHook = `
 ;window.__test = {
-  engine, videoEl, library, singerManager, ytPlayer,
+  engine, videoEl, audioEl, library, singerManager, ytPlayer: ytLocal, ytLocal, ytRemote,
+  get secondScreenPlayer() { return secondScreenPlayer; },
   get playlist() { return playlist; },
   get currentIndex() { return currentIndex; },
   get mode() { return mode; },

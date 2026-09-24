@@ -14,6 +14,10 @@ const stageVideoWrap = el('stage-video-wrap');
 const cdgCanvas = el('cdg-canvas');
 const videoEl = el('video-el');
 const stageYoutubeWrap = el('stage-youtube-wrap');
+const stageRemotePlaceholder = el('stage-remote-placeholder');
+// Com a segunda tela aberta, o MP4 toca SÓ o áudio aqui (neste <audio>) e o
+// vídeo é decodificado só lá — metade do processamento.
+const audioEl = el('audio-el');
 const fullscreenBtn = el('fullscreen-btn');
 
 const metaCode = el('meta-code');
@@ -200,30 +204,114 @@ cdgPlayer.setRenderMode('smooth');
 // explicitamente no painel de configurações se quiser recolorir.
 cdgPlayer.setCustomColors(null);
 
-// Músicas Online (YouTube) tocam pelo player oficial do YouTube, no palco.
-// Sem ajuste de tom e sem detecção de silêncio (o áudio do iframe não é
-// acessível) — ver js/youtube-player.js.
-const ytPlayer = window.createYouTubePlayer(el('youtube-host'), {
-  onPlay: () => { updatePlayIcon(); refreshIdleState(); },
-  onPause: () => { updatePlayIcon(); refreshIdleState(); },
-  onEnded: () => {
-    updatePlayIcon();
-    if (mode === 'youtube') handleTrackEnded();
-    refreshIdleState();
-  },
-  onError: () => { if (mode === 'youtube') showError(window.i18n.t('youtube_err_unavailable')); },
-  onTime: (currentTime, duration) => {
-    if (mode !== 'youtube') return;
-    checkApplause(currentTime, duration);
-    // sentAt: a segunda tela desconta o atraso da mensagem ao sincronizar.
-    broadcastToSecondScreen({ type: 'time', currentTime, duration, sentAt: Date.now() });
-    if (seeking) return;
-    seekBar.max = String(Math.floor(duration * 1000));
-    seekBar.value = String(Math.floor(currentTime * 1000));
-    timeCurrent.textContent = formatTime(currentTime);
-    timeDuration.textContent = formatTime(duration);
-  },
-});
+// Músicas Online (YouTube) tocam pelo player oficial do YouTube. Sem ajuste
+// de tom e sem detecção de silêncio (o áudio do iframe não é acessível) —
+// ver js/youtube-player.js.
+//
+// "Segunda tela como player principal": com a segunda tela aberta, a mídia
+// pesada (vídeo do YouTube / vídeo do MP4) roda SÓ lá, e esta janela vira
+// painel de controle. Pro YouTube, o player de verdade (com som) fica na
+// segunda tela e aqui fica um "controle remoto" (ytRemote) com a mesma
+// interface do player local — o resto do app usa yt() e não precisa saber
+// onde o vídeo está tocando.
+let secondScreenPlayer = false; // true = segunda tela aberta, pronta, e tocando a mídia
+
+/** Eventos de um player do YouTube — ignorados se ele não for o ativo. */
+function ytCallbacksFor(getSelf) {
+  const active = () => getSelf() === yt();
+  return {
+    onPlay: () => { if (!active()) return; updatePlayIcon(); refreshIdleState(); },
+    onPause: () => { if (!active()) return; updatePlayIcon(); refreshIdleState(); },
+    onEnded: () => {
+      if (!active()) return;
+      updatePlayIcon();
+      if (mode === 'youtube') handleTrackEnded();
+      refreshIdleState();
+    },
+    onError: () => { if (active() && mode === 'youtube') showError(window.i18n.t('youtube_err_unavailable')); },
+    onTime: (currentTime, duration) => {
+      if (!active() || mode !== 'youtube') return;
+      checkApplause(currentTime, duration);
+      // Player local: a segunda tela (muda) se sincroniza por aqui. sentAt:
+      // ela desconta o atraso da mensagem. Player remoto: ela é a fonte.
+      if (!secondScreenPlayer) broadcastToSecondScreen({ type: 'time', currentTime, duration, sentAt: Date.now() });
+      if (seeking) return;
+      seekBar.max = String(Math.floor(duration * 1000));
+      seekBar.value = String(Math.floor(currentTime * 1000));
+      timeCurrent.textContent = formatTime(currentTime);
+      timeDuration.textContent = formatTime(duration);
+    },
+  };
+}
+
+/** "Controle remoto" do player do YouTube que roda na segunda tela.
+ * Manda comandos por BroadcastChannel e recebe o estado de volta
+ * (yt-loaded / yt-state / yt-ended / yt-error, ver second-screen.js). */
+function createRemoteYouTubePlayer(cbs) {
+  let videoId = null;
+  let playing = false;
+  let time = 0;
+  let timeAt = 0;
+  let duration = 0;
+  let volume = 0.9;
+  let loadWaiter = null;
+  const command = (cmd, value) => broadcastToSecondScreen({ type: 'yt-command', cmd, value });
+
+  return {
+    async load(id, { autoplay = false, startAt = 0 } = {}) {
+      videoId = id;
+      playing = false;
+      time = startAt;
+      timeAt = Date.now();
+      duration = 0;
+      await new Promise((resolve) => {
+        loadWaiter = { id, resolve };
+        setTimeout(() => { if (loadWaiter && loadWaiter.resolve === resolve) { loadWaiter = null; resolve(); } }, 8000);
+        broadcastToSecondScreen({ type: 'init-youtube', videoId: id, remote: true, autoplay, startAt, volume });
+      });
+    },
+    play() { if (videoId) command('play'); },
+    pause() { if (videoId) command('pause'); },
+    stop() { if (videoId) { playing = false; command('stop'); } },
+    clear() { this.stop(); videoId = null; },
+    seekTo(t) { time = t; timeAt = Date.now(); if (videoId) command('seek', t); },
+    setVolume(v) { volume = v; if (videoId) command('volume', v); },
+    getCurrentTime() { return playing ? time + (Date.now() - timeAt) / 1000 : time; },
+    getDuration() { return duration; },
+    isPlaying() { return playing; },
+    getVideoId() { return videoId; },
+    /** Mensagens da segunda tela sobre o player dela. */
+    handleMessage(msg) {
+      if (!videoId || msg.videoId !== videoId) return;
+      if (msg.type === 'yt-loaded') {
+        duration = msg.duration || duration;
+        if (loadWaiter && loadWaiter.id === msg.videoId) { const r = loadWaiter.resolve; loadWaiter = null; r(); }
+      } else if (msg.type === 'yt-state') {
+        time = msg.currentTime || 0;
+        timeAt = Date.now();
+        duration = msg.duration || duration;
+        if (!!msg.playing !== playing) {
+          playing = !!msg.playing;
+          if (playing) cbs.onPlay(); else cbs.onPause();
+        }
+        if (playing) cbs.onTime(time, duration);
+      } else if (msg.type === 'yt-ended') {
+        playing = false;
+        cbs.onEnded();
+      } else if (msg.type === 'yt-error') {
+        cbs.onError(msg.code);
+      }
+    },
+  };
+}
+
+const ytLocal = window.createYouTubePlayer(el('youtube-host'), ytCallbacksFor(() => ytLocal));
+const ytRemote = createRemoteYouTubePlayer(ytCallbacksFor(() => ytRemote));
+/** Player do YouTube ativo agora (local, ou o da segunda tela). */
+function yt() { return secondScreenPlayer ? ytRemote : ytLocal; }
+/** Elemento que toca o MP4 agora: o <video> daqui, ou só o <audio> (vídeo na segunda tela). */
+function mediaEl() { return secondScreenPlayer ? audioEl : videoEl; }
+let currentVideoUrl = null; // blob: do MP4 carregado (reaproveitado na troca de tela)
 
 // ---------- Estado ----------
 
@@ -372,10 +460,25 @@ function showLoading(show) {
 
 function setStage(newMode) {
   mode = newMode;
+  updateStageVisibility();
+}
+
+/** Mostra no palco a mídia atual — ou, se ela estiver tocando na segunda
+ * tela (MP4/YouTube com a segunda tela aberta), um painel com capa/título. */
+function updateStageVisibility() {
+  const remoteView = secondScreenPlayer && (mode === 'video' || mode === 'youtube');
   stageEmpty.classList.toggle('hidden', !!mode);
   stageCanvasWrap.classList.toggle('hidden', mode !== 'cdg');
-  stageVideoWrap.classList.toggle('hidden', mode !== 'video');
-  stageYoutubeWrap.classList.toggle('hidden', mode !== 'youtube');
+  stageVideoWrap.classList.toggle('hidden', mode !== 'video' || remoteView);
+  stageYoutubeWrap.classList.toggle('hidden', mode !== 'youtube' || remoteView);
+  stageRemotePlaceholder.classList.toggle('hidden', !remoteView);
+  if (remoteView) {
+    const item = playlist[currentIndex] || {};
+    const thumb = el('remote-thumb');
+    thumb.classList.toggle('hidden', !item.thumbnail);
+    if (item.thumbnail) thumb.src = item.thumbnail; else thumb.removeAttribute('src');
+    el('remote-title').textContent = [item.artist, item.title].filter(Boolean).join(' — ');
+  }
 }
 
 function updateMetaBar(item) {
@@ -690,16 +793,20 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
       });
     } else if (result.type === 'video') {
       currentCdgBuffer = null;
-      videoEl.src = result.videoBlobUrl;
+      currentVideoUrl = result.videoBlobUrl;
+      const media = mediaEl(); // <audio> se o vídeo for tocar só na segunda tela
+      if (media === audioEl) { videoEl.removeAttribute('src'); videoEl.load(); }
+      media.src = result.videoBlobUrl;
       setStage('video');
-      videoEl.load();
+      media.load();
 
       // Tenta rotear o áudio do vídeo pelo mesmo pitch shifter usado no
       // CDG — só funciona no motor de thread separada (worklet); se caiu
       // pro motor antigo, o vídeo toca normal, sem ajuste de tom.
       const pitchOk = await engine.ensureVideoPitchSupport();
       if (!isCurrent()) return;
-      videoPitchRouted = pitchOk && engine.attachVideoElement(videoEl);
+      videoPitchRouted = pitchOk && engine.attachVideoElement(media);
+      applyMediaVolume();
       if (!videoPitchRouted) {
         console.warn('[App] Ajuste de tom não disponível pra esse vídeo neste navegador.');
       }
@@ -712,20 +819,25 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     } else if (result.type === 'youtube') {
       currentCdgBuffer = null;
       setStage('youtube');
+      const player = yt();
+      player.setVolume(Number(volumeSlider.value) / 100);
       try {
-        await ytPlayer.load(result.videoId, { autoplay: false });
+        await player.load(result.videoId, { autoplay: false });
       } catch (err) {
         throw new Error(window.i18n.t('youtube_err_load'));
       }
       if (!isCurrent()) return;
-      ytPlayer.setVolume(Number(volumeSlider.value) / 100);
-      timeDuration.textContent = formatTime(ytPlayer.getDuration());
+      timeDuration.textContent = formatTime(player.getDuration());
       seekBar.value = '0';
-      broadcastToSecondScreen({
-        type: 'init-youtube',
-        videoId: result.videoId,
-        meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
-      });
+      // Player local: a segunda tela carrega uma cópia muda pra acompanhar.
+      // (O remoto já mandou o init-youtube com remote:true no load.)
+      if (player === ytLocal) {
+        broadcastToSecondScreen({
+          type: 'init-youtube',
+          videoId: result.videoId,
+          meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
+        });
+      }
     }
 
     updatePitchButtonTitles();
@@ -748,7 +860,8 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
 function stopCurrentMedia() {
   engine.stop();
   if (!videoEl.paused) videoEl.pause();
-  ytPlayer.stop();
+  if (!audioEl.paused) audioEl.pause();
+  yt().stop();
   updatePlayIcon();
 }
 
@@ -763,8 +876,8 @@ function playNextInQueue() {
 
 /** Posição atual de reprodução da mídia carregada (segundos). */
 function getCurrentPosition() {
-  if (mode === 'video') return videoEl.currentTime || 0;
-  if (mode === 'youtube') return ytPlayer.getCurrentTime();
+  if (mode === 'video') return mediaEl().currentTime || 0;
+  if (mode === 'youtube') return yt().getCurrentTime();
   if (mode === 'cdg') return engine.getCurrentTime();
   return 0;
 }
@@ -896,11 +1009,15 @@ function resetToEmptyState() {
   currentCdgBuffer = null;
   engine.stop();
   if (mode === 'video') {
-    videoEl.pause();
-    videoEl.removeAttribute('src');
-    videoEl.load();
+    for (const media of [videoEl, audioEl]) {
+      media.pause();
+      media.removeAttribute('src');
+      media.load();
+    }
   }
-  ytPlayer.clear();
+  currentVideoUrl = null;
+  ytLocal.clear();
+  ytRemote.clear();
   cdgPlayer.reset();
   cdgPlayer.clearScreen();
   applauseAudio.pause();
@@ -990,14 +1107,15 @@ playBtn.addEventListener('click', async () => {
         await engine.play();
       }
     } else if (mode === 'video') {
-      if (videoEl.paused) {
-        await videoEl.play();
+      const media = mediaEl();
+      if (media.paused) {
+        await media.play();
       } else {
-        videoEl.pause();
+        media.pause();
       }
       updatePlayIcon();
     } else if (mode === 'youtube') {
-      if (ytPlayer.isPlaying()) ytPlayer.pause(); else ytPlayer.play();
+      if (yt().isPlaying()) yt().pause(); else yt().play();
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
@@ -1015,9 +1133,9 @@ seekBar.addEventListener('change', () => {
     engine.seekTo(sec);
     cdgPlayer.update(sec);
   } else if (mode === 'video') {
-    videoEl.currentTime = sec;
+    mediaEl().currentTime = sec;
   } else if (mode === 'youtube') {
-    ytPlayer.seekTo(sec);
+    yt().seekTo(sec);
   }
   seeking = false;
 });
@@ -1028,14 +1146,21 @@ volumeSlider.addEventListener('input', () => {
   const pct = Number(volumeSlider.value);
   const vol = pct / 100;
   engine.setVolume(vol);
-  // Se o vídeo está passando pelo pitch shifter, o volume já é aplicado
-  // ali (gainNode) — setar videoEl.volume TAMBÉM multiplicaria o volume
-  // duas vezes. Só controlamos videoEl.volume direto quando ele NÃO está
-  // roteado (tocando o áudio nativo dele mesmo).
-  videoEl.volume = videoPitchRouted ? 1 : vol;
-  ytPlayer.setVolume(vol);
+  applyMediaVolume();
+  ytLocal.setVolume(vol);
+  if (secondScreenPlayer) ytRemote.setVolume(vol);
   volumePct.textContent = pct + '%';
 });
+
+/** Volume dos elementos de MP4. Se o elemento passa pelo pitch shifter, o
+ * volume já é aplicado lá (gainNode) — setar .volume TAMBÉM multiplicaria
+ * duas vezes; só controlamos .volume direto quando ele NÃO está roteado. */
+function applyMediaVolume() {
+  const vol = Number(volumeSlider.value) / 100;
+  for (const media of [videoEl, audioEl]) {
+    media.volume = engine.isVideoPitchRouted(media) ? 1 : vol;
+  }
+}
 volumePct.textContent = volumeSlider.value + '%';
 
 // ---------- Pitch (tom) ----------
@@ -1244,8 +1369,8 @@ async function handleSingerModeSongEnded({ elapsedSec } = {}) {
   showTurn = null;
   if (turn) {
     const singer = singerManager.getAllSingers().find(s => s.id === turn.singerId);
-    const fullDuration = mode === 'video' ? (videoEl.duration || 0)
-      : mode === 'youtube' ? ytPlayer.getDuration() : engine.getDuration();
+    const fullDuration = mode === 'video' ? (mediaEl().duration || 0)
+      : mode === 'youtube' ? yt().getDuration() : engine.getDuration();
     const duration = elapsedSec !== undefined ? elapsedSec : fullDuration;
     logSongToShowHistory(singer ? singer.name : turn.singerName, turn.song, currentSemitones, Math.round(duration));
     singerManager.completeTurn(turn.singerId, turn.song, { semitone: currentSemitones });
@@ -1309,10 +1434,10 @@ async function playLoadedTrack() {
     if (mode === 'cdg') {
       await engine.play();
     } else if (mode === 'video') {
-      await videoEl.play();
+      await mediaEl().play();
       updatePlayIcon();
     } else if (mode === 'youtube') {
-      ytPlayer.play();
+      yt().play();
     }
   } catch (err) {
     console.error('Erro ao dar play:', err);
@@ -1495,8 +1620,8 @@ ambientAudio.addEventListener('ended', () => {
 
 function isAnythingPlaying() {
   if (mode === 'cdg') return engine.isPlaying();
-  if (mode === 'video') return !videoEl.paused;
-  if (mode === 'youtube') return ytPlayer.isPlaying();
+  if (mode === 'video') return !mediaEl().paused;
+  if (mode === 'youtube') return yt().isPlaying();
   return false;
 }
 
@@ -1654,23 +1779,29 @@ engine.onTimeUpdate((currentTime, duration) => {
   if (duration) timeDuration.textContent = formatTime(duration);
 });
 
-videoEl.addEventListener('play', () => { updatePlayIcon(); refreshIdleState(); });
-videoEl.addEventListener('pause', () => { updatePlayIcon(); refreshIdleState(); });
-videoEl.addEventListener('ended', () => {
-  updatePlayIcon();
-  if (mode === 'video') handleTrackEnded(); // "ended" de uma mídia que já não é a atual é ignorado
-  refreshIdleState();
-});
-videoEl.addEventListener('timeupdate', () => {
-  if (mode !== 'video') return;
-  checkApplause(videoEl.currentTime, videoEl.duration || 0);
-  broadcastToSecondScreen({ type: 'time', currentTime: videoEl.currentTime, duration: videoEl.duration || 0 });
-  if (seeking) return;
-  seekBar.max = String(Math.floor((videoEl.duration || 0) * 1000));
-  seekBar.value = String(Math.floor(videoEl.currentTime * 1000));
-  timeCurrent.textContent = formatTime(videoEl.currentTime);
-  timeDuration.textContent = formatTime(videoEl.duration || 0);
-});
+// Mesmos listeners no <video> e no <audio> do MP4 — eventos do elemento que
+// não é o ativo (ex: o pause da troca de tela) são ignorados.
+for (const media of [videoEl, audioEl]) {
+  const isActive = () => media === mediaEl();
+  media.addEventListener('play', () => { if (!isActive()) return; updatePlayIcon(); refreshIdleState(); });
+  media.addEventListener('pause', () => { if (!isActive()) return; updatePlayIcon(); refreshIdleState(); });
+  media.addEventListener('ended', () => {
+    if (!isActive()) return;
+    updatePlayIcon();
+    if (mode === 'video') handleTrackEnded(); // "ended" de uma mídia que já não é a atual é ignorado
+    refreshIdleState();
+  });
+  media.addEventListener('timeupdate', () => {
+    if (mode !== 'video' || !isActive()) return;
+    checkApplause(media.currentTime, media.duration || 0);
+    broadcastToSecondScreen({ type: 'time', currentTime: media.currentTime, duration: media.duration || 0 });
+    if (seeking) return;
+    seekBar.max = String(Math.floor((media.duration || 0) * 1000));
+    seekBar.value = String(Math.floor(media.currentTime * 1000));
+    timeCurrent.textContent = formatTime(media.currentTime);
+    timeDuration.textContent = formatTime(media.duration || 0);
+  });
+}
 
 // ---------- Painel de configurações (esquema de cores) ----------
 
@@ -1732,8 +1863,15 @@ function ensureSecondScreenChannel() {
   if (!secondScreenChannel && 'BroadcastChannel' in window) {
     secondScreenChannel = new BroadcastChannel('playkaraoke-second-screen');
     secondScreenChannel.addEventListener('message', (e) => {
-      if (e.data && e.data.type === 'ready') {
-        sendCurrentStateToSecondScreen();
+      const msg = e.data;
+      if (!msg) return;
+      if (msg.type === 'ready') {
+        if (isSecondScreenOpen()) sendCurrentStateToSecondScreen();
+      } else if (msg.type === 'bye') {
+        // Segunda tela fechando/recarregando: a mídia volta pra cá na hora.
+        setSecondScreenPlayer(false);
+      } else if (typeof msg.type === 'string' && msg.type.startsWith('yt-') && msg.type !== 'yt-command') {
+        ytRemote.handleMessage(msg);
       }
     });
   }
@@ -1760,6 +1898,13 @@ function broadcastToSecondScreen(message) {
 function sendCurrentStateToSecondScreen() {
   broadcastToSecondScreen({ type: 'render-mode', light: lightModeToggle.checked });
   broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
+  // A segunda tela abriu (ou recarregou) e está pronta: vira o player da
+  // mídia pesada. Se já era (recarregou), recarrega o YouTube no ponto atual.
+  if (!secondScreenPlayer) {
+    setSecondScreenPlayer(true);
+  } else if (mode === 'youtube' && ytRemote.getVideoId()) {
+    ytRemote.load(ytRemote.getVideoId(), { startAt: ytRemote.getCurrentTime(), autoplay: ytRemote.isPlaying() });
+  }
   broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
 
   if (currentIndex < 0 || !playlist[currentIndex]) return;
@@ -1774,14 +1919,69 @@ function sendCurrentStateToSecondScreen() {
       meta: { title: item.title, artist: item.artist, code: item.code, format: item.format },
     });
     broadcastToSecondScreen({ type: 'time', currentTime: engine.getCurrentTime(), duration: engine.getDuration() });
-  } else if (mode === 'youtube' && ytPlayer.getVideoId()) {
+  } else if (mode === 'video' && currentVideoUrl) {
     const item = playlist[currentIndex];
-    broadcastToSecondScreen({ type: 'init-youtube', videoId: ytPlayer.getVideoId(), meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
-    broadcastToSecondScreen({ type: 'time', currentTime: ytPlayer.getCurrentTime(), duration: ytPlayer.getDuration(), sentAt: Date.now() });
-  } else if (mode === 'video' && videoEl.src) {
-    const item = playlist[currentIndex];
-    broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
+    broadcastToSecondScreen({ type: 'init-video', videoUrl: currentVideoUrl, meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
+    broadcastToSecondScreen({ type: 'time', currentTime: mediaEl().currentTime || 0, duration: mediaEl().duration || 0 });
   }
+}
+
+/**
+ * Liga/desliga "segunda tela como player principal" e transfere a música
+ * atual no mesmo ponto (tocando ou pausada): YouTube passa pro player da
+ * segunda tela (com som) ou volta pro daqui; MP4 troca entre o <video>
+ * daqui e só o <audio> (vídeo só na segunda tela). CDG não muda (o áudio é
+ * sempre daqui; só o desenho da tela principal fica leve).
+ */
+function setSecondScreenPlayer(on) {
+  if (on === secondScreenPlayer) return;
+  const fromYt = yt();
+  const fromMedia = mediaEl();
+  secondScreenPlayer = on;
+  if (mode === 'youtube') handoffYouTube(fromYt, yt());
+  else if (mode === 'video') handoffMedia(fromMedia, mediaEl());
+  updateStageVisibility();
+  updatePlayIcon();
+}
+
+async function handoffYouTube(from, to) {
+  const id = from.getVideoId();
+  if (!id) return;
+  const startAt = from.getCurrentTime();
+  const autoplay = from.isPlaying();
+  from.stop();
+  to.setVolume(Number(volumeSlider.value) / 100);
+  try {
+    await to.load(id, { startAt, autoplay });
+  } catch (err) {
+    showError(window.i18n.t('youtube_err_load'));
+  }
+  updatePlayIcon();
+  refreshIdleState();
+}
+
+async function handoffMedia(from, to) {
+  if (!currentVideoUrl) return;
+  const startAt = from.currentTime || 0;
+  const wasPlaying = !from.paused;
+  from.pause();
+  from.removeAttribute('src');
+  from.load();
+  to.src = currentVideoUrl;
+  to.load();
+  videoPitchRouted = engine.isVideoPitchRouted(to)
+    || ((await engine.ensureVideoPitchSupport()) && engine.attachVideoElement(to));
+  applyMediaVolume();
+  if (to.readyState < 1) {
+    await new Promise((resolve) => {
+      to.addEventListener('loadedmetadata', resolve, { once: true });
+      setTimeout(resolve, 3000);
+    });
+  }
+  to.currentTime = startAt;
+  if (wasPlaying) await to.play().catch(() => {});
+  updatePlayIcon();
+  refreshIdleState();
 }
 
 openSecondBtn.addEventListener('click', toggleSecondScreen);
@@ -1811,6 +2011,7 @@ function openSecondScreen() {
   secondScreenPollId = setInterval(() => {
     if (secondScreenWindow && secondScreenWindow.closed) {
       secondScreenWindow = null;
+      setSecondScreenPlayer(false);
       updateSecondScreenIndicator();
       clearInterval(secondScreenPollId);
       secondScreenPollId = null;
@@ -1823,6 +2024,7 @@ function closeSecondScreen() {
     secondScreenWindow.close();
   }
   secondScreenWindow = null;
+  setSecondScreenPlayer(false);
   if (secondScreenPollId) {
     clearInterval(secondScreenPollId);
     secondScreenPollId = null;

@@ -56,6 +56,7 @@ function createYouTubePlayer(hostEl, opts = {}) {
   let volume = 0.9;
   let timeTimerId = null;
   let cueWaiter = null;
+  let muted = !!opts.muted;
 
   function ensurePlayer() {
     if (readyPromise) return readyPromise;
@@ -72,7 +73,7 @@ function createYouTubePlayer(hostEl, opts = {}) {
         },
         events: {
           onReady: () => {
-            if (opts.muted) player.mute(); else player.setVolume(Math.round(volume * 100));
+            if (muted) player.mute(); else player.setVolume(Math.round(volume * 100));
             resolve(player);
           },
           onStateChange: (e) => handleState(e.data),
@@ -115,8 +116,9 @@ function createYouTubePlayer(hostEl, opts = {}) {
     if (timeTimerId) { clearInterval(timeTimerId); timeTimerId = null; }
   }
 
-  /** Carrega um vídeo. Com autoplay:false fica "engatilhado" (pausado). */
-  async function load(id, { autoplay = false } = {}) {
+  /** Carrega um vídeo. Com autoplay:false fica "engatilhado" (pausado).
+   * startAt (segundos): começa desse ponto (troca de tela no meio da música). */
+  async function load(id, { autoplay = false, startAt = 0 } = {}) {
     await ensurePlayer();
     videoId = id;
     playing = false;
@@ -124,8 +126,18 @@ function createYouTubePlayer(hostEl, opts = {}) {
     await new Promise((resolve) => {
       cueWaiter = resolve;
       setTimeout(() => { if (cueWaiter === resolve) { cueWaiter = null; resolve(); } }, 8000);
-      if (autoplay) player.loadVideoById(id); else player.cueVideoById(id);
+      const args = { videoId: id, startSeconds: Math.max(0, startAt || 0) };
+      if (autoplay) player.loadVideoById(args); else player.cueVideoById(args);
     });
+  }
+
+  /** Liga/desliga o som (a segunda tela começa muda e passa a ter som
+   * quando vira o player principal). */
+  function setMuted(m) {
+    muted = !!m;
+    if (!player) return;
+    if (muted) player.mute();
+    else { player.unMute(); player.setVolume(Math.round(volume * 100)); }
   }
 
   function play() { if (player && videoId) player.playVideo(); }
@@ -150,14 +162,14 @@ function createYouTubePlayer(hostEl, opts = {}) {
 
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
-    if (player && !opts.muted && player.setVolume) player.setVolume(Math.round(volume * 100));
+    if (player && !muted && player.setVolume) player.setVolume(Math.round(volume * 100));
   }
 
   function getCurrentTime() { return player && videoId && player.getCurrentTime ? (player.getCurrentTime() || 0) : 0; }
   function getDuration() { return player && videoId && player.getDuration ? (player.getDuration() || 0) : 0; }
 
   return {
-    load, play, pause, stop, clear, seekTo, setVolume,
+    load, play, pause, stop, clear, seekTo, setVolume, setMuted,
     getCurrentTime, getDuration,
     isPlaying: () => playing,
     getVideoId: () => videoId,
