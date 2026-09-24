@@ -71,6 +71,8 @@ const TRANSLATIONS = {
     library_scanning: 'Scanning…',
     library_reconnect_btn: 'Reconnect',
     library_files_count: '{count} files',
+    library_scanned_at: 'updated {date}',
+    library_rescan_title: 'Update (rescan this folder for new or removed files)',
     fullscreen_btn: 'Fullscreen',
 
     // Transport / footer
@@ -283,6 +285,8 @@ const TRANSLATIONS = {
     library_scanning: 'Escaneando...',
     library_reconnect_btn: 'Reconectar',
     library_files_count: '{count} arquivos',
+    library_scanned_at: 'atualizado em {date}',
+    library_rescan_title: 'Atualizar (reescanear a pasta atrás de arquivos novos ou removidos)',
     fullscreen_btn: 'Tela cheia',
 
     stop_btn_title: 'Parar (se travar, use esse botão pra resetar)',

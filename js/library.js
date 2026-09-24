@@ -21,14 +21,19 @@
  */
 
 const LIBRARY_DB_NAME = 'playkaraoke-library';
-const LIBRARY_DB_VERSION = 1;
+const LIBRARY_DB_VERSION = 2;
 const LIBRARY_STORE = 'folders';
+// Índice já escaneado de cada pasta (v2): abrir o app não reescaneia mais
+// o HD inteiro — o índice salvo é carregado na hora, e o usuário reescaneia
+// quando quiser (botão "Atualizar"). Os FileSystemFileHandle podem ser
+// guardados no IndexedDB (são clonáveis).
+const LIBRARY_INDEX_STORE = 'indexes';
 const MAX_SEARCH_RESULTS = 60;
 
 const SUPPORTS_FILE_SYSTEM_ACCESS = 'showDirectoryPicker' in window;
 
 let libraryIndex = [];        // { folderId, folderName, name, code, artist, title, format, type, handle }
-let connectedFolders = [];    // { id, name, handle, fileCount, scanning, needsPermission }
+let connectedFolders = [];    // { id, name, handle, fileCount, scanning, needsPermission, scannedAt }
 
 // ---------- IndexedDB (persistência das pastas conectadas) ----------
 
@@ -38,6 +43,9 @@ function openLibraryDB() {
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(LIBRARY_STORE)) {
         req.result.createObjectStore(LIBRARY_STORE, { keyPath: 'id' });
+      }
+      if (!req.result.objectStoreNames.contains(LIBRARY_INDEX_STORE)) {
+        req.result.createObjectStore(LIBRARY_INDEX_STORE, { keyPath: 'folderId' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -68,10 +76,31 @@ async function dbGetAllFolders() {
 async function dbDeleteFolder(id) {
   const db = await openLibraryDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(LIBRARY_STORE, 'readwrite');
+    const tx = db.transaction([LIBRARY_STORE, LIBRARY_INDEX_STORE], 'readwrite');
     tx.objectStore(LIBRARY_STORE).delete(id);
+    tx.objectStore(LIBRARY_INDEX_STORE).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbPutIndex(folderId, items, scannedAt) {
+  const db = await openLibraryDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LIBRARY_INDEX_STORE, 'readwrite');
+    tx.objectStore(LIBRARY_INDEX_STORE).put({ folderId, items, scannedAt });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbGetIndex(folderId) {
+  const db = await openLibraryDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LIBRARY_INDEX_STORE, 'readonly');
+    const req = tx.objectStore(LIBRARY_INDEX_STORE).get(folderId);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -105,7 +134,8 @@ function buildSearchText(item) {
   return stripAccents([item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase());
 }
 
-async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) {
+/** @param {string[]} [dirPath] - subpastas até aqui (pra reabrir o arquivo pelo caminho, se preciso) */
+async function scanDirectoryRecursive(dirHandle, folderId, folderName, results, dirPath = []) {
   for await (const entry of dirHandle.values()) {
     // Conta TODA entrada (não só .zip/.mp4): pastas cheias de outros
     // arquivos também precisam devolver o controle pro navegador.
@@ -118,7 +148,7 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
     // verdade), __MACOSX, .Trashes, .Spotlight-V100, .fseventsd etc.
     if (entry.name.startsWith('.') || entry.name === '__MACOSX') continue;
     if (entry.kind === 'directory') {
-      await scanDirectoryRecursive(entry, folderId, folderName, results);
+      await scanDirectoryRecursive(entry, folderId, folderName, results, dirPath.concat(entry.name));
     } else if (entry.kind === 'file') {
       const lower = entry.name.toLowerCase();
       const isZip = lower.endsWith('.zip');
@@ -135,6 +165,7 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results) 
         format: isMp4 ? 'MP4' : 'MP3+G',
         type: isMp4 ? 'video' : 'cdg',
         handle: entry,
+        path: dirPath,
       };
       item.searchText = buildSearchText(item);
       results.push(item);
@@ -161,32 +192,65 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
   function notifyFolders() { onFoldersChange(connectedFolders); }
   function notifyIndex() { onIndexChange(); }
 
+  /** Coloca (ou atualiza) a pasta na lista e troca os itens dela no índice. */
+  function registerFolder(id, name, handle, items, scannedAt) {
+    libraryIndex = libraryIndex.filter(item => item.folderId !== id).concat(items);
+    let folderEntry = connectedFolders.find(f => f.id === id);
+    if (!folderEntry) {
+      folderEntry = { id, name, handle };
+      connectedFolders.push(folderEntry);
+    }
+    Object.assign(folderEntry, { fileCount: items.length, scanning: false, needsPermission: false, scannedAt: scannedAt || null });
+    notifyFolders();
+    notifyIndex();
+  }
+
   async function scanAndRegister(id, name, handle) {
     const existing = connectedFolders.find(f => f.id === id);
     if (existing) {
       existing.scanning = true;
       existing.needsPermission = false;
     } else {
-      connectedFolders.push({ id, name, handle, fileCount: 0, scanning: true, needsPermission: false });
+      connectedFolders.push({ id, name, handle, fileCount: 0, scanning: true, needsPermission: false, scannedAt: null });
     }
     notifyFolders();
 
     const results = [];
+    let scanOk = true;
     try {
       await scanDirectoryRecursive(handle, id, name, results);
     } catch (err) {
+      scanOk = false;
       console.error('[Library] Erro ao escanear pasta:', err);
       onError(st('err_library_scan_fail', `Não foi possível escanear a pasta "${name}".`, { name }));
     }
 
-    libraryIndex = libraryIndex.filter(item => item.folderId !== id).concat(results);
-    const folderEntry = connectedFolders.find(f => f.id === id);
-    if (folderEntry) {
-      folderEntry.fileCount = results.length;
-      folderEntry.scanning = false;
+    const scannedAt = Date.now();
+    registerFolder(id, name, handle, results, scannedAt);
+    // Escaneamento incompleto não substitui o índice salvo.
+    if (scanOk) {
+      try { await dbPutIndex(id, results, scannedAt); } catch (err) {
+        console.warn('[Library] Não foi possível salvar o índice da pasta:', err);
+      }
     }
-    notifyFolders();
-    notifyIndex();
+  }
+
+  /** Usa o índice salvo da pasta, se existir; senão escaneia. */
+  async function loadIndexOrScan(id, name, handle) {
+    let saved = null;
+    try { saved = await dbGetIndex(id); } catch (err) { /* sem índice salvo */ }
+    if (saved && Array.isArray(saved.items)) {
+      registerFolder(id, name, handle, saved.items, saved.scannedAt);
+      return;
+    }
+    await scanAndRegister(id, name, handle);
+  }
+
+  /** Botão "Atualizar": reescaneia a pasta (arquivos novos/removidos no HD). */
+  async function rescanFolder(id) {
+    const folder = connectedFolders.find(f => f.id === id);
+    if (!folder || folder.scanning) return;
+    await scanAndRegister(id, folder.name, folder.handle);
   }
 
   async function connectNewFolder() {
@@ -229,7 +293,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     try {
       const perm = await folder.handle.requestPermission({ mode: 'read' });
       if (perm === 'granted') {
-        await scanAndRegister(id, folder.name, folder.handle);
+        await loadIndexOrScan(id, folder.name, folder.handle);
       } else {
         onError(st('err_library_permission_denied', 'Permissão não concedida — a pasta continua desconectada.'));
       }
@@ -264,7 +328,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
       try {
         const perm = await handle.queryPermission({ mode: 'read' });
         if (perm === 'granted') {
-          await scanAndRegister(id, name, handle);
+          await loadIndexOrScan(id, name, handle);
         } else {
           connectedFolders.push({ id, name, handle, fileCount: 0, scanning: false, needsPermission: true });
           notifyFolders();
@@ -296,14 +360,27 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     return results;
   }
 
+  /** Lê o arquivo do disco. Se o handle salvo falhar, reabre pelo caminho
+   * a partir da pasta conectada (ex: handle antigo do índice salvo). */
   async function getFileForItem(item) {
-    return item.handle.getFile();
+    try {
+      return await item.handle.getFile();
+    } catch (err) {
+      const folder = connectedFolders.find(f => f.id === item.folderId);
+      if (!folder || !Array.isArray(item.path)) throw err;
+      let dir = folder.handle;
+      for (const segment of item.path) dir = await dir.getDirectoryHandle(segment);
+      const fileHandle = await dir.getFileHandle(item.name);
+      item.handle = fileHandle;
+      return fileHandle.getFile();
+    }
   }
 
   return {
     isSupported: () => SUPPORTS_FILE_SYSTEM_ACCESS,
     connectNewFolder,
     reconnectFolder,
+    rescanFolder,
     removeFolder,
     restoreSavedFolders,
     search,

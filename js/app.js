@@ -1912,7 +1912,8 @@ function renderLibraryFolders() {
       countEl.textContent = window.i18n.t('library_scanning');
     } else {
       countEl.className = 'folder-count';
-      countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(getLocale()) });
+      countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(getLocale()) })
+        + (folder.scannedAt ? ' · ' + window.i18n.t('library_scanned_at', { date: new Date(folder.scannedAt).toLocaleDateString(getLocale()) }) : '');
     }
     textWrap.appendChild(nameEl);
     textWrap.appendChild(countEl);
@@ -1927,6 +1928,15 @@ function renderLibraryFolders() {
       reconnectBtn.textContent = window.i18n.t('library_reconnect_btn');
       reconnectBtn.addEventListener('click', () => library.reconnectFolder(folder.id));
       row.appendChild(reconnectBtn);
+    } else if (!folder.scanning) {
+      // O índice fica salvo entre sessões (não reescaneia o HD toda vez que
+      // o app abre) — este botão atualiza com arquivos novos/removidos.
+      const rescanBtn = document.createElement('button');
+      rescanBtn.className = 'folder-rescan-btn';
+      rescanBtn.title = window.i18n.t('library_rescan_title');
+      rescanBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>';
+      rescanBtn.addEventListener('click', () => library.rescanFolder(folder.id));
+      row.appendChild(rescanBtn);
     }
 
     const removeBtn = document.createElement('button');

@@ -53,3 +53,60 @@ test('conectar a mesma pasta duas vezes não duplica os resultados', async () =>
   assert.equal(lib.getConnectedFolders().length, 1);
   assert.equal(lib.getIndexSize(), 3);
 });
+
+/** IndexedDB mínimo em memória (put/get/getAll/delete), suficiente pro library.js. */
+function memoryIndexedDB() {
+  const stores = new Map();
+  const db = {
+    objectStoreNames: { contains: (n) => stores.has(n) },
+    createObjectStore: (n, { keyPath }) => { stores.set(n, { keyPath, rows: new Map() }); },
+    transaction(names) {
+      const tx = {
+        objectStore(n) {
+          const st = stores.get(n);
+          const req = (fn) => { const r = {}; setTimeout(() => { r.result = fn(); r.onsuccess && r.onsuccess(); }); return r; };
+          return {
+            put(v) { st.rows.set(v[st.keyPath], v); },
+            delete(k) { st.rows.delete(k); },
+            get(k) { return req(() => st.rows.get(k)); },
+            getAll() { return req(() => [...st.rows.values()]); },
+          };
+        },
+      };
+      setTimeout(() => tx.oncomplete && tx.oncomplete(), 5);
+      return tx;
+    },
+  };
+  return { open() { const r = { result: db }; setTimeout(() => { r.onupgradeneeded && r.onupgradeneeded(); r.onsuccess && r.onsuccess(); }); return r; } };
+}
+
+test('índice fica salvo: reabrir o app não reescaneia o HD; "Atualizar" reescaneia', async () => {
+  let scans = 0;
+  const hd = fakeDir('HD', [f('A - Um.zip'), f('B - Dois.zip')]);
+  const realValues = hd.values;
+  hd.values = function () { scans++; return realValues.call(this); };
+  hd.queryPermission = async () => 'granted';
+  const idb = memoryIndexedDB();
+
+  const load = () => {
+    const win = { showDirectoryPicker: async () => hd };
+    new Function('window', 'indexedDB', readFileSync(path.join(ROOT, 'js/file-loader.js'), 'utf8'))(win, idb);
+    new Function('window', 'indexedDB', readFileSync(path.join(ROOT, 'js/library.js'), 'utf8') + '\nwindow.createLibrary = createLibrary;')(win, idb);
+    return win.createLibrary({ onFoldersChange() {}, onIndexChange() {}, onError() {} });
+  };
+
+  const first = load();
+  await first.connectNewFolder();
+  await new Promise(r => setTimeout(r, 20));
+  assert.equal(scans, 1);
+
+  const second = load(); // "reabriu o app"
+  await second.restoreSavedFolders();
+  assert.equal(scans, 1, 'reescaneou ao abrir');
+  assert.equal(second.getIndexSize(), 2);
+  assert.equal(second.search('dois')[0].title, 'Dois');
+  assert.ok(second.getConnectedFolders()[0].scannedAt);
+
+  await second.rescanFolder(second.getConnectedFolders()[0].id);
+  assert.equal(scans, 2);
+});
