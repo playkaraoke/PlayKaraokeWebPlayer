@@ -1551,8 +1551,69 @@ const AMBIENT_TRACKS = [
 ];
 
 let ambientActive = false; // true = tocando (ou em fade), controlado por updateAmbientState()
-let ambientCurrentTrackIndex = -1;
+let ambientHasTrack = false; // já tem uma faixa carregada (retoma de onde parou entre músicas)
 let ambientFadeIntervalId = null;
+
+// De onde vem a música ambiente (faixas do app ou pasta própria) e a ordem
+// aleatória sem repetição — ver js/ambient-playlist.js.
+const ambientPlaylist = window.createAmbientPlaylist({
+  builtinTracks: AMBIENT_TRACKS,
+  onChange: renderAmbientSource,
+});
+const ambientSourceBuiltinBtn = el('ambient-source-builtin-btn');
+const ambientSourceCustomBtn = el('ambient-source-custom-btn');
+const ambientCustomRow = el('ambient-custom-row');
+const ambientFolderInfo = el('ambient-folder-info');
+const ambientChooseFolderBtn = el('ambient-choose-folder-btn');
+
+function renderAmbientSource() {
+  const custom = ambientPlaylist.getSource() === 'custom';
+  ambientSourceBuiltinBtn.classList.toggle('active', !custom);
+  ambientSourceCustomBtn.classList.toggle('active', custom);
+  ambientCustomRow.classList.toggle('hidden', !custom);
+  const folder = ambientPlaylist.getFolder();
+  let info;
+  let warn = false;
+  if (!folder) { info = window.i18n.t('ambient_no_folder'); }
+  else if (folder.needsPermission) { info = window.i18n.t('ambient_folder_needs_permission', { name: folder.name }); warn = true; }
+  else if (!folder.count) { info = window.i18n.t('ambient_folder_empty', { name: folder.name }); warn = true; }
+  else { info = window.i18n.t('ambient_folder_info', { name: folder.name, count: folder.count }); }
+  ambientFolderInfo.textContent = info;
+  ambientFolderInfo.title = info;
+  ambientFolderInfo.classList.toggle('warn', warn);
+  ambientChooseFolderBtn.textContent = window.i18n.t(
+    folder && folder.needsPermission ? 'ambient_reconnect_folder' : folder ? 'ambient_change_folder' : 'ambient_choose_folder');
+}
+
+/** A fonte mudou: a próxima faixa já vem da fonte nova (troca na hora se estiver tocando). */
+function restartAmbientFromNewSource() {
+  ambientHasTrack = false;
+  if (!ambientActive) return;
+  ambientActive = false;
+  if (ambientFadeIntervalId) { clearInterval(ambientFadeIntervalId); ambientFadeIntervalId = null; }
+  ambientAudio.pause();
+  startAmbient();
+}
+
+ambientSourceBuiltinBtn.addEventListener('click', () => {
+  if (ambientPlaylist.getSource() === 'builtin') return;
+  ambientPlaylist.setSource('builtin');
+  restartAmbientFromNewSource();
+});
+ambientSourceCustomBtn.addEventListener('click', async () => {
+  if (ambientPlaylist.getSource() === 'custom') return;
+  ambientPlaylist.setSource('custom');
+  if (!ambientPlaylist.getFolder()) await ambientPlaylist.chooseFolder(el('ambient-folder-input'));
+  restartAmbientFromNewSource();
+});
+ambientChooseFolderBtn.addEventListener('click', async () => {
+  const folder = ambientPlaylist.getFolder();
+  const changed = folder && folder.needsPermission
+    ? await ambientPlaylist.reconnect()
+    : await ambientPlaylist.chooseFolder(el('ambient-folder-input'));
+  if (changed) restartAmbientFromNewSource();
+});
+ambientPlaylist.restore().then(renderAmbientSource);
 
 function getAmbientTargetVolume() {
   return Number(ambientVolumeSlider.value) / 100;
@@ -1579,22 +1640,15 @@ function fadeAudioTo(audioEl, targetVolume, durationMs, onComplete) {
   }, stepMs);
 }
 
-function pickRandomAmbientTrack(excludeIndex) {
-  if (AMBIENT_TRACKS.length <= 1) return 0;
-  let idx;
-  do {
-    idx = Math.floor(Math.random() * AMBIENT_TRACKS.length);
-  } while (idx === excludeIndex);
-  return idx;
-}
-
-function startAmbient() {
+async function startAmbient() {
   if (ambientActive) return;
   ambientActive = true;
 
-  if (ambientCurrentTrackIndex === -1) {
-    ambientCurrentTrackIndex = pickRandomAmbientTrack(-1);
-    ambientAudio.src = AMBIENT_TRACKS[ambientCurrentTrackIndex];
+  if (!ambientHasTrack) {
+    const url = await ambientPlaylist.next();
+    if (!ambientActive) return; // parou enquanto a faixa era aberta
+    ambientAudio.src = url;
+    ambientHasTrack = true;
   }
   ambientAudio.volume = 0;
   ambientAudio.play().catch(err => console.warn('[App] Não foi possível tocar a música ambiente:', err));
@@ -1609,13 +1663,23 @@ function stopAmbient() {
   });
 }
 
-ambientAudio.addEventListener('ended', () => {
+/** Próxima faixa da rodada (aleatória, sem repetir até todas tocarem). */
+async function playNextAmbientTrack() {
   if (!ambientActive) return;
-  // Troca pra outra faixa aleatória (evitando repetir a mesma) e continua.
-  ambientCurrentTrackIndex = pickRandomAmbientTrack(ambientCurrentTrackIndex);
-  ambientAudio.src = AMBIENT_TRACKS[ambientCurrentTrackIndex];
+  const url = await ambientPlaylist.next();
+  if (!ambientActive) return;
+  ambientAudio.src = url;
   ambientAudio.volume = getAmbientTargetVolume();
   ambientAudio.play().catch(() => {});
+}
+ambientAudio.addEventListener('ended', playNextAmbientTrack);
+// Arquivo próprio corrompido/ilegível: pula pro próximo em vez de ficar mudo
+// (com limite, pra não entrar em loop se nenhuma faixa abrir).
+let ambientErrorStreak = 0;
+ambientAudio.addEventListener('playing', () => { ambientErrorStreak = 0; });
+ambientAudio.addEventListener('error', () => {
+  if (!ambientHasTrack || ++ambientErrorStreak > 5) return;
+  playNextAmbientTrack();
 });
 
 function isAnythingPlaying() {
@@ -3580,6 +3644,7 @@ window.i18n.onLanguageChange(() => {
   updateAmbientIndicator();
   if (singerModeEnabled) renderSingerRoundView();
   if (mode === null) updateMetaBar(null);
+  renderAmbientSource();
   updateNextBtnState();
   updatePitchButtonTitles();
   librarySearchInput.placeholder = window.i18n.t(librarySource === 'online' ? 'online_placeholder' : 'library_search_placeholder');

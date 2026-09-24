@@ -1489,6 +1489,15 @@
   }
   .setting-card-desc em{ font-style:normal; color:var(--on-surface-variant); opacity:0.8; }
   .setting-card-body input[type=range]{ flex:1; min-width:60px; }
+  .ambient-source-toggle{
+    flex-basis:100%; display:flex; gap:4px; padding:3px; margin-top:4px;
+    background:var(--surface-container-high); border:1px solid var(--outline-variant); border-radius:10px;
+  }
+  .ambient-source-toggle .library-source-btn.active{ background:var(--surface-container); }
+  #ambient-custom-row{ flex-basis:100%; display:flex; align-items:center; gap:8px; justify-content:space-between; }
+  #ambient-folder-info{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ambient-folder-info.warn{ color:var(--error); }
+  #ambient-choose-folder-btn{ flex-shrink:0; padding:5px 12px; }
   .delay-input{
     width:52px;
     background:var(--surface-container-high);
@@ -2248,6 +2257,15 @@
           <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
           <input type="range" id="ambient-volume-slider" min="0" max="100" value="30"/>
           <span id="ambient-volume-pct">30%</span>
+          <div class="ambient-source-toggle">
+            <button type="button" class="library-source-btn active" id="ambient-source-builtin-btn" data-i18n="ambient_source_builtin">App songs</button>
+            <button type="button" class="library-source-btn" id="ambient-source-custom-btn" data-i18n="ambient_source_custom">My songs</button>
+          </div>
+          <div id="ambient-custom-row" class="hidden">
+            <span id="ambient-folder-info"></span>
+            <button type="button" id="ambient-choose-folder-btn" class="card-btn secondary" data-i18n="ambient_choose_folder">Choose folder</button>
+          </div>
+          <input type="file" id="ambient-folder-input" webkitdirectory multiple class="hidden"/>
         </div>
       </div>
 
@@ -2432,6 +2450,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/singers.js"></script>
 <script src="js/online-search.js"></script>
+<script src="js/ambient-playlist.js"></script>
 <script src="js/youtube-player.js"></script>
 <script type="module" src="js/app.js"></script>
 

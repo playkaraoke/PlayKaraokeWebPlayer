@@ -27,7 +27,7 @@
 | **Second screen** | Clean lyrics/video window for a TV or projector, kept in sync automatically |
 | **Library** | Index local folders or external drives and search instantly by song, artist or code (accent-insensitive) |
 | **Online search** | Find karaoke videos on YouTube and queue them next to your files. Online songs have no key change and may show YouTube ads |
-| **Atmosphere** | Automatic applause at the end of each song, ambient music between performances, custom idle image |
+| **Atmosphere** | Automatic applause at the end of each song, ambient music between performances (included tracks or your own folder), custom idle image |
 | **Languages** | English and Portuguese (Brazil) |
 
 ## Quick start

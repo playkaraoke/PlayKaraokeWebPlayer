@@ -139,7 +139,7 @@ Click the gear icon at the bottom of the sidebar.
 | Card | Options |
 |---|---|
 | **Autoplay** | On/off, seconds to wait between songs |
-| **Ambient Music** | On/off, background volume |
+| **Ambient Music** | On/off, background volume, and the source: **App songs** (the 5 included tracks) or **My songs** (choose a folder with your own MP3s). Songs play in random order with no repeats until all have played, then a new round starts. In Chrome/Edge the folder is remembered; if the browser asks for access again, click **Reconnect** |
 | **Screen Background Image** | Image shown when nothing is playing (ideal 1920×1080). Lasts for the current session |
 | **Show Mode** | What the waiting screen shows (upcoming singers, song titles, countdown), plus **Manage Singers** |
 | **Change CDG Colors** | Override background, text and highlight colors (CDG only, experimental) |
