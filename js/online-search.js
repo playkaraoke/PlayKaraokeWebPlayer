@@ -11,7 +11,7 @@
 
 // URL do Worker publicado (ver worker/README.md). Vazio = busca Online
 // desativada, com aviso na interface.
-const ONLINE_SEARCH_ENDPOINT = '';
+const ONLINE_SEARCH_ENDPOINT = 'https://playkaraoke-search.playkaraoke.workers.dev';
 
 function createOnlineSearch(options) {
   const endpoint = ((options && options.endpoint) || ONLINE_SEARCH_ENDPOINT || '').replace(/\/+$/, '');

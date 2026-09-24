@@ -9,7 +9,7 @@ compatibility_date = "2026-09-01"
 # e colado aqui.
 [[kv_namespaces]]
 binding = "SEARCH_CACHE"
-id = "COLE_AQUI_O_ID_DO_KV"
+id = "b02679627cc84307bac90ce56d8066fe"
 
 # A chave da API do YouTube NÃO fica neste arquivo (ele é público). Ela é
 # guardada como secret com:
