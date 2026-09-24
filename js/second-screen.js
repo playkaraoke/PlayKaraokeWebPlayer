@@ -265,6 +265,10 @@
         updateVisibility();
         break;
       }
+      case 'render-mode': {
+        cdgPlayer.setLightMode(!!msg.light);
+        break;
+      }
       case 'colors': {
         cdgPlayer.setCustomColors(msg.colors || null);
         break;

@@ -1175,6 +1175,24 @@ syncToggleIndicator(autoplayToggleIndicator, autoplayToggle);
 syncToggleIndicator(ambientToggleIndicator, ambientToggle);
 syncToggleIndicator(customColorsToggleIndicator, customColorsToggle);
 
+// ---------- Modo leve (desempenho) ----------
+// Ligado pelo usuário, vale pras duas telas. Com a segunda tela aberta, a
+// tela principal usa o desenho leve automaticamente (ela vira só uma
+// prévia — a qualidade total fica na segunda tela).
+const lightModeToggle = el('light-mode-toggle');
+const LIGHT_MODE_KEY = 'playkaraoke-light-mode';
+try { lightModeToggle.checked = localStorage.getItem(LIGHT_MODE_KEY) === 'true'; } catch (err) {}
+syncToggleIndicator(el('light-mode-toggle-indicator'), lightModeToggle);
+
+function applyRenderMode() {
+  cdgPlayer.setLightMode(lightModeToggle.checked || isSecondScreenOpen());
+  broadcastToSecondScreen({ type: 'render-mode', light: lightModeToggle.checked });
+}
+lightModeToggle.addEventListener('change', () => {
+  try { localStorage.setItem(LIGHT_MODE_KEY, String(lightModeToggle.checked)); } catch (err) {}
+  applyRenderMode();
+});
+
 function updateAutoplayIndicator() {
   const on = autoplayToggle.checked;
   quickAutoplayBtn.classList.toggle('on', on);
@@ -1740,6 +1758,7 @@ function broadcastToSecondScreen(message) {
 }
 
 function sendCurrentStateToSecondScreen() {
+  broadcastToSecondScreen({ type: 'render-mode', light: lightModeToggle.checked });
   broadcastToSecondScreen({ type: 'idle-image', dataUrl: customIdleImageDataUrl });
   broadcastToSecondScreen({ type: isAnythingPlaying() ? 'playing' : 'idle' });
 
@@ -1767,8 +1786,13 @@ function sendCurrentStateToSecondScreen() {
 
 openSecondBtn.addEventListener('click', toggleSecondScreen);
 
+function isSecondScreenOpen() {
+  return !!(secondScreenWindow && !secondScreenWindow.closed);
+}
+
 function updateSecondScreenIndicator() {
-  const open = !!(secondScreenWindow && !secondScreenWindow.closed);
+  const open = isSecondScreenOpen();
+  cdgPlayer.setLightMode(lightModeToggle.checked || open);
   secondScreenStatus.classList.toggle('hidden', !open);
   openSecondBtn.textContent = open ? window.i18n.t('second_screen_focus') : window.i18n.t('second_screen_open');
   quickSecondScreenBtn.classList.toggle('on', open);

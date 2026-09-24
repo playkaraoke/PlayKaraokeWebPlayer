@@ -84,3 +84,17 @@ test('sem mudança de pixels, não redesenha', () => {
   for (let t = 0.2; t < 5; t += 1 / 60) p.update(t);
   assert.equal(canvas.ctx.draws, after);
 });
+
+test('modo leve: canvas na resolução nativa, mesma imagem, e volta ao tamanho original', () => {
+  const New = loadPlayerClass(path.join(ROOT, 'js/cdg-player.js'));
+  const canvas = fakeCanvas();
+  const p = new New(canvas);
+  p.load(syntheticCdg(300 * 5));
+  p.update(3);
+  const before = p.imageData.data.slice();
+  p.setLightMode(true);
+  assert.equal(canvas.width, 300); assert.equal(canvas.height, 216);
+  assert.deepEqual(p.imageData.data, before);
+  p.setLightMode(false);
+  assert.equal(canvas.width, 900); assert.equal(canvas.height, 648);
+});

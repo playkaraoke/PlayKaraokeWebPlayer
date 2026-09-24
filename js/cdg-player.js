@@ -88,6 +88,8 @@ class CDGPlayer {
     this.customColors = null; // null = usa as cores originais do arquivo
     this.renderMode = 'sharp'; // 'sharp' ou 'smooth' — o app sempre usa 'smooth' (setRenderMode)
     this.zoom = 1.0; // 1.0 = tela cheia. O app não usa mais zoom (cortava a letra perto das bordas).
+    this.lightMode = false; // ver setLightMode()
+    this._fullSize = { w: canvas.width, h: canvas.height };
   }
 
   /**
@@ -356,6 +358,26 @@ class CDGPlayer {
   setRenderMode(mode) {
     this.renderMode = mode === 'smooth' ? 'smooth' : 'sharp';
     this.fullDirty = true;
+  }
+
+  /**
+   * Modo leve (computadores antigos): o canvas passa a ter a resolução
+   * nativa do CDG (300x216) e a ampliação pra tela fica por conta do
+   * navegador (CSS), que é muito mais barata que a ampliação com
+   * suavização de alta qualidade feita aqui a cada quadro. O visual muda
+   * pouco (suavização levemente diferente).
+   * @param {boolean} on
+   */
+  setLightMode(on) {
+    on = !!on;
+    if (on === this.lightMode) return;
+    this.lightMode = on;
+    // Mudar o tamanho do canvas apaga o conteúdo — repinta na hora a partir
+    // do buffer de pixels (funciona mesmo com a música pausada).
+    this.canvas.width = on ? CDG_SCREEN_WIDTH : this._fullSize.w;
+    this.canvas.height = on ? CDG_SCREEN_HEIGHT : this._fullSize.h;
+    this.fullDirty = true;
+    this._render();
   }
 
   /**

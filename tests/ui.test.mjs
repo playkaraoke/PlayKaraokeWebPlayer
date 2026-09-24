@@ -32,3 +32,12 @@ test('um erro novo não some pelo timer do erro anterior', async () => {
   advance(1500); // 5,5s após o 1º, 1,5s após o 2º
   assert.equal($('error-banner').classList.contains('hidden'), false);
 });
+
+test('modo leve: liga pelas Configurações, fica salvo e deixa o canvas na resolução nativa', async () => {
+  const { win, $ } = await createApp();
+  $('light-mode-toggle-indicator').click();
+  assert.equal(win.localStorage.getItem('playkaraoke-light-mode'), 'true');
+  assert.equal($('cdg-canvas').width, 300);
+  const again = await createApp({ localStorage: { 'playkaraoke-light-mode': 'true' } });
+  assert.equal(again.$('light-mode-toggle').checked, true);
+});
