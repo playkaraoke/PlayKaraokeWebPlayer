@@ -107,6 +107,48 @@
 
   const channel = new BroadcastChannel('playkaraoke-second-screen');
 
+  // ---- Sincronia do YouTube com a tela principal ----
+  // Cada seek no YouTube congela o vídeo por um instante (ele recarrega o
+  // trecho). Corrigir a cada pequena diferença deixava a segunda tela
+  // "travando" (congela, anda, atrasa, congela...). Por isso:
+  //  - só corrige se o atraso persistir por várias leituras seguidas (o
+  //    tempo que o YouTube informa oscila — uma leitura isolada engana);
+  //  - desconta o atraso da própria mensagem (sentAt);
+  //  - ao corrigir um atraso, pula um pouco À FRENTE, compensando o tempo
+  //    que o player leva pra voltar a tocar depois do seek;
+  //  - espera um intervalo mínimo entre correções;
+  //  - diferença grande (ex: operador arrastou a barra) corrige na hora.
+  const YT_DRIFT_TOLERANCE_SEC = 0.35;
+  const YT_DRIFT_READINGS = 3;        // ~0,75s de atraso persistente (mensagens a cada 250ms)
+  const YT_BIG_JUMP_SEC = 3;
+  const YT_SEEK_LEAD_SEC = 0.3;
+  const YT_MIN_SEEK_INTERVAL_MS = 4000;
+  let ytDriftReadings = 0;
+  let ytLastSeekAt = 0;
+  // Diagnóstico temporário: window.__ytSyncStats no console da segunda tela.
+  const ytSyncStats = window.__ytSyncStats = { corrections: 0, since: Date.now(), last: [] };
+
+  function syncYouTube(msg) {
+    if (!ytPlayer || !ytVideoId || !ytPlayer.isPlaying()) { ytDriftReadings = 0; return; }
+    const now = Date.now();
+    const transit = msg.sentAt ? Math.min(1, Math.max(0, (now - msg.sentAt) / 1000)) : 0;
+    const target = msg.currentTime + transit;
+    const drift = ytPlayer.getCurrentTime() - target; // < 0 = segunda tela atrasada
+    const absDrift = Math.abs(drift);
+
+    if (absDrift <= YT_DRIFT_TOLERANCE_SEC) { ytDriftReadings = 0; return; }
+    ytDriftReadings++;
+    const bigJump = absDrift >= YT_BIG_JUMP_SEC;
+    if (!bigJump && (ytDriftReadings < YT_DRIFT_READINGS || now - ytLastSeekAt < YT_MIN_SEEK_INTERVAL_MS)) return;
+
+    ytPlayer.seekTo(target + (drift < 0 ? YT_SEEK_LEAD_SEC : 0));
+    ytLastSeekAt = now;
+    ytDriftReadings = 0;
+    ytSyncStats.corrections++;
+    ytSyncStats.last = ytSyncStats.last.concat({ at: new Date(now).toLocaleTimeString(), drift: Number(drift.toFixed(2)) }).slice(-10);
+    console.info(`[Segunda tela] YouTube ressincronizado (diferença ${drift.toFixed(2)}s) — ${ytSyncStats.corrections} correção(ões) desde ${new Date(ytSyncStats.since).toLocaleTimeString()}`);
+  }
+
   function renderCountdownContent(msg) {
     if (msg.labels) {
       const cdLabelEl = document.querySelector('#countdown-timer-parts .cd-label');
@@ -182,6 +224,8 @@
         mode = 'youtube';
         if (msg.videoId !== ytVideoId) {
           ytVideoId = msg.videoId;
+          ytDriftReadings = 0;
+          ytLastSeekAt = 0;
           getYtPlayer().load(msg.videoId, { autoplay: false }).then(syncVideoPlayback).catch(() => {});
         }
         updateVisibility();
@@ -201,10 +245,7 @@
         if (mode === 'cdg') {
           cdgPlayer.update(msg.currentTime);
         } else if (mode === 'youtube') {
-          // Tolerância maior que a do <video>: seek no YouTube rebufferiza.
-          if (ytPlayer && ytVideoId && Math.abs(ytPlayer.getCurrentTime() - msg.currentTime) > 1.0) {
-            ytPlayer.seekTo(msg.currentTime);
-          }
+          syncYouTube(msg);
         } else if (mode === 'video') {
           // Corrige deriva sem forçar o tempo a cada mensagem (evita
           // engasgo por ficar resetando o currentTime toda hora).

@@ -1,0 +1,65 @@
+/** Sincronia do YouTube na segunda tela (js/second-screen.js real, player falso). */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function setup() {
+  const html = readFileSync(path.join(ROOT, 'second-screen.html'), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
+  const dom = new JSDOM(html, { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
+  const win = dom.window;
+  win.HTMLCanvasElement.prototype.getContext = () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {}, drawImage() {}, fillRect() {} });
+  win.HTMLMediaElement.prototype.pause = () => {};
+  win.HTMLMediaElement.prototype.play = () => Promise.resolve();
+  let listener = null;
+  win.BroadcastChannel = class { postMessage() {} addEventListener(_, fn) { listener = fn; } };
+  const yt = { t: 0, playing: false, seeks: [], async load() {}, play() { this.playing = true; }, pause() { this.playing = false; },
+    stop() {}, clear() {}, seekTo(t) { this.seeks.push(t); this.t = t; }, getCurrentTime() { return this.t; }, isPlaying() { return this.playing; } };
+  win.createYouTubePlayer = () => yt;
+  win.console.info = () => {};
+  win.eval(readFileSync(path.join(ROOT, 'js/cdg-player.js'), 'utf8'));
+  win.eval(readFileSync(path.join(ROOT, 'js/second-screen.js'), 'utf8'));
+  const send = (msg) => listener({ data: msg });
+  send({ type: 'init-youtube', videoId: 'v1' });
+  send({ type: 'playing' });
+  yt.playing = true;
+  return { win, yt, send };
+}
+const time = (currentTime) => ({ type: 'time', currentTime, duration: 200, sentAt: Date.now() });
+
+test('diferença pequena não gera seek (sem congelar à toa)', () => {
+  const { yt, send } = setup();
+  yt.t = 10;
+  for (let i = 0; i < 10; i++) send(time(10.2));
+  assert.equal(yt.seeks.length, 0);
+});
+
+test('uma leitura isolada fora da tolerância não corrige; atraso persistente corrige 1x, pulando à frente', () => {
+  const { yt, send } = setup();
+  yt.t = 10;
+  send(time(10.6)); send(time(10.1));           // oscilação isolada
+  assert.equal(yt.seeks.length, 0);
+  send(time(10.6)); send(time(10.6)); send(time(10.6)); // atraso persistente
+  assert.equal(yt.seeks.length, 1);
+  assert.ok(yt.seeks[0] > 10.6, 'deveria compensar o tempo de recarga');
+  yt.t = 10; send(time(10.6)); send(time(10.6)); send(time(10.6));
+  assert.equal(yt.seeks.length, 1, 'correções seguidas demais (intervalo mínimo)');
+});
+
+test('salto grande (operador arrastou a barra) corrige na hora', () => {
+  const { yt, send } = setup();
+  yt.t = 10;
+  send(time(60));
+  assert.equal(yt.seeks.length, 1);
+});
+
+test('pausado não corrige', () => {
+  const { yt, send } = setup();
+  yt.playing = false; yt.t = 10;
+  send(time(60));
+  assert.equal(yt.seeks.length, 0);
+});

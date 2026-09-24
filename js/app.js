@@ -215,7 +215,8 @@ const ytPlayer = window.createYouTubePlayer(el('youtube-host'), {
   onTime: (currentTime, duration) => {
     if (mode !== 'youtube') return;
     checkApplause(currentTime, duration);
-    broadcastToSecondScreen({ type: 'time', currentTime, duration });
+    // sentAt: a segunda tela desconta o atraso da mensagem ao sincronizar.
+    broadcastToSecondScreen({ type: 'time', currentTime, duration, sentAt: Date.now() });
     if (seeking) return;
     seekBar.max = String(Math.floor(duration * 1000));
     seekBar.value = String(Math.floor(currentTime * 1000));
@@ -1757,7 +1758,7 @@ function sendCurrentStateToSecondScreen() {
   } else if (mode === 'youtube' && ytPlayer.getVideoId()) {
     const item = playlist[currentIndex];
     broadcastToSecondScreen({ type: 'init-youtube', videoId: ytPlayer.getVideoId(), meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
-    broadcastToSecondScreen({ type: 'time', currentTime: ytPlayer.getCurrentTime(), duration: ytPlayer.getDuration() });
+    broadcastToSecondScreen({ type: 'time', currentTime: ytPlayer.getCurrentTime(), duration: ytPlayer.getDuration(), sentAt: Date.now() });
   } else if (mode === 'video' && videoEl.src) {
     const item = playlist[currentIndex];
     broadcastToSecondScreen({ type: 'init-video', videoUrl: videoEl.src, meta: { title: item.title, artist: item.artist, code: item.code, format: item.format } });
