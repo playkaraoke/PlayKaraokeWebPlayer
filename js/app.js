@@ -2175,7 +2175,9 @@ function renderLibraryFolders() {
       countEl.textContent = window.i18n.t('library_reconnect_needed');
     } else if (folder.scanning) {
       countEl.className = 'folder-count';
-      countEl.textContent = window.i18n.t('library_scanning');
+      countEl.textContent = folder.progress
+        ? window.i18n.t('library_scanning_progress', { count: folder.progress.toLocaleString(getLocale()) })
+        : window.i18n.t('library_scanning');
     } else {
       countEl.className = 'folder-count';
       countEl.textContent = window.i18n.t('library_files_count', { count: folder.fileCount.toLocaleString(getLocale()) })
@@ -2203,6 +2205,14 @@ function renderLibraryFolders() {
       rescanBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>';
       rescanBtn.addEventListener('click', () => library.rescanFolder(folder.id));
       row.appendChild(rescanBtn);
+    } else {
+      // Escaneamento de HD grande pode demorar: dá pra cancelar (o índice
+      // anterior continua valendo).
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'folder-reconnect-btn';
+      cancelBtn.textContent = window.i18n.t('library_cancel_scan');
+      cancelBtn.addEventListener('click', () => library.cancelScan(folder.id));
+      row.appendChild(cancelBtn);
     }
 
     const removeBtn = document.createElement('button');
@@ -2216,14 +2226,19 @@ function renderLibraryFolders() {
   });
 }
 
-function renderLibraryResults() {
+let librarySearchGeneration = 0;
+
+async function renderLibraryResults() {
   const query = librarySearchInput.value;
-  libraryResults.innerHTML = '';
   librarySearchClearBtn.classList.toggle('hidden', !query.trim());
+  const gen = ++librarySearchGeneration;
 
-  if (!query.trim()) return;
+  if (!query.trim()) { libraryResults.innerHTML = ''; return; }
 
-  const results = library.search(query);
+  // A busca roda na thread da Biblioteca; resposta de uma tecla antiga é descartada.
+  const results = await library.search(query);
+  if (gen !== librarySearchGeneration) return;
+  libraryResults.innerHTML = '';
 
   const label = document.createElement('span');
   label.className = 'library-result-count';
@@ -2271,6 +2286,24 @@ function renderLibraryResults() {
   });
 }
 
+/** Referência salva de um item da Biblioteca (sobrevive ao F5). */
+function libraryItemSource(item) {
+  return { folderId: item.folderId, fileName: item.name, path: item.path || [] };
+}
+
+/** Item da Biblioteca a partir da referência salva. Com o caminho salvo
+ * (v2.6+) não precisa consultar o índice; referências antigas consultam. */
+async function libraryItemFromSource(src) {
+  if (!src) return null;
+  if (Array.isArray(src.path)) {
+    const p = window.parseKaraokeFilename(src.fileName);
+    const isMp4 = src.fileName.toLowerCase().endsWith('.mp4');
+    return { folderId: src.folderId, name: src.fileName, path: src.path, code: p.code, artist: p.artist, title: p.title,
+      format: isMp4 ? 'MP4' : 'MP3+G', type: isMp4 ? 'video' : 'cdg' };
+  }
+  return library.findByFolderAndName(src.folderId, src.fileName);
+}
+
 async function addLibraryItemToQueue(item) {
   if (singerModeEnabled) {
     await addLibraryItemInSingerMode(item);
@@ -2282,7 +2315,7 @@ async function addLibraryItemToQueue(item) {
     await addFilesToQueue([file]);
     if (playlist.length > beforeLength) {
       const newItem = playlist[playlist.length - 1];
-      newItem.librarySource = { folderId: item.folderId, fileName: item.name };
+      newItem.librarySource = libraryItemSource(item);
       persistPlaylist();
     }
     switchSidebarTab('fila');
@@ -2788,11 +2821,13 @@ function swapResultRow(title, sub, onPick) {
   return row;
 }
 
-function renderSwapDeviceResults() {
+async function renderSwapDeviceResults() {
   const q = swapSongSearch.value;
+  const gen = ++swapSearchGeneration;
+  if (!q.trim()) { swapSongResults.innerHTML = ''; return; }
+  const results = await library.search(q);
+  if (gen !== swapSearchGeneration) return;
   swapSongResults.innerHTML = '';
-  if (!q.trim()) return;
-  const results = library.search(q);
   if (!results.length) { showSwapMessage('library_no_results'); return; }
   results.forEach(item => {
     swapSongResults.appendChild(swapResultRow(item.title, [item.artist, item.code].filter(Boolean).join(' · ') || item.format, async () => {
@@ -2802,7 +2837,7 @@ function renderSwapDeviceResults() {
           id: 'track_' + (++playlistIdCounter), file,
           code: item.code, artist: item.artist, title: item.title,
           format: item.format, type: item.type, savedSemitones: 0,
-          librarySource: { folderId: item.folderId, fileName: item.name },
+          librarySource: libraryItemSource(item),
         });
       } catch (err) {
         showError(window.i18n.t('err_library_read_fail'));
@@ -2977,7 +3012,7 @@ async function addLibraryItemInSingerMode(item) {
       code: item.code, artist: item.artist, title: item.title,
       format: item.format, type: item.type,
       savedSemitones: 0,
-      librarySource: { folderId: item.folderId, fileName: item.name },
+      librarySource: libraryItemSource(item),
     };
     singerManager.addSongToSinger(choice.singerId, choice.isNew, song);
     switchSidebarTab('fila');
@@ -3033,15 +3068,16 @@ async function restoreSingersFromStorage() {
   // da fila simples) — ficam de fora, silenciosamente, nessa primeira
   // versão.
   let droppedSongs = 0;
-  const restoredSingers = (saved.singers || []).map(s => {
+  const restoredSingers = [];
+  for (const s of (saved.singers || [])) {
     const songs = [];
     for (const song of (s.songs || [])) {
       if (song.type === 'youtube' && song.videoId) {
         songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null });
         continue;
       }
-      if (song.librarySource) {
-        const found = library.findByFolderAndName(song.librarySource.folderId, song.librarySource.fileName);
+      if (song.librarySource && library.getConnectedFolders().some(f => f.id === song.librarySource.folderId && !f.needsPermission)) {
+        const found = await libraryItemFromSource(song.librarySource);
         if (found) {
           songs.push({ ...song, id: 'track_' + (++playlistIdCounter), file: null, _libraryItem: found });
           continue;
@@ -3049,8 +3085,8 @@ async function restoreSingersFromStorage() {
       }
       droppedSongs++;
     }
-    return { ...s, songs };
-  });
+    restoredSingers.push({ ...s, songs });
+  }
 
   const snapshot = { idCounter: saved.idCounter || 0, currentSingerId: saved.currentSingerId, singers: restoredSingers };
   singerManager.restore(snapshot);
@@ -3441,11 +3477,14 @@ detailAddSongBtn.addEventListener('click', () => {
   if (!detailAddSongSearch.classList.contains('hidden')) detailSongSearchInput.focus();
 });
 
-detailSongSearchInput.addEventListener('input', () => {
+let detailSearchGeneration = 0;
+detailSongSearchInput.addEventListener('input', async () => {
   const q = detailSongSearchInput.value;
+  const gen = ++detailSearchGeneration;
+  if (!q.trim()) { detailSongSearchResults.innerHTML = ''; return; }
+  const results = await library.search(q);
+  if (gen !== detailSearchGeneration) return;
   detailSongSearchResults.innerHTML = '';
-  if (!q.trim()) return;
-  const results = library.search(q);
   results.forEach(item => {
     const row = document.createElement('div');
     row.className = 'search-result';
@@ -3471,7 +3510,7 @@ detailSongSearchInput.addEventListener('input', () => {
           id: 'track_' + (++playlistIdCounter),
           file, code: item.code, artist: item.artist, title: item.title,
           format: item.format, type: item.type, savedSemitones: 0,
-          librarySource: { folderId: item.folderId, fileName: item.name },
+          librarySource: libraryItemSource(item),
         };
         singerManager.addSongToSinger(selectedManageSingerId, false, song);
         detailAddSongSearch.classList.add('hidden');
@@ -3688,7 +3727,7 @@ async function restorePlaylistFromStorage() {
       continue;
     }
     if (savedItem.librarySource) {
-      const found = library.findByFolderAndName(savedItem.librarySource.folderId, savedItem.librarySource.fileName);
+      const found = await libraryItemFromSource(savedItem.librarySource);
       if (found) {
         try {
           const file = await library.getFileForItem(found);

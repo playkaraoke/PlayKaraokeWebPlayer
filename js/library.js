@@ -9,44 +9,36 @@
  *
  * Como funciona:
  *   1. Usuário concede acesso a uma pasta (showDirectoryPicker) — uma vez.
- *   2. Guardamos essa "permissão" (o FileSystemDirectoryHandle) no
- *      IndexedDB do navegador, pra não precisar pedir de novo toda vez
- *      que o app abre.
- *   3. Escaneamos a pasta recursivamente, catalogando só os NOMES dos
- *      arquivos .zip/.mp4 (não lemos conteúdo — por isso é rápido mesmo
- *      com uma pasta de 2TB).
- *   4. A busca roda inteiramente em memória sobre esse índice — instantânea.
- *   5. Quando o usuário clica num resultado, aí sim lemos o arquivo de
- *      verdade do disco (handle.getFile()) — sem rede, sem upload.
+ *      O FileSystemDirectoryHandle fica no IndexedDB, pra não pedir de novo
+ *      toda vez que o app abre.
+ *   2. O escaneamento, o índice e a busca rodam numa thread separada
+ *      (js/library-worker.js) — com HD de 200 mil arquivos, fazer isso na
+ *      thread da página deixava o computador inteiro lento. O índice é só
+ *      texto (nome + pasta) e fica salvo entre sessões: abrir o app não
+ *      reescaneia o HD (botão "Atualizar" reescaneia quando o usuário quer).
+ *   3. Quando o usuário escolhe um resultado, o arquivo é localizado pelo
+ *      caminho a partir da pasta conectada e lido do disco — sem rede.
  */
 
 const LIBRARY_DB_NAME = 'playkaraoke-library';
-const LIBRARY_DB_VERSION = 2;
+// v3: o índice saiu deste banco (store "indexes", com um handle por
+// arquivo — pesado demais com HD grande) e foi pro da worker, em blocos.
+const LIBRARY_DB_VERSION = 3;
 const LIBRARY_STORE = 'folders';
-// Índice já escaneado de cada pasta (v2): abrir o app não reescaneia mais
-// o HD inteiro — o índice salvo é carregado na hora, e o usuário reescaneia
-// quando quiser (botão "Atualizar"). Os FileSystemFileHandle podem ser
-// guardados no IndexedDB (são clonáveis).
-const LIBRARY_INDEX_STORE = 'indexes';
-const MAX_SEARCH_RESULTS = 60;
 
 const SUPPORTS_FILE_SYSTEM_ACCESS = 'showDirectoryPicker' in window;
 
-let libraryIndex = [];        // { folderId, folderName, name, code, artist, title, format, type, handle }
-let connectedFolders = [];    // { id, name, handle, fileCount, scanning, needsPermission, scannedAt }
+let connectedFolders = []; // { id, name, handle, fileCount, scanning, progress, needsPermission, scannedAt }
 
-// ---------- IndexedDB (persistência das pastas conectadas) ----------
+// ---------- IndexedDB (pastas conectadas) ----------
 
 function openLibraryDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(LIBRARY_DB_NAME, LIBRARY_DB_VERSION);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(LIBRARY_STORE)) {
-        req.result.createObjectStore(LIBRARY_STORE, { keyPath: 'id' });
-      }
-      if (!req.result.objectStoreNames.contains(LIBRARY_INDEX_STORE)) {
-        req.result.createObjectStore(LIBRARY_INDEX_STORE, { keyPath: 'folderId' });
-      }
+      const db = req.result;
+      if (!db.objectStoreNames.contains(LIBRARY_STORE)) db.createObjectStore(LIBRARY_STORE, { keyPath: 'id' });
+      if (db.objectStoreNames.contains('indexes')) db.deleteObjectStore('indexes'); // índice antigo (v2)
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -66,8 +58,7 @@ async function dbPutFolder(id, name, handle) {
 async function dbGetAllFolders() {
   const db = await openLibraryDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(LIBRARY_STORE, 'readonly');
-    const req = tx.objectStore(LIBRARY_STORE).getAll();
+    const req = db.transaction(LIBRARY_STORE, 'readonly').objectStore(LIBRARY_STORE).getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
@@ -76,101 +67,18 @@ async function dbGetAllFolders() {
 async function dbDeleteFolder(id) {
   const db = await openLibraryDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([LIBRARY_STORE, LIBRARY_INDEX_STORE], 'readwrite');
+    const tx = db.transaction(LIBRARY_STORE, 'readwrite');
     tx.objectStore(LIBRARY_STORE).delete(id);
-    tx.objectStore(LIBRARY_INDEX_STORE).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function dbPutIndex(folderId, items, scannedAt) {
-  const db = await openLibraryDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(LIBRARY_INDEX_STORE, 'readwrite');
-    tx.objectStore(LIBRARY_INDEX_STORE).put({ folderId, items, scannedAt });
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function dbGetIndex(folderId) {
-  const db = await openLibraryDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(LIBRARY_INDEX_STORE, 'readonly');
-    const req = tx.objectStore(LIBRARY_INDEX_STORE).get(folderId);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// ---------- Escaneamento de pasta ----------
-
-/** Varre uma pasta recursivamente, catalogando .zip/.mp4 no array `results`. */
-let scanYieldCounter = 0;
-
-/** Devolve o controle pro navegador de vez em quando durante um
- * escaneamento longo — sem isso, uma pasta com milhares de arquivos
- * processa tudo numa rajada só, sem deixar a thread principal desenhar
- * o CDG/vídeo nesse meio tempo (as letras "engasgam" enquanto escaneia). */
-function yieldToMainThread() {
-  return new Promise(resolve => setTimeout(resolve, 0));
-}
-
-/**
- * Remove acentos/diacríticos pra comparação (ex: "ê"->"e", "ã"->"a").
- * Usa a normalização Unicode NFD, que separa a letra do acento, e
- * depois descarta os acentos (intervalo de "combining diacritical
- * marks"). Assim "Você" e "voce" batem na busca.
- */
-function stripAccents(s) {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-/** Texto de busca de um item (título + artista + código), já em
- * minúsculas e sem acento — calculado UMA vez no escaneamento, em vez de
- * a cada tecla digitada pra cada um dos milhares de itens do índice. */
-function buildSearchText(item) {
-  return stripAccents([item.title, item.artist, item.code].filter(Boolean).join(' ').toLowerCase());
-}
-
-/** @param {string[]} [dirPath] - subpastas até aqui (pra reabrir o arquivo pelo caminho, se preciso) */
-async function scanDirectoryRecursive(dirHandle, folderId, folderName, results, dirPath = []) {
-  for await (const entry of dirHandle.values()) {
-    // Conta TODA entrada (não só .zip/.mp4): pastas cheias de outros
-    // arquivos também precisam devolver o controle pro navegador.
-    scanYieldCounter++;
-    if (scanYieldCounter % 40 === 0) {
-      await yieldToMainThread();
-    }
-    // Arquivos/pastas ocultos de sistema: "._Musica.zip" (metadados que o
-    // macOS cria em HDs formatados em exFAT/FAT — não são músicas de
-    // verdade), __MACOSX, .Trashes, .Spotlight-V100, .fseventsd etc.
-    if (entry.name.startsWith('.') || entry.name === '__MACOSX') continue;
-    if (entry.kind === 'directory') {
-      await scanDirectoryRecursive(entry, folderId, folderName, results, dirPath.concat(entry.name));
-    } else if (entry.kind === 'file') {
-      const lower = entry.name.toLowerCase();
-      const isZip = lower.endsWith('.zip');
-      const isMp4 = lower.endsWith('.mp4');
-      if (!isZip && !isMp4) continue;
-      const parsed = window.parseKaraokeFilename(entry.name);
-      const item = {
-        folderId,
-        folderName,
-        name: entry.name,
-        code: parsed.code,
-        artist: parsed.artist,
-        title: parsed.title,
-        format: isMp4 ? 'MP4' : 'MP3+G',
-        type: isMp4 ? 'video' : 'cdg',
-        handle: entry,
-        path: dirPath,
-      };
-      item.searchText = buildSearchText(item);
-      results.push(item);
-    }
-  }
+function st(key, fallback, vars) {
+  if (window.i18n && typeof window.i18n.t === 'function') return window.i18n.t(key, vars);
+  let str = fallback;
+  if (vars) Object.keys(vars).forEach(k => { str = str.split(`{${k}}`).join(vars[k]); });
+  return str;
 }
 
 // ---------- API pública do módulo ----------
@@ -180,77 +88,81 @@ async function scanDirectoryRecursive(dirHandle, folderId, folderName, results, 
  * @param {(folders: object[]) => void} callbacks.onFoldersChange
  * @param {() => void} callbacks.onIndexChange
  * @param {(msg: string) => void} callbacks.onError
+ * @param {() => Worker} [callbacks.createWorker] - testes: worker simulada
  */
-function st(key, fallback, vars) {
-  if (window.i18n && typeof window.i18n.t === 'function') return window.i18n.t(key, vars);
-  let str = fallback;
-  if (vars) Object.keys(vars).forEach(k => { str = str.split(`{${k}}`).join(vars[k]); });
-  return str;
-}
-
-function createLibrary({ onFoldersChange, onIndexChange, onError }) {
+function createLibrary({ onFoldersChange, onIndexChange, onError, createWorker }) {
   function notifyFolders() { onFoldersChange(connectedFolders); }
   function notifyIndex() { onIndexChange(); }
 
-  /** Coloca (ou atualiza) a pasta na lista e troca os itens dela no índice. */
-  function registerFolder(id, name, handle, items, scannedAt) {
-    libraryIndex = libraryIndex.filter(item => item.folderId !== id).concat(items);
-    let folderEntry = connectedFolders.find(f => f.id === id);
-    if (!folderEntry) {
-      folderEntry = { id, name, handle };
-      connectedFolders.push(folderEntry);
+  // ---- Conversa com a worker (pedido -> resposta por id) ----
+  let worker = null;
+  let nextId = 0;
+  const pending = new Map();
+
+  function getWorker() {
+    if (worker) return worker;
+    worker = createWorker ? createWorker() : new Worker('js/library-worker.js');
+    worker.onmessage = (e) => {
+      const msg = e.data;
+      if (msg.type === 'progress') {
+        const folder = connectedFolders.find(f => f.id === msg.folderId);
+        if (folder) { folder.progress = msg.count; notifyFolders(); }
+        return;
+      }
+      const p = pending.get(msg.id);
+      if (!p) return;
+      pending.delete(msg.id);
+      if (msg.error) p.reject(new Error(msg.error)); else p.resolve(msg.result);
+    };
+    return worker;
+  }
+
+  function call(cmd, payload) {
+    return new Promise((resolve, reject) => {
+      const id = ++nextId;
+      pending.set(id, { resolve, reject });
+      getWorker().postMessage({ id, cmd, ...payload });
+    });
+  }
+
+  function upsertFolder(id, name, handle, fields) {
+    let folder = connectedFolders.find(f => f.id === id);
+    if (!folder) {
+      folder = { id, name, handle, fileCount: 0, scanning: false, progress: 0, needsPermission: false, scannedAt: null };
+      connectedFolders.push(folder);
     }
-    Object.assign(folderEntry, { fileCount: items.length, scanning: false, needsPermission: false, scannedAt: scannedAt || null });
-    notifyFolders();
-    notifyIndex();
+    Object.assign(folder, fields);
+    return folder;
   }
 
   async function scanAndRegister(id, name, handle) {
-    const existing = connectedFolders.find(f => f.id === id);
-    if (existing) {
-      existing.scanning = true;
-      existing.needsPermission = false;
-    } else {
-      connectedFolders.push({ id, name, handle, fileCount: 0, scanning: true, needsPermission: false, scannedAt: null });
-    }
+    upsertFolder(id, name, handle, { scanning: true, progress: 0, needsPermission: false });
     notifyFolders();
-
-    const results = [];
-    let scanOk = true;
+    let res = null;
     try {
-      await scanDirectoryRecursive(handle, id, name, results);
+      res = await call('scan', { folderId: id, folderName: name, handle });
     } catch (err) {
-      scanOk = false;
       console.error('[Library] Erro ao escanear pasta:', err);
       onError(st('err_library_scan_fail', `Não foi possível escanear a pasta "${name}".`, { name }));
     }
-
-    const scannedAt = Date.now();
-    registerFolder(id, name, handle, results, scannedAt);
-    // Escaneamento incompleto não substitui o índice salvo.
-    if (scanOk) {
-      try { await dbPutIndex(id, results, scannedAt); } catch (err) {
-        console.warn('[Library] Não foi possível salvar o índice da pasta:', err);
-      }
-    }
+    const fields = { scanning: false, progress: 0 };
+    if (res && !res.cancelled) Object.assign(fields, { fileCount: res.count, scannedAt: res.scannedAt });
+    upsertFolder(id, name, handle, fields);
+    notifyFolders();
+    notifyIndex();
   }
 
   /** Usa o índice salvo da pasta, se existir; senão escaneia. */
   async function loadIndexOrScan(id, name, handle) {
     let saved = null;
-    try { saved = await dbGetIndex(id); } catch (err) { /* sem índice salvo */ }
-    if (saved && Array.isArray(saved.items)) {
-      registerFolder(id, name, handle, saved.items, saved.scannedAt);
+    try { saved = await call('load', { folderId: id }); } catch (err) { /* sem índice salvo */ }
+    if (saved) {
+      upsertFolder(id, name, handle, { fileCount: saved.count, scannedAt: saved.scannedAt, scanning: false, needsPermission: false });
+      notifyFolders();
+      notifyIndex();
       return;
     }
     await scanAndRegister(id, name, handle);
-  }
-
-  /** Botão "Atualizar": reescaneia a pasta (arquivos novos/removidos no HD). */
-  async function rescanFolder(id) {
-    const folder = connectedFolders.find(f => f.id === id);
-    if (!folder || folder.scanning) return;
-    await scanAndRegister(id, folder.name, folder.handle);
   }
 
   async function connectNewFolder() {
@@ -303,9 +215,21 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     }
   }
 
+  /** Botão "Atualizar": reescaneia a pasta (arquivos novos/removidos no HD). */
+  async function rescanFolder(id) {
+    const folder = connectedFolders.find(f => f.id === id);
+    if (!folder || folder.scanning) return;
+    await scanAndRegister(id, folder.name, folder.handle);
+  }
+
+  /** Botão "Cancelar" durante o escaneamento (mantém o índice anterior). */
+  function cancelScan(id) {
+    return call('cancel', { folderId: id });
+  }
+
   async function removeFolder(id) {
     connectedFolders = connectedFolders.filter(f => f.id !== id);
-    libraryIndex = libraryIndex.filter(item => item.folderId !== id);
+    try { await call('remove', { folderId: id }); } catch (err) { /* nada salvo */ }
     try {
       await dbDeleteFolder(id);
     } catch (err) {
@@ -330,7 +254,7 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
         if (perm === 'granted') {
           await loadIndexOrScan(id, name, handle);
         } else {
-          connectedFolders.push({ id, name, handle, fileCount: 0, scanning: false, needsPermission: true });
+          upsertFolder(id, name, handle, { needsPermission: true });
           notifyFolders();
         }
       } catch (err) {
@@ -340,40 +264,30 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
   }
 
   /**
-   * Busca por múltiplas palavras: cada palavra digitada precisa aparecer
-   * em algum lugar (título, artista ou código), em qualquer ordem — não
-   * precisa ser uma frase exata. Assim "planta certeza" acha "Planta e
-   * Raiz - Com Certeza", mesmo as palavras não sendo vizinhas no nome.
-   * Também ignora acentos dos dois lados da comparação, então "voce" acha
-   * "Você" sem precisar digitar o acento certinho.
+   * Busca por múltiplas palavras (todas precisam aparecer, em qualquer
+   * ordem), ignorando acentos e maiúsculas — "planta certeza" acha "Planta
+   * e Raiz - Com Certeza", "voce" acha "Você". Roda na worker; retorna até
+   * 60 itens { folderId, folderName, name, path, code, artist, title, format, type }.
    */
-  function search(query) {
-    const words = stripAccents((query || '').trim().toLowerCase()).split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [];
-    const results = [];
-    for (const item of libraryIndex) {
-      if (words.every(word => item.searchText.includes(word))) {
-        results.push(item);
-        if (results.length >= MAX_SEARCH_RESULTS) break;
-      }
-    }
-    return results;
+  async function search(query) {
+    if (!String(query || '').trim() || !connectedFolders.some(f => f.fileCount)) return [];
+    return call('search', { query });
   }
 
-  /** Lê o arquivo do disco. Se o handle salvo falhar, reabre pelo caminho
-   * a partir da pasta conectada (ex: handle antigo do índice salvo). */
+  /** Item salvo numa sessão anterior (restauração da fila após F5). */
+  async function findByFolderAndName(folderId, name) {
+    if (!connectedFolders.some(f => f.id === folderId && f.fileCount)) return null;
+    try { return await call('find', { folderId, name }); } catch (err) { return null; }
+  }
+
+  /** Lê o arquivo do disco, localizando pelo caminho a partir da pasta conectada. */
   async function getFileForItem(item) {
-    try {
-      return await item.handle.getFile();
-    } catch (err) {
-      const folder = connectedFolders.find(f => f.id === item.folderId);
-      if (!folder || !Array.isArray(item.path)) throw err;
-      let dir = folder.handle;
-      for (const segment of item.path) dir = await dir.getDirectoryHandle(segment);
-      const fileHandle = await dir.getFileHandle(item.name);
-      item.handle = fileHandle;
-      return fileHandle.getFile();
-    }
+    const folder = connectedFolders.find(f => f.id === item.folderId);
+    if (!folder) throw new Error('Pasta da Biblioteca não conectada.');
+    let dir = folder.handle;
+    for (const segment of item.path || []) dir = await dir.getDirectoryHandle(segment);
+    const fileHandle = await dir.getFileHandle(item.name);
+    return fileHandle.getFile();
   }
 
   return {
@@ -381,13 +295,14 @@ function createLibrary({ onFoldersChange, onIndexChange, onError }) {
     connectNewFolder,
     reconnectFolder,
     rescanFolder,
+    cancelScan,
     removeFolder,
     restoreSavedFolders,
     search,
     getFileForItem,
     getConnectedFolders: () => connectedFolders,
-    getIndexSize: () => libraryIndex.length,
-    findByFolderAndName: (folderId, name) => libraryIndex.find(item => item.folderId === folderId && item.name === name) || null,
+    getIndexSize: () => connectedFolders.reduce((n, f) => n + (f.fileCount || 0), 0),
+    findByFolderAndName,
   };
 }
 

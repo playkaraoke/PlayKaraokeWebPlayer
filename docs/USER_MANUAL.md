@@ -1,6 +1,6 @@
 # Play Karaoke — User Manual
 
-> Applies to **v2.5**. For a short overview, see the [README](../README.md).
+> Applies to **v2.6**. For a short overview, see the [README](../README.md).
 
 **Contents**
 1. [Logging in](#1-logging-in)
@@ -70,7 +70,7 @@ Two buttons at the top of the Library tab choose where to search.
 Search a large local collection, such as an external drive, without browsing folders every time. **Chrome, Edge or Opera only.**
 
 1. Open the **Library** tab and click **+ Connect new folder**. Subfolders are included.
-2. Wait for indexing. Only file names are read, so it's fast even with thousands of files.
+2. Wait for indexing. Only file names are read, and it runs in the background: the app stays responsive and you can watch the count. Very large drives (hundreds of thousands of files) take a few minutes the first time; you can **Cancel** and try later.
 3. Type in the search box. It matches title, artist or code, in any order, and ignores case and accents: `avioes` finds *Aviões*.
 4. Click a result to add it to the queue. In Show Mode, you'll be asked which singer it's for.
 

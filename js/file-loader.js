@@ -132,7 +132,7 @@ async function loadKaraokeFile(file) {
 
 /** Traduz via i18n quando disponível (fallback em português). */
 function tr(key, fallback) {
-  return window.i18n && typeof window.i18n.t === 'function' ? window.i18n.t(key) : fallback;
+  return typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function' ? window.i18n.t(key) : fallback;
 }
 
 /** Lixo que o macOS/Windows colocam dentro de zips: a pasta __MACOSX/ e
@@ -152,5 +152,8 @@ function cleanTitle(filename) {
   return filename.replace(/\.(zip|mp4)$/i, '').replace(/[_-]+/g, ' ').trim();
 }
 
-window.loadKaraokeFile = loadKaraokeFile;
-window.parseKaraokeFilename = parseKaraokeFilename;
+// Também é carregado dentro da worker da Biblioteca (js/library-worker.js),
+// que não tem `window`.
+const fileLoaderGlobal = typeof window !== 'undefined' ? window : self;
+fileLoaderGlobal.loadKaraokeFile = loadKaraokeFile;
+fileLoaderGlobal.parseKaraokeFilename = parseKaraokeFilename;
