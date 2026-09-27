@@ -2462,8 +2462,35 @@ let singerModeEnabled = false;
 const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
 
 const singerManager = window.createSingerManager({
-  onChange: () => { renderSingerRoundView(); persistSingers(); },
+  onChange: () => { renderSingerRoundView(); persistSingers(); scheduleShowTurnSync(); },
 });
+
+/**
+ * A música do cantor da vez fica pré-carregada (pausada) antes de ele
+ * começar. Se o operador trocar/remover/reordenar a fila DESSE cantor nesse
+ * momento, recarrega a música certa — antes o player continuava com a
+ * antiga e o Play tocava a música errada. Não mexe em nada se a
+ * apresentação já começou (tocando ou pausada no meio).
+ */
+let showTurnSyncScheduled = false;
+function scheduleShowTurnSync() {
+  if (showTurnSyncScheduled) return;
+  showTurnSyncScheduled = true;
+  setTimeout(() => { showTurnSyncScheduled = false; syncLoadedShowTurn(); }, 0);
+}
+function syncLoadedShowTurn() {
+  // (durante a restauração inicial quem carrega é a própria inicialização)
+  if (!playlistRestoreDone || !singerModeEnabled || isTrackLoading || singerCountdownActive) return;
+  if (isAnythingPlaying() || getCurrentPosition() > 0) return; // apresentação em andamento
+  const singer = singerManager.getCurrentSinger();
+  const wanted = singer && singer.songs.length ? singer.songs[0] : null;
+  if (showTurn) {
+    if (singer && singer.id === showTurn.singerId && wanted && wanted.id === showTurn.song.id) return; // já é a certa
+    loadCurrentSingerTurn(false);
+  } else if (mode === null && wanted) {
+    loadCurrentSingerTurn(false); // cantor da vez estava sem música e ganhou uma
+  }
+}
 
 function applySingerModeVisibility() {
   el('playlist').classList.toggle('hidden', singerModeEnabled);

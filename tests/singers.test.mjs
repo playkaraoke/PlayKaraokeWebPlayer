@@ -111,3 +111,29 @@ test('CSV do show tem BOM (acentos no Excel) e cabeçalho no idioma ativo', asyn
   assert.match(csv, /^﻿"Date\/Time","Singer","Song"/);
   assert.match(csv, /"Ana","Musica1","Ana"/);
 });
+
+test('cantor da vez (música carregada, ainda não começou): trocar/remover/reordenar recarrega a música certa', async () => {
+  const { win, t } = await showWith3Singers();
+  t.engine.finish(); await flush();          // Ana cantou → Bia com a Musica1 carregada, pausada
+  assert.equal(t.playlist[0].artist, 'Bia');
+  assert.equal(t.playlist[0].title, 'Musica1');
+  const bia = t.singerManager.getAllSingers()[1];
+  t.singerManager.reorderSongInSinger(bia.id, 1, 0); // Bia quer cantar a Musica2 primeiro
+  await flush();
+  assert.equal(t.playlist[0].title, 'Musica2', 'continuou carregada a música antiga');
+  assert.equal(t.engine.loadedBuffers.at(-1).name, 'Bia - Musica2.zip');
+  t.singerManager.removeSongFromSinger(bia.id, 0);
+  await flush();
+  assert.equal(t.playlist[0].title, 'Musica1');
+});
+
+test('cantor da vez já cantando: mexer na fila dele não interrompe a apresentação', async () => {
+  const { t } = await showWith3Singers();
+  await t.engine.play();
+  const ana = t.singerManager.getAllSingers()[0];
+  const loadsBefore = t.engine.loadedBuffers.length;
+  t.singerManager.reorderSongInSinger(ana.id, 1, 0);
+  await flush();
+  assert.equal(t.engine.isPlaying(), true);
+  assert.equal(t.engine.loadedBuffers.length, loadsBefore);
+});
