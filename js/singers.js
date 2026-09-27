@@ -109,6 +109,15 @@ function createSingerManager({ onChange }) {
     if (singer) { singer.songs.splice(songIndex, 1); notify(); }
   }
 
+  /** Troca a música numa posição da fila do cantor (sem posição = adiciona). */
+  function replaceSong(singerId, index, song) {
+    const singer = findSinger(singerId);
+    if (!singer) throw new Error(st('err_singer_not_found', 'Cantor não encontrado.'));
+    if (index < singer.songs.length) singer.songs.splice(index, 1, song);
+    else singer.songs.push(song);
+    notify();
+  }
+
   function reorderSongInSinger(singerId, fromIndex, toIndex) {
     const singer = findSinger(singerId);
     if (!singer) return;
@@ -193,7 +202,7 @@ function createSingerManager({ onChange }) {
 
   return {
     addSinger, renameSinger, removeSinger, reorderSinger,
-    addSongToSinger, removeSongFromSinger, reorderSongInSinger,
+    addSongToSinger, removeSongFromSinger, reorderSongInSinger, replaceSong,
     getCurrentSinger, completeTurn,
     getUpcomingSingers, getNextActiveSingerId,
     getAllSingers: () => singers,

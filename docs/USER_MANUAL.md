@@ -120,6 +120,7 @@ The queue becomes a rotation of **singers**, each with up to **5 songs**. When a
 - **Double-click** a singer to open **Manage Singers**.
 - When a performance ends, the next singer's song is **loaded and paused**. The waiting screen shows who's up next. Click **Start Now**, or turn on Autoplay to start after the countdown.
 - A singer with no song in queue simply waits. Add a song and they're ready.
+- **Changing the song of the singer whose turn it is** (before they start): click **CHANGE SONG** on their row and pick another song from your drives, YouTube or a file. You can also reorder or remove their songs in Manage Singers — the loaded song updates automatically.
 - **Ending a performance early:** press **Next** (or `Ctrl/⌘ + →`) and confirm. The song counts as sung, with the time actually sung, and the turn moves on. The button unlocks once the performance has started.
 
 **Manage Singers** (sidebar button, or Settings → Show Mode)

@@ -2636,6 +2636,15 @@ function renderSingerRoundView() {
       badge.className = 'now-playing-badge' + (isAnythingPlaying() ? '' : ' hidden');
       badge.textContent = window.i18n.t('now_playing_badge');
       row.appendChild(badge);
+      // "Trocar música": só antes de o cantor da vez começar (pedido comum
+      // de quem chega na hora de cantar e quer outra música).
+      const swapBtn = document.createElement('button');
+      swapBtn.type = 'button';
+      swapBtn.className = 'singer-swap-btn' + (performanceStarted() ? ' hidden' : '');
+      swapBtn.textContent = window.i18n.t('swap_song_btn');
+      swapBtn.title = window.i18n.t('swap_song_btn_title');
+      swapBtn.addEventListener('click', (e) => { e.stopPropagation(); openSwapSongModal(s.id); });
+      row.appendChild(swapBtn);
     } else {
       const reorderControls = document.createElement('div');
       reorderControls.className = 'singer-reorder-controls';
@@ -2697,7 +2706,165 @@ function renderSingerRoundView() {
 function updateSingerNowPlayingBadge() {
   const badge = singerListFull.querySelector('.now-playing-badge');
   if (badge) badge.classList.toggle('hidden', !isAnythingPlaying());
+  const swapBtn = singerListFull.querySelector('.singer-swap-btn');
+  if (swapBtn) swapBtn.classList.toggle('hidden', performanceStarted());
 }
+
+/** A música carregada já começou (tocando, ou pausada no meio)? */
+function performanceStarted() {
+  return mode !== null && (isAnythingPlaying() || getCurrentPosition() > 0);
+}
+
+// ---------- Modal "Trocar música" (cantor da vez, Modo Show) ----------
+
+const swapSongBackdrop = el('swap-song-backdrop');
+const swapSongSearch = el('swap-song-search');
+const swapSongResults = el('swap-song-results');
+const swapSourceDeviceBtn = el('swap-source-device-btn');
+const swapSourceOnlineBtn = el('swap-source-online-btn');
+const swapSongFileInput = el('swap-song-file-input');
+let swapSingerId = null;
+let swapSource = 'device';
+let swapSearchGeneration = 0;
+
+function openSwapSongModal(singerId) {
+  const singer = singerManager.getAllSingers().find(s => s.id === singerId);
+  if (!singer) return;
+  swapSingerId = singerId;
+  el('swap-song-title').textContent = window.i18n.t('swap_song_title', { name: singer.name });
+  const current = singer.songs[0];
+  el('swap-song-current').textContent = current
+    ? window.i18n.t('swap_song_current', { song: [current.artist, current.title].filter(Boolean).join(' — ') })
+    : window.i18n.t('swap_song_none');
+  // YouTube só se a busca Online estiver configurada.
+  el('swap-source-toggle').classList.toggle('hidden', !onlineSearch.isConfigured());
+  setSwapSource(library.isSupported() || !onlineSearch.isConfigured() ? 'device' : 'online');
+  swapSongSearch.value = '';
+  swapSongResults.innerHTML = '';
+  swapSongBackdrop.classList.remove('hidden');
+  swapSongSearch.focus();
+}
+
+function closeSwapSongModal() {
+  swapSongBackdrop.classList.add('hidden');
+  swapSingerId = null;
+  swapSearchGeneration++;
+}
+
+function setSwapSource(source) {
+  swapSource = source;
+  swapSourceDeviceBtn.classList.toggle('active', source === 'device');
+  swapSourceOnlineBtn.classList.toggle('active', source === 'online');
+  swapSongSearch.placeholder = window.i18n.t(source === 'online' ? 'online_placeholder' : 'swap_song_search_placeholder');
+  swapSongResults.innerHTML = '';
+  if (source === 'device' && !library.isSupported()) showSwapMessage('library_unsupported');
+  else if (source === 'device' && swapSongSearch.value.trim()) renderSwapDeviceResults();
+}
+
+function showSwapMessage(key, warn) {
+  swapSongResults.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'online-message' + (warn ? ' warn' : '');
+  p.textContent = window.i18n.t(key);
+  swapSongResults.appendChild(p);
+}
+
+/** Linha de resultado (mesmo visual da busca da Biblioteca). */
+function swapResultRow(title, sub, onPick) {
+  const row = document.createElement('div');
+  row.className = 'search-result';
+  const meta = document.createElement('div');
+  meta.className = 'sr-meta';
+  const t = document.createElement('div');
+  t.className = 'sr-title';
+  t.textContent = title;
+  const s = document.createElement('div');
+  s.className = 'sr-sub';
+  s.textContent = sub;
+  meta.appendChild(t);
+  meta.appendChild(s);
+  row.appendChild(meta);
+  row.addEventListener('click', onPick);
+  return row;
+}
+
+function renderSwapDeviceResults() {
+  const q = swapSongSearch.value;
+  swapSongResults.innerHTML = '';
+  if (!q.trim()) return;
+  const results = library.search(q);
+  if (!results.length) { showSwapMessage('library_no_results'); return; }
+  results.forEach(item => {
+    swapSongResults.appendChild(swapResultRow(item.title, [item.artist, item.code].filter(Boolean).join(' · ') || item.format, async () => {
+      try {
+        const file = await library.getFileForItem(item);
+        applySwap({
+          id: 'track_' + (++playlistIdCounter), file,
+          code: item.code, artist: item.artist, title: item.title,
+          format: item.format, type: item.type, savedSemitones: 0,
+          librarySource: { folderId: item.folderId, fileName: item.name },
+        });
+      } catch (err) {
+        showError(window.i18n.t('err_library_read_fail'));
+      }
+    }));
+  });
+}
+
+async function runSwapOnlineSearch() {
+  const q = swapSongSearch.value.trim();
+  if (!q) return;
+  const gen = ++swapSearchGeneration;
+  showSwapMessage('online_searching');
+  try {
+    const results = await onlineSearch.search(q);
+    if (gen !== swapSearchGeneration) return;
+    swapSongResults.innerHTML = '';
+    if (!results.length) { showSwapMessage('online_no_results'); return; }
+    results.forEach(r => swapSongResults.appendChild(swapResultRow(r.title, r.channel, () => applySwap(buildOnlineItem(r)))));
+  } catch (err) {
+    if (gen !== swapSearchGeneration) return;
+    showSwapMessage('online_err_' + (err && err.code ? err.code : 'server'), true);
+  }
+}
+
+/** Troca a 1ª música do cantor pela escolhida. A recarga no player é
+ * automática (scheduleShowTurnSync, no onChange da rodada). */
+function applySwap(song) {
+  if (!swapSingerId) return;
+  try {
+    singerManager.replaceSong(swapSingerId, 0, song);
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  closeSwapSongModal();
+}
+
+swapSourceDeviceBtn.addEventListener('click', () => setSwapSource('device'));
+swapSourceOnlineBtn.addEventListener('click', () => setSwapSource('online'));
+swapSongSearch.addEventListener('input', () => { if (swapSource === 'device') renderSwapDeviceResults(); });
+swapSongSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && swapSource === 'online') runSwapOnlineSearch();
+  else if (e.key === 'Escape') closeSwapSongModal();
+});
+el('swap-song-cancel-btn').addEventListener('click', closeSwapSongModal);
+swapSongBackdrop.addEventListener('click', (e) => { if (e.target === swapSongBackdrop) closeSwapSongModal(); });
+el('swap-song-upload-btn').addEventListener('click', () => swapSongFileInput.click());
+swapSongFileInput.addEventListener('change', () => {
+  const file = swapSongFileInput.files && swapSongFileInput.files[0];
+  swapSongFileInput.value = '';
+  if (!file || isGhostFile(file)) return;
+  const lower = file.name.toLowerCase();
+  const isMp4 = lower.endsWith('.mp4');
+  if (!isMp4 && !lower.endsWith('.zip')) { showError(window.i18n.t('err_unsupported_files')); return; }
+  const parsed = window.parseKaraokeFilename(file.name);
+  applySwap({
+    id: 'track_' + (++playlistIdCounter), file,
+    code: parsed.code, artist: parsed.artist, title: parsed.title,
+    format: isMp4 ? 'MP4' : 'MP3+G', type: isMp4 ? 'video' : 'cdg', savedSemitones: 0,
+  });
+});
 
 /** Carrega a música do cantor da vez no player (ou mostra estado de espera/vazio). */
 async function loadCurrentSingerTurn(autoplay) {

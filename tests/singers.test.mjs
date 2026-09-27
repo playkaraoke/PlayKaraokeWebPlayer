@@ -137,3 +137,24 @@ test('cantor da vez já cantando: mexer na fila dele não interrompe a apresenta
   assert.equal(t.engine.isPlaying(), true);
   assert.equal(t.engine.loadedBuffers.length, loadsBefore);
 });
+
+test('botão "Trocar música" do cantor da vez: troca pela escolhida e recarrega; some quando começa a cantar', async () => {
+  const { win, t, $ } = await showWith3Singers();
+  const btn = () => $('singer-list-full').querySelector('.singer-swap-btn');
+  assert.ok(btn(), 'botão deveria aparecer na linha do cantor da vez');
+  assert.equal(btn().classList.contains('hidden'), false);
+  btn().click();
+  assert.equal($('swap-song-backdrop').classList.contains('hidden'), false);
+  assert.match($('swap-song-title').textContent, /Ana/);
+  // escolhe um arquivo do computador
+  const input = $('swap-song-file-input');
+  Object.defineProperty(input, 'files', { configurable: true, value: [fakeFile(win, 'Ana - Nova.zip')] });
+  input.dispatchEvent(new win.Event('change'));
+  await flush();
+  const ana = t.singerManager.getAllSingers()[0];
+  assert.deepEqual(titles(ana), ['Nova', 'Musica2']);
+  assert.equal($('swap-song-backdrop').classList.contains('hidden'), true);
+  assert.equal(t.playlist[0].title, 'Nova');
+  await t.engine.play();
+  assert.equal(btn().classList.contains('hidden'), true, 'com a apresentação em andamento o botão some');
+});

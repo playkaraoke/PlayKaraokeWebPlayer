@@ -1039,6 +1039,28 @@
   }
   .welcome-dont-show input{ width:14px;height:14px; accent-color:var(--primary); cursor:pointer; }
 
+  #swap-song-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center; z-index:115;
+  }
+  #swap-song-modal{
+    background:var(--surface-container-low); border:1px solid var(--outline-variant);
+    border-radius:16px; padding:22px; width:100%; max-width:440px; max-height:80vh;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  #swap-song-modal h3{ font-family:'Montserrat',sans-serif; font-weight:600; font-size:17px; margin:0; color:var(--on-surface); }
+  #swap-song-modal .singer-picker-filename{ margin:-6px 0 0 0; }
+  #swap-song-search{
+    background:var(--surface-container-high); border:1px solid var(--outline-variant);
+    border-radius:8px; padding:9px 12px; font-size:13px; color:var(--on-surface); font-family:'Inter',sans-serif;
+  }
+  #swap-song-results{ overflow-y:auto; min-height:60px; max-height:40vh; display:flex; flex-direction:column; }
+  .singer-swap-btn{
+    flex-shrink:0; border:1px solid var(--primary-bright); background:none; color:var(--primary-bright);
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:0.04em;
+    border-radius:999px; padding:3px 9px; cursor:pointer; white-space:nowrap;
+  }
+  .singer-swap-btn:hover{ background:rgba(173,198,255,0.12); }
   #generic-prompt-backdrop, #generic-confirm-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,0.65);
     display:flex; align-items:center; justify-content:center; z-index:140;
@@ -2128,6 +2150,24 @@
       </label>
 
       <button id="welcome-start-btn" class="card-btn primary" style="width:100%;" data-i18n="welcome_start_btn">Got it, start Show Mode</button>
+    </div>
+  </div>
+
+  <div id="swap-song-backdrop" class="hidden">
+    <div id="swap-song-modal">
+      <h3 id="swap-song-title">—</h3>
+      <p id="swap-song-current" class="singer-picker-filename"></p>
+      <div class="ambient-source-toggle" id="swap-source-toggle">
+        <button type="button" class="library-source-btn active" id="swap-source-device-btn" data-i18n="library_source_device">Devices</button>
+        <button type="button" class="library-source-btn" id="swap-source-online-btn" data-i18n="library_source_online">YouTube</button>
+      </div>
+      <input type="text" id="swap-song-search" autocomplete="off"/>
+      <div id="swap-song-results"></div>
+      <div class="generic-modal-actions">
+        <button type="button" id="swap-song-upload-btn" class="card-btn secondary" data-i18n="detail_upload_btn">⬆ Upload file(s)</button>
+        <button type="button" id="swap-song-cancel-btn" class="card-btn secondary" data-i18n="tm_cancel_btn">Cancel</button>
+      </div>
+      <input type="file" id="swap-song-file-input" accept=".zip,.mp4" class="hidden"/>
     </div>
   </div>
 
