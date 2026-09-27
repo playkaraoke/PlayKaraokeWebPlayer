@@ -161,8 +161,6 @@
   const YT_MIN_SEEK_INTERVAL_MS = 4000;
   let ytDriftReadings = 0;
   let ytLastSeekAt = 0;
-  // Diagnóstico temporário: window.__ytSyncStats no console da segunda tela.
-  const ytSyncStats = window.__ytSyncStats = { corrections: 0, since: Date.now(), last: [] };
 
   function syncYouTube(msg) {
     if (ytRemoteMode) return; // aqui é a fonte do tempo, não quem acompanha
@@ -181,9 +179,6 @@
     ytPlayer.seekTo(target + (drift < 0 ? YT_SEEK_LEAD_SEC : 0));
     ytLastSeekAt = now;
     ytDriftReadings = 0;
-    ytSyncStats.corrections++;
-    ytSyncStats.last = ytSyncStats.last.concat({ at: new Date(now).toLocaleTimeString(), drift: Number(drift.toFixed(2)) }).slice(-10);
-    console.info(`[Segunda tela] YouTube ressincronizado (diferença ${drift.toFixed(2)}s) — ${ytSyncStats.corrections} correção(ões) desde ${new Date(ytSyncStats.since).toLocaleTimeString()}`);
   }
 
   function renderCountdownContent(msg) {
