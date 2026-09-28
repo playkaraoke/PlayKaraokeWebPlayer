@@ -9,3 +9,6 @@ DOCUMENTACAO.md
 # Dependências de desenvolvimento (testes)
 node_modules/
 .wrangler/
+
+# Material de design (Stitch, protótipos) — fica só local
+design/
