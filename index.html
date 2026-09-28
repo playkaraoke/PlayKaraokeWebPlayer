@@ -125,7 +125,7 @@
   html[data-theme=light] .logo img, html[data-theme=light] .brand-logo{ filter:invert(1) brightness(0.25); }
   .logo-tag{ font-family:'Montserrat',sans-serif; font-weight:700; font-size:12px; letter-spacing:.16em; color:var(--pink); padding-top:3px; }
   html[data-theme=light] .logo-tag{ color:#db2777; }
-  .search{ position:relative; flex:1; min-width:340px; max-width:600px; display:flex; align-items:center; gap:8px; height:40px; padding:0 5px 0 12px; border-radius:12px; background:var(--glass-2); border:1px solid var(--line); }
+  .search{ position:relative; flex:1; min-width:340px; max-width:820px; display:flex; align-items:center; gap:8px; height:40px; padding:0 5px 0 12px; border-radius:12px; background:var(--glass-2); border:1px solid var(--line); }
   .search:focus-within{ border-color:var(--line-2); }
   .search > svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
   .search input{ flex:1; min-width:0; background:none; border:0; outline:0; color:var(--text); font-size:13.5px; font-family:inherit; }
@@ -147,7 +147,7 @@
   .res-msg{ font-size:12.5px; color:var(--text-2); padding:10px 8px; line-height:1.5; margin:0; }
   .res-msg.warn{ color:var(--error); }
   .spacer{ flex:1; }
-  .pills{ display:flex; gap:6px; }
+  .pills{ display:flex; gap:6px; margin-left:auto; }
   .pill{ display:flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap;
     background:var(--glass); border:1px solid var(--line); color:var(--text-2); }
   .pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-3); }
@@ -508,7 +508,6 @@
       </div>
       <div class="results hidden" id="search-results"></div>
     </div>
-    <div class="spacer"></div>
     <div class="pills">
       <button class="pill" id="quick-second-screen-btn" type="button" data-i18n-title="pill_second_screen_title" title="Open/close the second screen"><span class="dot"></span><span data-i18n="pill_second_screen">Second Screen</span></button>
       <button class="pill" id="quick-autoplay-btn" type="button" data-i18n-title="pill_autoplay_title" title="Autoplay"><span class="dot"></span><span data-i18n="pill_autoplay">Autoplay</span></button>

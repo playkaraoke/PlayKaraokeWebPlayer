@@ -15,6 +15,15 @@
   <a href="#license">License</a>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/queue.png" alt="PlayKaraoke Player: queue with CDG lyrics playing" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/show-mode.png" alt="Show Mode: singer rotation and the waiting screen" width="445"/>
+  <img src="docs/screenshots/settings-light.png" alt="Light theme: Settings, Pads" width="445"/>
+</p>
+
 ---
 
 ## Features
