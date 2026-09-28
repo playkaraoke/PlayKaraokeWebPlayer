@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Play Karaoke — Second Screen</title>
+<title>PlayKaraoke Player — Second Screen</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
   *{box-sizing:border-box;}
@@ -86,15 +88,16 @@
   #fs-btn:hover{ background:rgba(40,40,40,0.8); }
   #fs-btn svg{ width:20px;height:20px; }
 
+  /* Tela de espera: mesmo visual da prévia da tela principal (3.0) */
   #countdown-overlay{
     position:fixed;
     inset:0;
-    background:rgba(0,0,0,0.88);
+    background:radial-gradient(70vw 40vh at 50% 0%, rgba(139,92,246,0.30), transparent 70%), #0b0a10;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:10px;
+    gap:min(2.2vh, 18px);
     z-index:5;
   }
   #countdown-overlay .cd-label{
@@ -102,20 +105,23 @@
     font-size:15px;
     letter-spacing:0.08em;
     text-transform:uppercase;
-    color:#9a9d9c;
+    color:#b9b3cf;
   }
   #countdown-overlay .cd-number{
     font-family:'Montserrat',sans-serif;
     font-weight:700;
     font-size:min(18vw, 140px);
-    color:#adc6ff;
     line-height:1;
+    background:linear-gradient(135deg, #8b5cf6, #ec4899);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
   }
   #countdown-overlay .cd-next{
     font-family:'Montserrat',sans-serif;
     font-weight:600;
     font-size:min(4vw, 28px);
-    color:#e5e2e1;
+    color:#eeecf2;
     text-align:center;
     padding:0 20px;
   }
@@ -128,11 +134,12 @@
     font-size:min(2vw,14px);
     letter-spacing:0.1em;
     text-transform:uppercase;
-    color:#9a9d9c;
+    color:#b9b3cf;
   }
   #cd-singer-card{
     background:#ffffff;
-    border-radius:14px;
+    box-shadow:0 12px 50px rgba(139,92,246,0.40);
+    border-radius:16px;
     padding:20px 32px;
     display:flex; flex-direction:column; align-items:center; gap:4px;
     width:100%;
@@ -141,13 +148,13 @@
     font-family:'Montserrat',sans-serif;
     font-weight:700;
     font-size:min(5vw,32px);
-    color:#111111;
+    color:#15131c;
     text-align:center;
   }
   #cd-singer-song-display{
     font-size:min(2.4vw,16px);
     font-weight:600;
-    color:#333333;
+    color:#4b4760;
     text-align:center;
   }
   #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:70vw; }
@@ -156,13 +163,13 @@
     font-size:min(2vw,14px);
     letter-spacing:0.1em;
     text-transform:uppercase;
-    color:#9a9d9c;
+    color:#b9b3cf;
   }
   #cd-upcoming-list{ display:flex; flex-direction:column; gap:8px; width:100%; }
   .cd-upcoming-row{
     display:flex; align-items:center; gap:10px;
     font-size:min(2.2vw,15px);
-    color:#9a9d9c;
+    color:#cfcadf;
   }
   .cd-upcoming-row .pos-badge{
     font-family:'Inter',sans-serif; font-weight:700; font-size:12px;

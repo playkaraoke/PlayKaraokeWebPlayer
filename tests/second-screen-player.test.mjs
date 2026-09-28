@@ -10,12 +10,11 @@ const RESULT = { videoId: 'vid1', title: 'Luan Santana - Escreve Aí', channel: 
 async function withYouTubeSong() {
   const ctx = await createApp({ onlineResults: [RESULT] });
   const { win, $ } = ctx;
-  $('tab-biblioteca-btn').click();
-  $('library-source-online-btn').click();
-  $('library-search-input').value = 'x';
-  $('library-search-input').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter' }));
+  $('search-source-online-btn').click();
+  $('search-input').value = 'x';
+  $('search-input').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter' }));
   await flush();
-  $('online-results').querySelector('.online-card').click();
+  $('search-results').querySelector('.res').click();
   await flush();
   return ctx;
 }

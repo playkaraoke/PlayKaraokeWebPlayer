@@ -7,8 +7,8 @@ test('vídeo principal não mostra os controles nativos', async () => {
   assert.equal($('video-el').controls, false);
 });
 
-test('Espaço dá play/pause, mas não com um modal aberto', async () => {
-  const { win, t, $ } = await createApp();
+test('Espaço dá play/pause (atalhos ligados), mas não com um modal aberto', async () => {
+  const { win, t, $ } = await createApp({ localStorage: { 'playkaraoke-shortcuts': 'true' } });
   await t.addFilesToQueue([fakeFile(win, 'A - Um.zip')]);
   await flush();
   const space = () => win.dispatchEvent(new win.KeyboardEvent('keydown', { code: 'Space', bubbles: true }));

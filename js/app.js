@@ -5,8 +5,6 @@ const el = (id) => document.getElementById(id);
 // ---------- Elementos ----------
 
 const dropZone = el('stage-empty');
-const sidebar = el('sidebar');
-const sidebarResizeHandle = el('sidebar-resize-handle');
 const fileInput = el('file-input');
 const stageEmpty = el('stage-empty');
 const stageCanvasWrap = el('stage-canvas-wrap');
@@ -24,9 +22,12 @@ const metaCode = el('meta-code');
 const metaArtist = el('meta-artist');
 const metaSong = el('meta-song');
 const metaFormat = el('meta-format');
+const metaSinger = el('meta-singer');
+const metaSingerField = el('meta-singer-field');
 
 const playBtn = el('play-btn');
 const stopBtn = el('stop-btn');
+const restartBtn = el('restart-btn');
 const playIcon = el('play-icon');
 const pauseIcon = el('pause-icon');
 const nextBtn = el('next-btn');
@@ -45,10 +46,8 @@ const errorBanner = el('error-banner');
 const loadingBanner = el('loading-banner');
 
 const settingsBtn = el('settings-btn');
-const languageSelect = el('language-select');
 const autoplayToggleIndicator = el('autoplay-toggle-indicator');
 const ambientToggleIndicator = el('ambient-toggle-indicator');
-const idleImageToggleIndicator = el('idle-image-toggle-indicator');
 const customColorsToggleIndicator = el('custom-colors-toggle-indicator');
 const showModeBtn = el('show-mode-btn');
 const showModeBtnLabel = el('show-mode-btn-label');
@@ -75,18 +74,19 @@ const cdNumber = el('cd-number');
 const cdNextTitle = el('cd-next-title');
 const cdSkipBtn = el('cd-skip-btn');
 
-const addMusicBtn = el('add-music-btn');
 const sidebarDropzone = el('sidebar-dropzone');
 const playlistEl = el('playlist');
 const playlistCount = el('playlist-count');
 
-const tabFilaBtn = el('tab-fila-btn');
-const tabBibliotecaBtn = el('tab-biblioteca-btn');
-const tabFilaPanel = el('tab-fila-panel');
-const tabBibliotecaPanel = el('tab-biblioteca-panel');
+const clearQueueBtn = el('clear-queue-btn');
+const addSingerBtn = el('add-singer-btn');
 
-const librarySearchInput = el('library-search-input');
-const librarySearchClearBtn = el('library-search-clear-btn');
+const searchBox = el('search');
+const searchInput = el('search-input');
+const searchClearBtn = el('search-clear-btn');
+const searchResults = el('search-results');
+const searchSourceDeviceBtn = el('search-source-device-btn');
+const searchSourceOnlineBtn = el('search-source-online-btn');
 
 const cdSingerHighlight = el('cd-singer-highlight');
 const cdUpcomingSection = el('cd-upcoming-section');
@@ -121,7 +121,6 @@ const detailAddSongSearch = el('detail-add-song-search');
 const detailSongSearchInput = el('detail-song-search-input');
 const detailSongSearchResults = el('detail-song-search-results');
 
-const singerModeToggleIndicator = el('singer-mode-toggle-indicator');
 const endShowConfirmBackdrop = el('end-show-confirm-backdrop');
 const endShowConfirmCancelBtn = el('end-show-confirm-cancel-btn');
 const endShowConfirmOkBtn = el('end-show-confirm-ok-btn');
@@ -142,11 +141,9 @@ let singerDragFromIndex = null;
 
 const singerPickerBackdrop = el('singer-picker-backdrop');
 const singerPickerFilename = el('singer-picker-filename');
-const singerPickerDropdown = el('singer-picker-dropdown');
-const singerPickerNewInput = el('singer-picker-new-input');
-const singerPickerNewBtn = el('singer-picker-new-btn');
+const singerPickerInput = el('singer-picker-input');
+const singerPickerList = el('singer-picker-list');
 const singerPickerCancelBtn = el('singer-picker-cancel-btn');
-const libraryResults = el('library-results');
 const libraryFoldersList = el('library-folders-list');
 const connectFolderBtn = el('connect-folder-btn');
 const libraryUnsupported = el('library-unsupported');
@@ -448,6 +445,7 @@ function showLoading(show) {
   if (show) {
     playBtn.disabled = true;
     stopBtn.disabled = true;
+    restartBtn.disabled = true;
   } else if (mode !== null) {
     // Carregamento terminou (com sucesso ou erro) e ainda há uma música
     // válida carregada -- reabilita os botões. Se o erro deixou tudo
@@ -455,6 +453,7 @@ function showLoading(show) {
     // desabilitado.
     playBtn.disabled = false;
     stopBtn.disabled = false;
+    restartBtn.disabled = false;
   }
 }
 
@@ -482,6 +481,11 @@ function updateStageVisibility() {
 }
 
 function updateMetaBar(item) {
+  // Modo Show: o cantor da vez aparece antes dos dados da música.
+  const singerName = singerModeEnabled && showTurn ? showTurn.singerName : null;
+  metaSingerField.classList.toggle('hidden', !singerName);
+  metaSinger.textContent = singerName || '—';
+  metaSong.classList.toggle('none', !item);
   if (!item) {
     metaCode.textContent = '—';
     metaArtist.textContent = '—';
@@ -490,7 +494,7 @@ function updateMetaBar(item) {
     return;
   }
   metaCode.textContent = item.code || '—';
-  metaArtist.textContent = item.artist || '—';
+  metaArtist.textContent = item.artist || (item.type === 'youtube' ? item.channel : '') || '—';
   metaSong.textContent = item.title;
   metaFormat.textContent = item.format;
 }
@@ -505,13 +509,75 @@ function hasNext() {
   return currentIndex < playlist.length - 1;
 }
 
+const ICON_UP = '<svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>';
+const ICON_DOWN = '<svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>';
+const ICON_X = '<svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+
+/** Título de lista com contador: "Queue 3" (o número em cinza). */
+function setListTitle(label, count) {
+  playlistCount.textContent = label;
+  const em = document.createElement('em');
+  em.textContent = String(count);
+  playlistCount.appendChild(em);
+}
+
+/** Selo de formato (CDG / MP4 / YOUTUBE) das linhas de música. */
+function createFormatChip(item) {
+  const chip = document.createElement('span');
+  chip.className = 'fmt';
+  chip.textContent = item.type === 'youtube' ? window.i18n.t('online_badge')
+    : item.type === 'video' ? 'MP4' : 'CDG';
+  return chip;
+}
+
+/** Linha "artista · código · formato" das músicas. */
+function createSongSubLine(song, { withTitle = false } = {}) {
+  const sub = document.createElement('div');
+  sub.className = 'l2';
+  const text = document.createElement('span');
+  text.className = 'ttl';
+  const artist = song.artist || (song.type === 'youtube' ? song.channel : '') || '';
+  text.textContent = withTitle ? [song.title, artist].filter(Boolean).join(' — ') : artist;
+  sub.appendChild(text);
+  if (song.code) {
+    const code = document.createElement('span');
+    code.className = 'code';
+    code.textContent = song.code;
+    sub.appendChild(code);
+  }
+  sub.appendChild(createFormatChip(song));
+  return sub;
+}
+
+/** Botão pequeno de ação das linhas (subir/descer/remover). */
+function rowActionBtn(icon, title, disabled, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.innerHTML = icon;
+  b.title = title;
+  b.disabled = !!disabled;
+  b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return b;
+}
+
+/** Selo TOCANDO/CANTANDO da linha ativa (visível só enquanto toca). */
+function createNowChip(key) {
+  const chip = document.createElement('span');
+  chip.className = 'chip is-now now-playing-badge' + (isAnythingPlaying() ? '' : ' hidden');
+  chip.textContent = window.i18n.t(key);
+  return chip;
+}
+
 function renderPlaylist() {
-  playlistCount.textContent = `${window.i18n.t('queue_label')} (${playlist.length})`;
+  // No Modo Show a lista é o rodízio (a "fila" guarda só a música da vez).
+  if (!singerModeEnabled) setListTitle(window.i18n.t('queue_label'), playlist.length);
   playlistEl.innerHTML = '';
+  clearQueueBtn.disabled = playlist.length === 0;
 
   if (playlist.length === 0) {
     const hint = document.createElement('p');
     hint.id = 'playlist-empty-hint';
+    hint.className = 'list-empty';
     hint.textContent = window.i18n.t('queue_empty_hint');
     playlistEl.appendChild(hint);
     updateNextBtnState();
@@ -520,72 +586,43 @@ function renderPlaylist() {
   }
 
   playlist.forEach((item, i) => {
+    const isActive = i === currentIndex;
     const row = document.createElement('div');
-    row.className = 'playlist-item' + (i === currentIndex ? ' active' : '');
+    row.className = 'row playlist-item' + (isActive ? ' active' : '');
     row.draggable = true;
     row.dataset.index = String(i);
 
     const num = document.createElement('span');
-    num.className = 'num';
-    num.textContent = i === currentIndex ? '▶' : String(i + 1);
+    num.className = 'pos';
+    num.textContent = String(i + 1);
 
     const meta = document.createElement('div');
-    meta.className = 'meta';
-    const titleEl = document.createElement('div');
-    titleEl.className = 'song-title';
+    meta.style.minWidth = '0';
+    const titleLine = document.createElement('div');
+    titleLine.className = 'l1';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'nm';
     titleEl.textContent = item.title;
-    const subEl = document.createElement('div');
-    subEl.className = 'song-sub';
-    subEl.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || (item.type === 'youtube' ? item.channel : item.format);
-    if (item.type === 'youtube') subEl.appendChild(createOnlineBadge());
-    meta.appendChild(titleEl);
-    meta.appendChild(subEl);
-
-    let nowPlayingBadge = null;
-    if (i === currentIndex) {
-      const playingNow = isAnythingPlaying();
-      nowPlayingBadge = document.createElement('span');
-      nowPlayingBadge.className = 'now-playing-badge' + (playingNow ? '' : ' hidden');
-      nowPlayingBadge.textContent = window.i18n.t('now_playing_badge');
+    titleLine.appendChild(titleEl);
+    if (isActive) titleLine.appendChild(createNowChip('now_playing_badge'));
+    else if (i === currentIndex + 1 && currentIndex >= 0) {
+      const next = document.createElement('span');
+      next.className = 'chip is-next upnext-chip' + (isAnythingPlaying() ? '' : ' hidden');
+      next.textContent = window.i18n.t('up_next_chip');
+      titleLine.appendChild(next);
     }
+    meta.appendChild(titleLine);
+    meta.appendChild(createSongSubLine(item));
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.title = window.i18n.t('remove_from_queue_title');
-    removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      removeFromPlaylist(i);
-    });
-
-    const reorderBtns = document.createElement('div');
-    reorderBtns.className = 'reorder-btns';
-    const upBtn = document.createElement('button');
-    upBtn.className = 'reorder-btn';
-    upBtn.title = window.i18n.t('move_up_title');
-    upBtn.disabled = i === 0;
-    upBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5"/></svg>';
-    upBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      moveTrack(i, -1);
-    });
-    const downBtn = document.createElement('button');
-    downBtn.className = 'reorder-btn';
-    downBtn.title = window.i18n.t('move_down_title');
-    downBtn.disabled = i === playlist.length - 1;
-    downBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>';
-    downBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      moveTrack(i, 1);
-    });
-    reorderBtns.appendChild(upBtn);
-    reorderBtns.appendChild(downBtn);
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.appendChild(rowActionBtn(ICON_UP, window.i18n.t('move_up_title'), i === 0, () => moveTrack(i, -1)));
+    actions.appendChild(rowActionBtn(ICON_DOWN, window.i18n.t('move_down_title'), i === playlist.length - 1, () => moveTrack(i, 1)));
+    actions.appendChild(rowActionBtn(ICON_X, window.i18n.t('remove_from_queue_title'), false, () => removeFromPlaylist(i)));
 
     row.appendChild(num);
     row.appendChild(meta);
-    if (nowPlayingBadge) row.appendChild(nowPlayingBadge);
-    row.appendChild(reorderBtns);
-    row.appendChild(removeBtn);
+    row.appendChild(actions);
     row.addEventListener('click', () => openTrackModal(i));
 
     // ---- Drag & drop pra reordenar ----
@@ -628,14 +665,6 @@ function renderPlaylist() {
 
   updateNextBtnState();
   persistPlaylist();
-}
-
-/** Selo "ONLINE · SEM TOM" das músicas do YouTube (fila, cantores). */
-function createOnlineBadge() {
-  const badge = document.createElement('span');
-  badge.className = 'online-badge';
-  badge.textContent = window.i18n.t('online_badge');
-  return badge;
 }
 
 function moveTrack(index, direction) {
@@ -843,7 +872,7 @@ async function selectTrack(index, { autoplay, initialSemitones } = { autoplay: f
     updatePitchButtonTitles();
     playBtn.disabled = false;
     stopBtn.disabled = false;
-    settingsBtn.classList.remove('hidden');
+    restartBtn.disabled = false;
 
     if (autoplay) await playLoadedTrack();
     refreshIdleState();
@@ -919,6 +948,27 @@ stopBtn.addEventListener('click', () => {
   handlingTrackEnded = false;
   resetToEmptyState();
 });
+
+/** "Voltar ao início": a música carregada volta pro começo e toca (quem
+ * ia cantar se atrasou, a introdução passou, etc.). */
+async function restartCurrentSong() {
+  if (mode === null || isTrackLoading) return;
+  if (countdownTimerId || singerCountdownActive) cancelCountdown();
+  applauseTriggered = false;
+  silenceAccumMs = 0;
+  if (mode === 'cdg') {
+    engine.seekTo(0);
+    cdgPlayer.update(0);
+  } else if (mode === 'video') {
+    mediaEl().currentTime = 0;
+  } else if (mode === 'youtube') {
+    yt().seekTo(0);
+  }
+  seekBar.value = '0';
+  timeCurrent.textContent = formatTime(0);
+  await playLoadedTrack();
+}
+restartBtn.addEventListener('click', restartCurrentSong);
 
 // ---------- Modal de informações da música (abre ao clicar na fila) ----------
 
@@ -1035,8 +1085,7 @@ function resetToEmptyState() {
 
   playBtn.disabled = true;
   stopBtn.disabled = true;
-  settingsBtn.classList.remove('active');
-  settingsModalBackdrop.classList.add('hidden');
+  restartBtn.disabled = true;
   updatePlayIcon();
   renderPlaylist();
   refreshIdleState();
@@ -1046,7 +1095,6 @@ function resetToEmptyState() {
 
 // ---------- Carregar arquivos (botão / drop / input) ----------
 
-addMusicBtn.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => {
   addFilesToQueue(fileInput.files);
@@ -1056,9 +1104,8 @@ fileInput.addEventListener('change', () => {
 // IMPORTANTE: o navegador, por padrão, abre/toca qualquer arquivo solto
 // sobre a página (fora de um drop-target específico) em vez de deixar o
 // nosso JS tratar o evento. Por isso precisamos interceptar 'dragover' e
-// 'drop' em TODA a janela (não só na caixa pontilhada), chamando
-// preventDefault() sempre — mesmo quando o arquivo é solto fora da caixa —
-// para o navegador nunca assumir o controle.
+// 'drop' em TODA a janela, chamando preventDefault() sempre — os arquivos
+// podem ser soltos em qualquer lugar da tela.
 
 ['dragenter', 'dragover', 'drop'].forEach(evt => {
   window.addEventListener(evt, (e) => {
@@ -1067,20 +1114,29 @@ fileInput.addEventListener('change', () => {
   }, false);
 });
 
-['dragenter', 'dragover'].forEach(evt =>
-  window.addEventListener(evt, () => {
-    dropZone.classList.add('drag-active');
-  })
-);
-['dragleave', 'drop'].forEach(evt =>
-  window.addEventListener(evt, (e) => {
-    if (evt === 'drop' || e.relatedTarget === null) {
-      dropZone.classList.remove('drag-active');
-    }
-  })
-);
-
+// Aviso "Solte para adicionar" cobrindo a tela — só pra arquivos vindos de
+// fora (arrastar uma linha da fila pra reordenar não mostra nada).
+const dropOverlay = el('drop-overlay');
+let dragDepth = 0;
+const isFileDrag = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+function setDropHighlight(on) {
+  dropOverlay.classList.toggle('hidden', !on);
+  dropZone.classList.toggle('drag-active', on);
+  sidebarDropzone.classList.toggle('drag-active', on);
+}
+window.addEventListener('dragenter', (e) => {
+  if (!isFileDrag(e)) return;
+  dragDepth++;
+  setDropHighlight(true);
+});
+window.addEventListener('dragleave', (e) => {
+  if (!isFileDrag(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0 || e.relatedTarget === null) { dragDepth = 0; setDropHighlight(false); }
+});
 window.addEventListener('drop', (e) => {
+  dragDepth = 0;
+  setDropHighlight(false);
   const files = e.dataTransfer && e.dataTransfer.files;
   if (files && files.length) addFilesToQueue(files);
 });
@@ -1094,6 +1150,8 @@ function updatePlayIcon() {
 
   const badge = playlistEl.querySelector('.now-playing-badge');
   if (badge) badge.classList.toggle('hidden', !playing);
+  const nextChip = playlistEl.querySelector('.upnext-chip');
+  if (nextChip) nextChip.classList.toggle('hidden', !playing);
   if (singerModeEnabled) updateSingerNowPlayingBadge();
   updateNextBtnState();
 }
@@ -1288,17 +1346,10 @@ function syncToggleIndicator(indicatorEl, checkboxEl) {
   });
 }
 
-/** Pro indicador de imagem de fundo, que não tem checkbox próprio (o
- * "ativado" dele é simplesmente "existe uma imagem definida agora"). */
-function updateIdleImageToggleIndicatorDisplay(hasImage) {
-  idleImageToggleIndicator.classList.toggle('on', hasImage);
-  const textEl = idleImageToggleIndicator.querySelector('.toggle-state-text');
-  if (textEl) textEl.textContent = hasImage ? window.i18n.t('enabled') : window.i18n.t('disabled');
-}
-
 syncToggleIndicator(autoplayToggleIndicator, autoplayToggle);
 syncToggleIndicator(ambientToggleIndicator, ambientToggle);
 syncToggleIndicator(customColorsToggleIndicator, customColorsToggle);
+syncToggleIndicator(el('applause-toggle-indicator'), applauseToggle);
 
 // ---------- Modo leve (desempenho) ----------
 // Ligado pelo usuário, vale pras duas telas. Com a segunda tela aberta, a
@@ -1568,9 +1619,10 @@ const ambientChooseFolderBtn = el('ambient-choose-folder-btn');
 
 function renderAmbientSource() {
   const custom = ambientPlaylist.getSource() === 'custom';
-  ambientSourceBuiltinBtn.classList.toggle('active', !custom);
-  ambientSourceCustomBtn.classList.toggle('active', custom);
+  ambientSourceBuiltinBtn.classList.toggle('on', !custom);
+  ambientSourceCustomBtn.classList.toggle('on', custom);
   ambientCustomRow.classList.toggle('hidden', !custom);
+  ambientChooseFolderBtn.classList.toggle('hidden', !custom);
   const folder = ambientPlaylist.getFolder();
   let info;
   let warn = false;
@@ -1755,7 +1807,6 @@ function applyIdleImage() {
     idleCustomImage.classList.add('hidden');
     idleCustomImage.style.backgroundImage = '';
   }
-  updateIdleImageToggleIndicatorDisplay(!!customIdleImageDataUrl);
 }
 
 idleImageUploadBtn.addEventListener('click', () => idleImageInput.click());
@@ -1867,22 +1918,52 @@ for (const media of [videoEl, audioEl]) {
   });
 }
 
-// ---------- Painel de configurações (esquema de cores) ----------
+// ---------- Configurações ----------
 
-settingsBtn.addEventListener('click', () => {
+const settingsNav = el('settings-nav');
+const settingsTitle = el('settings-title');
+
+function openSettings(section) {
+  if (section) showSettingsSection(section);
   settingsModalBackdrop.classList.remove('hidden');
-  settingsBtn.classList.add('active');
-});
-settingsCloseBtn.addEventListener('click', () => {
+}
+function closeSettings() {
   settingsModalBackdrop.classList.add('hidden');
-  settingsBtn.classList.remove('active');
-});
+}
+function showSettingsSection(section) {
+  settingsNav.querySelectorAll('button[data-sec]').forEach(b => b.classList.toggle('on', b.dataset.sec === section));
+  settingsModalBackdrop.querySelectorAll('.s-sec').forEach(sec => sec.classList.toggle('on', sec.dataset.sec === section));
+  const btn = settingsNav.querySelector(`button[data-sec="${section}"] span`);
+  settingsTitle.dataset.i18n = btn ? btn.dataset.i18n : '';
+  settingsTitle.textContent = btn ? btn.textContent : '';
+}
+settingsNav.querySelectorAll('button[data-sec]').forEach(b => b.addEventListener('click', () => showSettingsSection(b.dataset.sec)));
+settingsBtn.addEventListener('click', () => openSettings());
+settingsCloseBtn.addEventListener('click', closeSettings);
 settingsModalBackdrop.addEventListener('click', (e) => {
-  if (e.target === settingsModalBackdrop) {
-    settingsModalBackdrop.classList.add('hidden');
-    settingsBtn.classList.remove('active');
-  }
+  if (e.target === settingsModalBackdrop) closeSettings();
 });
+
+// Tema escuro (padrão) / claro. O <head> já aplica o tema salvo antes de
+// desenhar a página; aqui só a troca.
+const THEME_KEY = 'playkaraoke-theme';
+const themeSeg = el('theme-seg');
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem(THEME_KEY, theme); } catch (err) {}
+  themeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.theme === theme));
+  updateHelpLink();
+}
+themeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.theme)));
+
+// Ajuda / manual: abre no mesmo idioma e tema do app.
+const helpLink = el('help-link');
+function updateHelpLink() {
+  helpLink.href = `help.html?lang=${window.i18n.getCurrentLang()}&theme=${currentTheme()}`;
+}
 
 function getActiveColors() {
   if (!customColorsToggle.checked) return null;
@@ -2106,33 +2187,26 @@ function toggleSecondScreen() {
 
 quickSecondScreenBtn.addEventListener('click', toggleSecondScreen);
 
-// ---------- Abas da sidebar (Fila / Biblioteca) ----------
-
-function switchSidebarTab(tab) {
-  const isFila = tab === 'fila';
-  tabFilaBtn.classList.toggle('active', isFila);
-  tabBibliotecaBtn.classList.toggle('active', !isFila);
-  tabFilaPanel.classList.toggle('hidden', !isFila);
-  tabBibliotecaPanel.classList.toggle('hidden', isFila);
-}
-tabFilaBtn.addEventListener('click', () => switchSidebarTab('fila'));
-tabBibliotecaBtn.addEventListener('click', () => switchSidebarTab('biblioteca'));
-
-// ---------- Dropzone dedicado (aba Fila) ----------
+// ---------- Faixa "Arraste aqui arquivos de Karaoke" (acima da lista) ----------
+// (soltar é tratado pela janela inteira, acima; aqui só o clique)
 
 sidebarDropzone.addEventListener('click', () => fileInput.click());
-sidebarDropzone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  sidebarDropzone.classList.add('drag-active');
+sidebarDropzone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
 });
-sidebarDropzone.addEventListener('dragleave', () => {
-  sidebarDropzone.classList.remove('drag-active');
+dropZone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
 });
-sidebarDropzone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  sidebarDropzone.classList.remove('drag-active');
-  const files = e.dataTransfer && e.dataTransfer.files;
-  if (files && files.length) addFilesToQueue(files);
+
+// ---------- Limpar fila ----------
+
+clearQueueBtn.addEventListener('click', async () => {
+  if (!playlist.length) return;
+  if (!await showConfirmModal(window.i18n.t('confirm_clear_queue'))) return;
+  selectTrackGeneration++;
+  playlist = [];
+  currentIndex = -1;
+  resetToEmptyState();
 });
 
 // ---------- Biblioteca (indexação de pastas locais) ----------
@@ -2140,8 +2214,8 @@ sidebarDropzone.addEventListener('drop', (e) => {
 const library = window.createLibrary({
   onFoldersChange: renderLibraryFolders,
   onIndexChange: () => {
-    // Se tiver uma busca ativa, atualiza os resultados com o índice novo.
-    if (librarySearchInput.value.trim()) renderLibraryResults();
+    // Se tiver uma busca aberta, atualiza os resultados com o índice novo.
+    if (searchSource === 'device' && searchInput.value.trim() && !searchResults.classList.contains('hidden')) renderDeviceResults();
   },
   onError: (msg) => showError(msg),
 });
@@ -2151,21 +2225,31 @@ if (!library.isSupported()) {
   connectFolderBtn.disabled = true;
 }
 
+const ICON_FOLDER = '<svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>';
+const ICON_RESCAN = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>';
+
 function renderLibraryFolders() {
   const folders = library.getConnectedFolders();
   libraryFoldersList.innerHTML = '';
+
+  if (!folders.length) {
+    const hint = document.createElement('p');
+    hint.className = 'empty-small';
+    hint.textContent = window.i18n.t('library_no_folders');
+    libraryFoldersList.appendChild(hint);
+    return;
+  }
 
   folders.forEach((folder) => {
     const row = document.createElement('div');
     row.className = 'folder-row';
 
-    const info = document.createElement('div');
-    info.className = 'folder-info';
     const icon = document.createElement('span');
     icon.className = 'folder-icon';
-    icon.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-19.5 0v6a2.25 2.25 0 0 0 2.25 2.25h15a2.25 2.25 0 0 0 2.25-2.25v-6m-19.5 0a2.25 2.25 0 0 1 2.25-2.25h15a2.25 2.25 0 0 1 2.25 2.25M4.5 9.75V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M19.5 9.75V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08M15 8.25l-1.5-1.5m0 0-1.5 1.5m1.5-1.5v9"/></svg>';
+    icon.innerHTML = ICON_FOLDER;
 
     const textWrap = document.createElement('div');
+    textWrap.style.minWidth = '0';
     const nameEl = document.createElement('div');
     nameEl.className = 'folder-name';
     nameEl.textContent = folder.name;
@@ -2186,13 +2270,13 @@ function renderLibraryFolders() {
     textWrap.appendChild(nameEl);
     textWrap.appendChild(countEl);
 
-    info.appendChild(icon);
-    info.appendChild(textWrap);
-    row.appendChild(info);
+    row.appendChild(icon);
+    row.appendChild(textWrap);
 
     if (folder.needsPermission) {
       const reconnectBtn = document.createElement('button');
-      reconnectBtn.className = 'folder-reconnect-btn';
+      reconnectBtn.type = 'button';
+      reconnectBtn.className = 'btn sm primary folder-reconnect-btn';
       reconnectBtn.textContent = window.i18n.t('library_reconnect_btn');
       reconnectBtn.addEventListener('click', () => library.reconnectFolder(folder.id));
       row.appendChild(reconnectBtn);
@@ -2200,91 +2284,35 @@ function renderLibraryFolders() {
       // O índice fica salvo entre sessões (não reescaneia o HD toda vez que
       // o app abre) — este botão atualiza com arquivos novos/removidos.
       const rescanBtn = document.createElement('button');
-      rescanBtn.className = 'folder-rescan-btn';
+      rescanBtn.type = 'button';
+      rescanBtn.className = 'icon-btn folder-rescan-btn';
       rescanBtn.title = window.i18n.t('library_rescan_title');
-      rescanBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>';
+      rescanBtn.innerHTML = ICON_RESCAN;
       rescanBtn.addEventListener('click', () => library.rescanFolder(folder.id));
       row.appendChild(rescanBtn);
     } else {
       // Escaneamento de HD grande pode demorar: dá pra cancelar (o índice
       // anterior continua valendo).
       const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'folder-reconnect-btn';
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn sm folder-cancel-btn';
       cancelBtn.textContent = window.i18n.t('library_cancel_scan');
       cancelBtn.addEventListener('click', () => library.cancelScan(folder.id));
       row.appendChild(cancelBtn);
     }
 
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'folder-remove-btn';
+    removeBtn.type = 'button';
+    removeBtn.className = 'icon-btn folder-remove-btn';
     removeBtn.title = window.i18n.t('remove_folder_title');
-    removeBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+    removeBtn.innerHTML = ICON_X;
     removeBtn.addEventListener('click', () => library.removeFolder(folder.id));
     row.appendChild(removeBtn);
 
     libraryFoldersList.appendChild(row);
   });
 }
-
-let librarySearchGeneration = 0;
-
-async function renderLibraryResults() {
-  const query = librarySearchInput.value;
-  librarySearchClearBtn.classList.toggle('hidden', !query.trim());
-  const gen = ++librarySearchGeneration;
-
-  if (!query.trim()) { libraryResults.innerHTML = ''; return; }
-
-  // A busca roda na thread da Biblioteca; resposta de uma tecla antiga é descartada.
-  const results = await library.search(query);
-  if (gen !== librarySearchGeneration) return;
-  libraryResults.innerHTML = '';
-
-  const label = document.createElement('span');
-  label.className = 'library-result-count';
-  label.textContent = window.i18n.t(results.length === 1 ? 'library_results_count_one' : 'library_results_count', { count: results.length });
-  libraryResults.appendChild(label);
-
-  if (results.length === 0) {
-    const hint = document.createElement('p');
-    hint.className = 'library-empty-hint';
-    hint.textContent = window.i18n.t('library_no_results');
-    libraryResults.appendChild(hint);
-    return;
-  }
-
-  results.forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'search-result';
-
-    const meta = document.createElement('div');
-    meta.className = 'sr-meta';
-    const titleEl = document.createElement('div');
-    titleEl.className = 'sr-title';
-    titleEl.textContent = item.title;
-    const subEl = document.createElement('div');
-    subEl.className = 'sr-sub';
-    const subText = document.createElement('span');
-    subText.textContent = [item.artist, item.code].filter(Boolean).join(' · ') || item.format;
-    const tag = document.createElement('span');
-    tag.className = 'source-tag';
-    tag.textContent = item.folderName;
-    subEl.appendChild(subText);
-    subEl.appendChild(tag);
-    meta.appendChild(titleEl);
-    meta.appendChild(subEl);
-
-    const addBtn = document.createElement('div');
-    addBtn.className = 'sr-add';
-    addBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
-
-    row.appendChild(meta);
-    row.appendChild(addBtn);
-    row.addEventListener('click', () => addLibraryItemToQueue(item));
-
-    libraryResults.appendChild(row);
-  });
-}
+renderLibraryFolders();
 
 /** Referência salva de um item da Biblioteca (sobrevive ao F5). */
 function libraryItemSource(item) {
@@ -2318,133 +2346,197 @@ async function addLibraryItemToQueue(item) {
       newItem.librarySource = libraryItemSource(item);
       persistPlaylist();
     }
-    switchSidebarTab('fila');
   } catch (err) {
     console.error('[App] Erro ao ler arquivo da biblioteca:', err);
     showError(window.i18n.t('err_library_read_fail'));
   }
 }
 
-librarySearchInput.addEventListener('input', () => {
-  if (librarySource === 'device') renderLibraryResults();
-  else librarySearchClearBtn.classList.toggle('hidden', !librarySearchInput.value.trim());
-});
-librarySearchInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && librarySource === 'online') runOnlineSearch();
-});
-librarySearchClearBtn.addEventListener('click', () => {
-  librarySearchInput.value = '';
-  if (librarySource === 'device') renderLibraryResults();
-  else { librarySearchClearBtn.classList.add('hidden'); onlineResults.innerHTML = ''; }
-  librarySearchInput.focus();
-});
+connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
 
-// ---------- Busca Online (YouTube, via Cloudflare Worker) ----------
+// ---------- Busca (topo): Dispositivos ou YouTube ----------
 //
-// Diferente da busca em Dispositivos (instantânea, em memória), cada busca
-// Online gasta cota da API do YouTube — por isso só roda com Enter ou no
-// botão da lupa, nunca a cada tecla.
+// Dispositivos: instantânea, a cada tecla (índice em memória, na worker).
+// YouTube: cada busca gasta cota da API — só roda com Enter, nunca a cada
+// tecla. Os resultados abrem numa lista suspensa embaixo da busca; o "+"
+// adiciona na fila (ou pergunta o cantor, no Modo Show).
 
 const onlineSearch = window.createOnlineSearch();
-const librarySourceDeviceBtn = el('library-source-device-btn');
-const librarySourceOnlineBtn = el('library-source-online-btn');
-const onlineSearchBtn = el('online-search-btn');
-const onlineContent = el('online-content');
-const onlineResults = el('online-results');
-const libraryContent = el('library-content');
 
-let librarySource = 'device'; // 'device' | 'online'
+let searchSource = 'device'; // 'device' | 'online'
+let deviceSearchGeneration = 0;
 let onlineSearchGeneration = 0;
-// Termo digitado em cada fonte — trocar de aba não perde o que foi digitado.
-const librarySourceQueries = { device: '', online: '' };
+// Termo digitado em cada fonte — trocar de fonte não perde o que foi digitado.
+const searchQueries = { device: '', online: '' };
 
-function setLibrarySource(source) {
-  if (source === librarySource) return;
-  librarySourceQueries[librarySource] = librarySearchInput.value;
-  librarySource = source;
-  const online = source === 'online';
-  librarySourceDeviceBtn.classList.toggle('active', !online);
-  librarySourceOnlineBtn.classList.toggle('active', online);
-  onlineSearchBtn.classList.toggle('hidden', !online);
-  onlineContent.classList.toggle('hidden', !online);
-  libraryContent.classList.toggle('hidden', online);
-  libraryUnsupported.classList.toggle('hidden', online || library.isSupported());
-  librarySearchInput.placeholder = window.i18n.t(online ? 'online_placeholder' : 'library_search_placeholder');
-  librarySearchInput.value = librarySourceQueries[source];
-  librarySearchClearBtn.classList.toggle('hidden', !librarySearchInput.value.trim());
-  if (!online) renderLibraryResults();
-  librarySearchInput.focus();
-}
-// Enquanto o Worker não estiver configurado (ONLINE_SEARCH_ENDPOINT vazio),
-// a opção Online nem aparece — ninguém vê uma função que não funciona.
-if (!onlineSearch.isConfigured()) el('library-source-toggle').classList.add('hidden');
+function openSearchResults() { searchResults.classList.remove('hidden'); }
+function closeSearchResults() { searchResults.classList.add('hidden'); }
 
-librarySourceDeviceBtn.addEventListener('click', () => setLibrarySource('device'));
-librarySourceOnlineBtn.addEventListener('click', () => setLibrarySource('online'));
-onlineSearchBtn.addEventListener('click', runOnlineSearch);
-
-function showOnlineMessage(key, warn) {
-  onlineResults.innerHTML = '';
+function showSearchMessage(key, warn, vars) {
+  searchResults.innerHTML = '';
   const p = document.createElement('p');
-  p.className = 'online-message' + (warn ? ' warn' : '');
-  p.textContent = window.i18n.t(key);
-  onlineResults.appendChild(p);
+  p.className = 'res-msg' + (warn ? ' warn' : '');
+  p.textContent = window.i18n.t(key, vars);
+  searchResults.appendChild(p);
+  openSearchResults();
+}
+
+function searchResultLabel(text) {
+  const label = document.createElement('div');
+  label.className = 'res-label';
+  label.textContent = text;
+  return label;
+}
+
+/** Linha de resultado com o "+" colorido. */
+function searchResultRow({ title, sub, chip, thumb, onPick, addTitle }) {
+  const row = document.createElement('div');
+  row.className = 'res';
+  if (thumb !== undefined) {
+    const img = document.createElement('img');
+    img.className = 'thumb';
+    img.loading = 'lazy';
+    img.alt = '';
+    if (thumb) img.src = thumb;
+    row.appendChild(img);
+  }
+  const meta = document.createElement('div');
+  meta.className = 'rmeta';
+  const t = document.createElement('div');
+  t.className = 't';
+  t.textContent = title;
+  const s = document.createElement('div');
+  s.className = 's';
+  const subText = document.createElement('span');
+  subText.textContent = sub;
+  s.appendChild(subText);
+  if (chip) s.appendChild(chip);
+  meta.appendChild(t);
+  meta.appendChild(s);
+  const add = document.createElement('span');
+  add.className = 'add';
+  add.textContent = '+';
+  if (addTitle) add.title = addTitle;
+  row.appendChild(meta);
+  row.appendChild(add);
+  row.addEventListener('click', onPick);
+  return row;
+}
+
+async function renderDeviceResults() {
+  const query = searchInput.value;
+  const gen = ++deviceSearchGeneration;
+  if (!query.trim()) { searchResults.innerHTML = ''; closeSearchResults(); return; }
+  if (!library.isSupported()) { showSearchMessage('library_unsupported', true); return; }
+  if (!library.getConnectedFolders().length) { showSearchMessage('library_no_folders_search'); return; }
+
+  // A busca roda na thread da Biblioteca; resposta de uma tecla antiga é descartada.
+  const results = await library.search(query);
+  if (gen !== deviceSearchGeneration || searchSource !== 'device') return;
+  searchResults.innerHTML = '';
+  if (results.length === 0) { showSearchMessage('library_no_results'); return; }
+
+  searchResults.appendChild(searchResultLabel(window.i18n.t(results.length === 1 ? 'library_results_count_one' : 'library_results_count', { count: results.length })));
+  results.forEach((item) => {
+    searchResults.appendChild(searchResultRow({
+      title: item.title,
+      sub: [item.artist, item.code, item.folderName].filter(Boolean).join(' · '),
+      chip: createFormatChip(item),
+      addTitle: window.i18n.t('online_add_title'),
+      onPick: () => addLibraryItemToQueue(item),
+    }));
+  });
+  openSearchResults();
 }
 
 async function runOnlineSearch() {
-  const query = librarySearchInput.value.trim();
+  const query = searchInput.value.trim();
   if (!query) return;
   const myGeneration = ++onlineSearchGeneration;
-  onlineSearchBtn.disabled = true;
-  showOnlineMessage('online_searching');
+  showSearchMessage('online_searching');
   try {
     const results = await onlineSearch.search(query);
-    if (myGeneration !== onlineSearchGeneration) return;
+    if (myGeneration !== onlineSearchGeneration || searchSource !== 'online') return;
     renderOnlineResults(results);
   } catch (err) {
-    if (myGeneration !== onlineSearchGeneration) return;
+    if (myGeneration !== onlineSearchGeneration || searchSource !== 'online') return;
     const code = err && err.code ? err.code : 'server';
-    showOnlineMessage('online_err_' + code, true);
-  } finally {
-    if (myGeneration === onlineSearchGeneration) onlineSearchBtn.disabled = false;
+    showSearchMessage('online_err_' + code, true);
   }
 }
 
 function renderOnlineResults(results) {
-  onlineResults.innerHTML = '';
-  if (!results.length) {
-    showOnlineMessage('online_no_results');
-    return;
-  }
+  searchResults.innerHTML = '';
+  if (!results.length) { showSearchMessage('online_no_results'); return; }
+  searchResults.appendChild(searchResultLabel(window.i18n.t('online_results_label')));
   results.forEach((r) => {
-    const card = document.createElement('div');
-    card.className = 'online-card';
-    const img = document.createElement('img');
-    img.loading = 'lazy';
-    img.alt = '';
-    if (r.thumbnail) img.src = r.thumbnail;
-    const info = document.createElement('div');
-    info.className = 'oc-info';
-    const title = document.createElement('div');
-    title.className = 'oc-title';
-    title.textContent = r.title;
-    const channel = document.createElement('div');
-    channel.className = 'oc-channel';
-    channel.textContent = r.channel;
-    info.appendChild(title);
-    info.appendChild(channel);
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'oc-add';
-    addBtn.title = window.i18n.t('online_add_title');
-    addBtn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
-    card.appendChild(img);
-    card.appendChild(info);
-    card.appendChild(addBtn);
-    card.addEventListener('click', () => addOnlineResultToQueue(r));
-    onlineResults.appendChild(card);
+    const chip = document.createElement('span');
+    chip.className = 'fmt';
+    chip.textContent = window.i18n.t('online_badge');
+    searchResults.appendChild(searchResultRow({
+      title: r.title, sub: r.channel, chip, thumb: r.thumbnail || '',
+      addTitle: window.i18n.t('online_add_title'),
+      onPick: () => addOnlineResultToQueue(r),
+    }));
   });
+  openSearchResults();
 }
+
+function updateSearchPlaceholder() {
+  searchInput.placeholder = window.i18n.t(searchSource === 'online' ? 'online_placeholder' : 'search_placeholder');
+}
+
+function setSearchSource(source) {
+  if (source === searchSource) return;
+  searchQueries[searchSource] = searchInput.value;
+  searchSource = source;
+  const online = source === 'online';
+  searchSourceDeviceBtn.classList.toggle('on', !online);
+  searchSourceOnlineBtn.classList.toggle('on', online);
+  updateSearchPlaceholder();
+  searchInput.value = searchQueries[source];
+  searchClearBtn.classList.toggle('hidden', !searchInput.value.trim());
+  searchResults.innerHTML = '';
+  closeSearchResults();
+  onlineSearchGeneration++;
+  if (!online) renderDeviceResults();
+  searchInput.focus();
+}
+// Enquanto o Worker não estiver configurado (ONLINE_SEARCH_ENDPOINT vazio),
+// a opção YouTube nem aparece — ninguém vê uma função que não funciona.
+if (!onlineSearch.isConfigured()) el('search-source-toggle').classList.add('hidden');
+
+searchSourceDeviceBtn.addEventListener('click', () => setSearchSource('device'));
+searchSourceOnlineBtn.addEventListener('click', () => setSearchSource('online'));
+
+searchInput.addEventListener('input', () => {
+  searchClearBtn.classList.toggle('hidden', !searchInput.value.trim());
+  if (searchSource === 'device') renderDeviceResults();
+  else if (!searchInput.value.trim()) { searchResults.innerHTML = ''; closeSearchResults(); }
+});
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && searchSource === 'online') runOnlineSearch();
+  else if (e.key === 'Escape') { closeSearchResults(); searchInput.blur(); }
+});
+// Clicar de novo na busca reabre os últimos resultados.
+searchInput.addEventListener('focus', () => {
+  if (searchInput.value.trim() && searchResults.childElementCount) openSearchResults();
+});
+searchClearBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  searchClearBtn.classList.add('hidden');
+  searchResults.innerHTML = '';
+  closeSearchResults();
+  onlineSearchGeneration++;
+  deviceSearchGeneration++;
+  searchInput.focus();
+});
+// Clique fora da busca fecha a lista (um modal aberto por cima, como o
+// "Pra quem é essa música?", não conta como "fora").
+document.addEventListener('mousedown', (e) => {
+  if (searchBox.contains(e.target) || e.target.closest('.modal-back')) return;
+  closeSearchResults();
+});
 
 /** Transforma um resultado Online num item de fila. Tenta separar
  * "Artista - Música" do título do vídeo; o canal fica guardado à parte. */
@@ -2477,17 +2569,14 @@ async function addOnlineResultToQueue(r) {
       showError(err.message);
       return;
     }
-    switchSidebarTab('fila');
     if (mode === null) loadCurrentSingerTurn(false);
     return;
   }
   const wasEmpty = playlist.length === 0;
   playlist.push(item);
   renderPlaylist();
-  switchSidebarTab('fila');
   if (wasEmpty) await selectTrack(playlist.length - 1, { autoplay: false });
 }
-connectFolderBtn.addEventListener('click', () => library.connectNewFolder());
 
 // ---------- Rodada de cantores ----------
 
@@ -2495,7 +2584,10 @@ let singerModeEnabled = false;
 const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
 
 const singerManager = window.createSingerManager({
-  onChange: () => { renderSingerRoundView(); persistSingers(); scheduleShowTurnSync(); },
+  onChange: () => {
+    renderSingerRoundView(); persistSingers(); scheduleShowTurnSync();
+    if (singerModeEnabled && playlistRestoreDone) updateIdleOverlay(); // cartão "A seguir" acompanha a rodada
+  },
 });
 
 /**
@@ -2526,17 +2618,21 @@ function syncLoadedShowTurn() {
 }
 
 function applySingerModeVisibility() {
-  el('playlist').classList.toggle('hidden', singerModeEnabled);
+  playlistEl.classList.toggle('hidden', singerModeEnabled);
   singerRoundView.classList.toggle('hidden', !singerModeEnabled);
-  el('sidebar-manage-singers-row').classList.toggle('hidden', !singerModeEnabled);
+  clearQueueBtn.classList.toggle('hidden', singerModeEnabled);
+  addSingerBtn.classList.toggle('hidden', !singerModeEnabled);
+  manageSingersSidebarBtn.classList.toggle('hidden', !singerModeEnabled);
+  if (singerModeEnabled) renderSingerRoundView(); else renderPlaylist();
 }
 
 function updateShowModeBtnDisplay() {
   showModeBtn.classList.toggle('active', singerModeEnabled);
   showModeBtnLabel.textContent = singerModeEnabled ? window.i18n.t('end_show') : window.i18n.t('start_show_mode');
-  const indicatorText = singerModeToggleIndicator.querySelector('.toggle-state-text');
-  singerModeToggleIndicator.classList.toggle('on', singerModeEnabled);
-  if (indicatorText) indicatorText.textContent = singerModeEnabled ? window.i18n.t('enabled') : window.i18n.t('disabled');
+  el('show-mode-icon-start').classList.toggle('hidden', singerModeEnabled);
+  el('show-mode-icon-end').classList.toggle('hidden', !singerModeEnabled);
+  // No Modo Show o "Próxima" encerra a apresentação (tooltip muda junto).
+  updateNextBtnState();
 }
 
 const SHOW_WELCOME_HIDE_KEY = 'playkaraoke-hide-show-welcome';
@@ -2594,6 +2690,7 @@ function getSingerPosition(singerId) {
 function renderSingerRoundView() {
   const allSingers = singerManager.getAllSingers();
   singerListFull.innerHTML = '';
+  if (singerModeEnabled) setListTitle(window.i18n.t('singer_rotation_label'), allSingers.length);
 
   if (allSingers.length === 0) {
     currentSingerEmpty.classList.remove('hidden');
@@ -2602,73 +2699,59 @@ function renderSingerRoundView() {
   currentSingerEmpty.classList.add('hidden');
 
   const currentSinger = singerManager.getCurrentSinger();
+  const upNext = singerManager.getUpcomingSingers(1)[0] || null;
 
   allSingers.forEach((s, i) => {
     const isActive = currentSinger && s.id === currentSinger.id;
     const row = document.createElement('div');
-    row.className = 'singer-playlist-item' + (isActive ? ' active' : '');
+    row.className = 'row singer-playlist-item' + (isActive ? ' active' : '');
     row.draggable = true;
     row.dataset.singerId = s.id;
 
-    let tri = null;
-    if (isActive) {
-      tri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      tri.setAttribute('viewBox', '0 0 24 24');
-      tri.setAttribute('fill', 'currentColor');
-      tri.setAttribute('class', 'play-tri');
-      tri.innerHTML = '<path d="M8 5v14l11-7z"/>';
-    }
-
     const posBadge = document.createElement('span');
-    posBadge.className = 'pos-num-badge';
+    posBadge.className = 'pos';
     posBadge.textContent = String(i + 1);
 
     const meta = document.createElement('div');
-    meta.className = 'singer-meta';
+    meta.style.minWidth = '0';
     const nameLine = document.createElement('div');
-    nameLine.className = 'singer-name-line';
+    nameLine.className = 'l1';
     const nameText = document.createElement('span');
+    nameText.className = 'nm';
     nameText.textContent = s.name;
     const songCountBadge = document.createElement('span');
-    songCountBadge.className = 'singer-song-count-badge';
+    songCountBadge.className = 'count' + (s.songs.length === 0 ? ' empty' : '');
     songCountBadge.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER}`;
-    if (s.songs.length === 0) songCountBadge.classList.add('empty');
     nameLine.appendChild(nameText);
     nameLine.appendChild(songCountBadge);
+    if (isActive) {
+      // CANTANDO enquanto toca; antes de começar, é quem vem a seguir.
+      const chip = createNowChip('singing_chip');
+      chip.dataset.idleText = window.i18n.t('up_next_chip');
+      chip.dataset.playText = window.i18n.t('singing_chip');
+      nameLine.appendChild(chip);
+      syncSingerChip(chip);
+    } else if (upNext && s.id === upNext.id && s.id !== (currentSinger && currentSinger.id)) {
+      const next = document.createElement('span');
+      next.className = 'chip is-next upnext-chip' + (isAnythingPlaying() ? '' : ' hidden');
+      next.textContent = window.i18n.t('up_next_chip');
+      nameLine.appendChild(next);
+    }
     meta.appendChild(nameLine);
 
     if (s.songs.length > 0) {
-      const song = s.songs[0];
-      const songLine = document.createElement('div');
-      songLine.className = 'singer-song-line';
-      songLine.textContent = song.title;
-      const subLine = document.createElement('div');
-      subLine.className = 'singer-sub-line';
-      subLine.textContent = [song.artist, song.code].filter(Boolean).join(' · ') || (song.type === 'youtube' ? song.channel : song.format);
-      if (song.type === 'youtube') subLine.appendChild(createOnlineBadge());
-      meta.appendChild(songLine);
-      meta.appendChild(subLine);
-    } else if (isActive) {
-      const waiting = document.createElement('div');
-      waiting.className = 'singer-waiting-inline';
-      waiting.textContent = window.i18n.t('waiting_for_song');
-      meta.appendChild(waiting);
+      meta.appendChild(createSongSubLine(s.songs[0], { withTitle: true }));
     } else {
       const subLine = document.createElement('div');
-      subLine.className = 'singer-sub-line';
-      subLine.textContent = window.i18n.t('no_song_in_queue');
+      subLine.className = 'l2' + (isActive ? ' waiting' : '');
+      subLine.textContent = window.i18n.t(isActive ? 'waiting_for_song' : 'no_song_in_queue');
       meta.appendChild(subLine);
     }
 
-    if (tri) row.appendChild(tri);
     row.appendChild(posBadge);
     row.appendChild(meta);
 
     if (isActive) {
-      const badge = document.createElement('span');
-      badge.className = 'now-playing-badge' + (isAnythingPlaying() ? '' : ' hidden');
-      badge.textContent = window.i18n.t('now_playing_badge');
-      row.appendChild(badge);
       // "Trocar música": só antes de o cantor da vez começar (pedido comum
       // de quem chega na hora de cantar e quer outra música).
       const swapBtn = document.createElement('button');
@@ -2679,35 +2762,20 @@ function renderSingerRoundView() {
       swapBtn.addEventListener('click', (e) => { e.stopPropagation(); openSwapSongModal(s.id); });
       row.appendChild(swapBtn);
     } else {
-      const reorderControls = document.createElement('div');
-      reorderControls.className = 'singer-reorder-controls';
-      const upBtn = document.createElement('button');
-      upBtn.textContent = '▲';
-      upBtn.disabled = i === 0;
-      upBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i - 1); });
-      const downBtn = document.createElement('button');
-      downBtn.textContent = '▼';
-      downBtn.disabled = i === allSingers.length - 1;
-      downBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i + 2); });
-      reorderControls.appendChild(upBtn);
-      reorderControls.appendChild(downBtn);
-      row.appendChild(reorderControls);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'singer-remove-btn';
-      removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
-      removeBtn.title = window.i18n.t('remove_singer_title');
-      removeBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      actions.appendChild(rowActionBtn(ICON_UP, window.i18n.t('move_up_title'), i === 0, () => singerManager.reorderSinger(i, i - 1)));
+      actions.appendChild(rowActionBtn(ICON_DOWN, window.i18n.t('move_down_title'), i === allSingers.length - 1, () => singerManager.reorderSinger(i, i + 2)));
+      actions.appendChild(rowActionBtn(ICON_X, window.i18n.t('remove_singer_title'), false, async () => {
         if (await showConfirmModal(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
           singerManager.removeSinger(s.id);
         }
-      });
-      row.appendChild(removeBtn);
+      }));
+      row.appendChild(actions);
     }
 
-    // Duplo-clique abre o Gerenciar Cantores já no cantor certo.
-    row.addEventListener('dblclick', () => {
+    // Clique abre o Gerenciar Cantores já no cantor certo.
+    row.addEventListener('click', () => {
       selectedManageSingerId = s.id;
       openManageSingersModal();
     });
@@ -2717,10 +2785,22 @@ function renderSingerRoundView() {
       singerDragFromIndex = i;
       row.classList.add('dragging');
     });
-    row.addEventListener('dragend', () => row.classList.remove('dragging'));
-    row.addEventListener('dragover', (e) => e.preventDefault());
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      singerListFull.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (singerDragFromIndex === null || singerDragFromIndex === i) return;
+      const rect = row.getBoundingClientRect();
+      const isTopHalf = e.clientY < rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-top', isTopHalf);
+      row.classList.toggle('drag-over-bottom', !isTopHalf);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over-top', 'drag-over-bottom'));
     row.addEventListener('drop', (e) => {
       e.preventDefault();
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
       if (singerDragFromIndex === null || singerDragFromIndex === i) return;
       const rect = row.getBoundingClientRect();
       const isTopHalf = e.clientY < rect.top + rect.height / 2;
@@ -2733,12 +2813,24 @@ function renderSingerRoundView() {
   });
 }
 
+/** Selo do cantor da vez: CANTANDO enquanto toca, A SEGUIR antes de começar. */
+function syncSingerChip(chip) {
+  const playing = isAnythingPlaying();
+  chip.classList.remove('hidden');
+  chip.classList.toggle('is-now', playing);
+  chip.classList.toggle('is-next', !playing);
+  chip.textContent = playing ? chip.dataset.playText : chip.dataset.idleText;
+}
+
 /** Chamado sempre que o estado de play/pause muda, pra manter a tag
  * TOCANDO da lista de cantores sincronizada (sem precisar re-renderizar
  * a lista inteira, que perderia o estado de drag). */
 function updateSingerNowPlayingBadge() {
   const badge = singerListFull.querySelector('.now-playing-badge');
-  if (badge) badge.classList.toggle('hidden', !isAnythingPlaying());
+  if (badge) syncSingerChip(badge);
+  // Enquanto ninguém canta, "a seguir" é o próprio cantor da vez.
+  const nextChip = singerListFull.querySelector('.upnext-chip');
+  if (nextChip) nextChip.classList.toggle('hidden', !isAnythingPlaying());
   const swapBtn = singerListFull.querySelector('.singer-swap-btn');
   if (swapBtn) swapBtn.classList.toggle('hidden', performanceStarted());
 }
@@ -2786,8 +2878,8 @@ function closeSwapSongModal() {
 
 function setSwapSource(source) {
   swapSource = source;
-  swapSourceDeviceBtn.classList.toggle('active', source === 'device');
-  swapSourceOnlineBtn.classList.toggle('active', source === 'online');
+  swapSourceDeviceBtn.classList.toggle('on', source === 'device');
+  swapSourceOnlineBtn.classList.toggle('on', source === 'online');
   swapSongSearch.placeholder = window.i18n.t(source === 'online' ? 'online_placeholder' : 'swap_song_search_placeholder');
   swapSongResults.innerHTML = '';
   if (source === 'device' && !library.isSupported()) showSwapMessage('library_unsupported');
@@ -2797,28 +2889,14 @@ function setSwapSource(source) {
 function showSwapMessage(key, warn) {
   swapSongResults.innerHTML = '';
   const p = document.createElement('p');
-  p.className = 'online-message' + (warn ? ' warn' : '');
+  p.className = 'res-msg' + (warn ? ' warn' : '');
   p.textContent = window.i18n.t(key);
   swapSongResults.appendChild(p);
 }
 
-/** Linha de resultado (mesmo visual da busca da Biblioteca). */
-function swapResultRow(title, sub, onPick) {
-  const row = document.createElement('div');
-  row.className = 'search-result';
-  const meta = document.createElement('div');
-  meta.className = 'sr-meta';
-  const t = document.createElement('div');
-  t.className = 'sr-title';
-  t.textContent = title;
-  const s = document.createElement('div');
-  s.className = 'sr-sub';
-  s.textContent = sub;
-  meta.appendChild(t);
-  meta.appendChild(s);
-  row.appendChild(meta);
-  row.addEventListener('click', onPick);
-  return row;
+/** Linha de resultado (mesmo visual da busca do topo). */
+function swapResultRow(title, sub, onPick, item) {
+  return searchResultRow({ title, sub, chip: item ? createFormatChip(item) : null, onPick });
 }
 
 async function renderSwapDeviceResults() {
@@ -2842,7 +2920,7 @@ async function renderSwapDeviceResults() {
       } catch (err) {
         showError(window.i18n.t('err_library_read_fail'));
       }
-    }));
+    }, item));
   });
 }
 
@@ -2856,7 +2934,7 @@ async function runSwapOnlineSearch() {
     if (gen !== swapSearchGeneration) return;
     swapSongResults.innerHTML = '';
     if (!results.length) { showSwapMessage('online_no_results'); return; }
-    results.forEach(r => swapSongResults.appendChild(swapResultRow(r.title, r.channel, () => applySwap(buildOnlineItem(r)))));
+    results.forEach(r => swapSongResults.appendChild(swapResultRow(r.title, r.channel, () => applySwap(buildOnlineItem(r)), { type: 'youtube' })));
   } catch (err) {
     if (gen !== swapSearchGeneration) return;
     showSwapMessage('online_err_' + (err && err.code ? err.code : 'server'), true);
@@ -2921,53 +2999,131 @@ async function loadCurrentSingerTurn(autoplay) {
 // ---------- Modal "Escolher cantor" (aparece ao adicionar música em modo cantores) ----------
 
 let singerPickerResolve = null;
+let singerPickerOptions = []; // [{ el, pick }] — opções selecionáveis, na ordem da tela
+let singerPickerHi = -1;
+
+const stripAccents = (str) => String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 function openSingerPickerModal(file) {
   return new Promise((resolve) => {
     singerPickerResolve = resolve;
     singerPickerFilename.textContent = file.name;
-    singerPickerNewInput.value = '';
+    singerPickerInput.value = '';
     renderSingerPickerList();
     singerPickerBackdrop.classList.remove('hidden');
+    singerPickerInput.focus();
   });
 }
 
-function renderSingerPickerList() {
-  singerPickerDropdown.innerHTML = `<option value="" disabled selected>${window.i18n.t('singer_picker_dropdown_default')}</option>`;
-  singerManager.getAllSingers().forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${s.name} (${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER})`;
-    singerPickerDropdown.appendChild(opt);
-  });
+/** Nome com o trecho digitado destacado. */
+function highlightMatch(name, query) {
+  const frag = document.createDocumentFragment();
+  const idx = query ? stripAccents(name).indexOf(stripAccents(query)) : -1;
+  if (idx < 0) { frag.append(name); return frag; }
+  const mark = document.createElement('mark');
+  mark.textContent = name.slice(idx, idx + query.length);
+  frag.append(name.slice(0, idx), mark, name.slice(idx + query.length));
+  return frag;
 }
-singerPickerDropdown.addEventListener('change', () => {
-  if (singerPickerDropdown.value) {
-    resolveSingerPicker({ singerId: singerPickerDropdown.value, isNew: false });
+
+/**
+ * "Pra quem é essa música?" — a busca É a lista: cantores em ordem
+ * alfabética, filtrando enquanto digita. O primeiro que serve já fica
+ * destacado (Enter escolhe). "+ Adicionar 'X'" aparece por último quando há
+ * resultados, ou primeiro quando não há. Cantor com a fila cheia aparece
+ * desativado.
+ */
+function renderSingerPickerList() {
+  const query = singerPickerInput.value.trim();
+  const q = stripAccents(query);
+  const max = singerManager.MAX_SONGS_PER_SINGER;
+  const singers = singerManager.getAllSingers()
+    .filter(s => !q || stripAccents(s.name).includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name, getLocale(), { sensitivity: 'base' }));
+  const exact = !!query && singerManager.getAllSingers().some(s => stripAccents(s.name) === q);
+
+  singerPickerList.innerHTML = '';
+  singerPickerOptions = [];
+
+  const addNewOption = () => {
+    const opt = document.createElement('div');
+    opt.className = 'opt new';
+    const plus = document.createElement('span');
+    plus.className = 'plus';
+    plus.textContent = '+';
+    const nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.textContent = window.i18n.t('singer_picker_add_new', { name: query });
+    opt.appendChild(plus);
+    opt.appendChild(nm);
+    const pick = () => resolveSingerPicker({ singerId: query, isNew: true });
+    opt.addEventListener('click', pick);
+    singerPickerList.appendChild(opt);
+    singerPickerOptions.push({ el: opt, pick });
+  };
+
+  if (query && !exact && !singers.length) addNewOption();
+
+  singers.forEach(s => {
+    const full = s.songs.length >= max;
+    const opt = document.createElement('div');
+    opt.className = 'opt' + (full ? ' full' : '');
+    const nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.appendChild(highlightMatch(s.name, query));
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = full ? window.i18n.t('singer_picker_full', { count: s.songs.length, max }) : `${s.songs.length}/${max}`;
+    opt.appendChild(nm);
+    opt.appendChild(cnt);
+    if (!full) {
+      const pick = () => resolveSingerPicker({ singerId: s.id, isNew: false });
+      opt.addEventListener('click', pick);
+      singerPickerOptions.push({ el: opt, pick });
+    }
+    singerPickerList.appendChild(opt);
+  });
+
+  if (query && !exact && singers.length) addNewOption();
+
+  if (!singerPickerList.childElementCount) {
+    const p = document.createElement('p');
+    p.className = 'combo-empty';
+    p.textContent = window.i18n.t('singer_picker_empty');
+    singerPickerList.appendChild(p);
   }
+  setSingerPickerHighlight(singerPickerOptions.length ? 0 : -1);
+}
+
+function setSingerPickerHighlight(i) {
+  singerPickerOptions.forEach((o, n) => o.el.classList.toggle('hi', n === i));
+  singerPickerHi = i;
+  if (i >= 0 && singerPickerOptions[i].el.scrollIntoView) singerPickerOptions[i].el.scrollIntoView({ block: 'nearest' });
+}
+
+singerPickerInput.addEventListener('input', renderSingerPickerList);
+singerPickerInput.addEventListener('keydown', (e) => {
+  const n = singerPickerOptions.length;
+  if (e.key === 'ArrowDown' && n) { e.preventDefault(); setSingerPickerHighlight((singerPickerHi + 1) % n); }
+  else if (e.key === 'ArrowUp' && n) { e.preventDefault(); setSingerPickerHighlight((singerPickerHi - 1 + n) % n); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (singerPickerHi >= 0) singerPickerOptions[singerPickerHi].pick(); }
+  else if (e.key === 'Escape') { e.preventDefault(); resolveSingerPicker(null); }
 });
 
 function resolveSingerPicker(result) {
   if (!singerPickerResolve) return;
+  if (result && result.isNew && singerManager.nameExists(result.singerId)) {
+    showError(window.i18n.t('err_singer_name_duplicate'));
+    return;
+  }
   const resolve = singerPickerResolve;
   singerPickerResolve = null;
   singerPickerBackdrop.classList.add('hidden');
   resolve(result);
 }
 
-singerPickerNewBtn.addEventListener('click', () => {
-  const name = singerPickerNewInput.value.trim();
-  if (!name) return;
-  if (singerManager.nameExists(name)) {
-    showError(window.i18n.t('err_singer_name_duplicate'));
-    return;
-  }
-  resolveSingerPicker({ singerId: name, isNew: true });
-});
-singerPickerNewInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') singerPickerNewBtn.click();
-});
 singerPickerCancelBtn.addEventListener('click', () => resolveSingerPicker(null));
+singerPickerBackdrop.addEventListener('click', (e) => { if (e.target === singerPickerBackdrop) resolveSingerPicker(null); });
 
 /** Processa uma leva de arquivos perguntando o cantor de cada um, um por um. */
 async function addFilesInSingerMode(list) {
@@ -3015,7 +3171,6 @@ async function addLibraryItemInSingerMode(item) {
       librarySource: libraryItemSource(item),
     };
     singerManager.addSongToSinger(choice.singerId, choice.isNew, song);
-    switchSidebarTab('fila');
     if (mode === null) loadCurrentSingerTurn(false);
   } catch (err) {
     console.error('[App] Erro ao ler arquivo da biblioteca:', err);
@@ -3239,51 +3394,39 @@ manageSingersBackdrop.addEventListener('click', (e) => { if (e.target === manage
 function renderManageSingersList() {
   manageSingersList.innerHTML = '';
   const singers = singerManager.getAllSingers();
+  const current = singerManager.getCurrentSinger();
   singers.forEach((s, i) => {
     const row = document.createElement('div');
-    row.className = 'manage-singer-row' + (s.id === selectedManageSingerId ? ' selected' : '');
+    row.className = 'ms manage-singer-row' + (s.id === selectedManageSingerId ? ' sel' : '');
 
     const pos = document.createElement('span');
-    pos.className = 'pos';
+    pos.className = 'p';
     pos.textContent = String(i + 1);
 
-    const dot = document.createElement('span');
-    dot.className = 'status-dot';
-
     const info = document.createElement('div');
-    info.className = 'info';
+    info.style.minWidth = '0';
     const nameLine = document.createElement('div');
-    nameLine.className = 'name-line';
+    nameLine.className = 'nm';
     const nameEl = document.createElement('span');
-    nameEl.className = 'name';
     nameEl.textContent = s.name;
     nameLine.appendChild(nameEl);
+    if (current && current.id === s.id) {
+      const dot = document.createElement('span');
+      dot.className = 'dotnow';
+      dot.title = window.i18n.t('singing_chip');
+      nameLine.appendChild(dot);
+    }
     const count = document.createElement('div');
-    count.className = 'count';
+    count.className = 'c';
     count.textContent = `${s.songs.length}/${singerManager.MAX_SONGS_PER_SINGER} ${window.i18n.t('manage_singers_songs_count')}`;
     info.appendChild(nameLine);
     info.appendChild(count);
 
-    const reorderMini = document.createElement('div');
-    reorderMini.className = 'reorder-mini';
-    const upBtn = document.createElement('button');
-    upBtn.textContent = '▲';
-    upBtn.disabled = i === 0;
-    upBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i - 1); renderManageSingersList(); });
-    const downBtn = document.createElement('button');
-    downBtn.textContent = '▼';
-    downBtn.disabled = i === singers.length - 1;
-    downBtn.addEventListener('click', (e) => { e.stopPropagation(); singerManager.reorderSinger(i, i + 2); renderManageSingersList(); });
-    reorderMini.appendChild(upBtn);
-    reorderMini.appendChild(downBtn);
-
     const actions = document.createElement('div');
-    actions.className = 'row-actions';
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '×';
-    delBtn.title = window.i18n.t('delete_btn_title');
-    delBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
+    actions.className = 'acts';
+    actions.appendChild(rowActionBtn(ICON_UP, window.i18n.t('move_up_title'), i === 0, () => { singerManager.reorderSinger(i, i - 1); renderManageSingersList(); }));
+    actions.appendChild(rowActionBtn(ICON_DOWN, window.i18n.t('move_down_title'), i === singers.length - 1, () => { singerManager.reorderSinger(i, i + 2); renderManageSingersList(); }));
+    actions.appendChild(rowActionBtn(ICON_X, window.i18n.t('delete_btn_title'), false, async () => {
       if (await showConfirmModal(window.i18n.t('confirm_remove_singer', { name: s.name }))) {
         singerManager.removeSinger(s.id);
         if (selectedManageSingerId === s.id) selectedManageSingerId = null;
@@ -3292,13 +3435,10 @@ function renderManageSingersList() {
         manageSingersDetail.classList.add('hidden');
         renderSingerRoundView();
       }
-    });
-    actions.appendChild(delBtn);
+    }));
 
     row.appendChild(pos);
-    row.appendChild(dot);
     row.appendChild(info);
-    row.appendChild(reorderMini);
     row.appendChild(actions);
     row.addEventListener('click', () => { selectedManageSingerId = s.id; renderManageSingersList(); renderManageSingerDetail(s.id); });
 
@@ -3306,16 +3446,25 @@ function renderManageSingersList() {
   });
 }
 
-addNewSingerBtn.addEventListener('click', async () => {
+async function promptAddSinger() {
   const name = await showPromptModal(window.i18n.t('prompt_new_singer_name'));
-  if (!name || !name.trim()) return;
+  if (!name || !name.trim()) return null;
   try {
-    singerManager.addSinger(name);
-    renderManageSingersList();
-    renderSingerRoundView();
+    return singerManager.addSinger(name);
   } catch (err) {
     showError(err.message);
+    return null;
   }
+}
+addSingerBtn.addEventListener('click', promptAddSinger);
+
+addNewSingerBtn.addEventListener('click', async () => {
+  const singer = await promptAddSinger();
+  if (!singer) return;
+  if (singer.id) selectedManageSingerId = singer.id;
+  renderManageSingersList();
+  renderSingerRoundView();
+  if (singer.id) renderManageSingerDetail(singer.id);
 });
 
 function renderManageSingerDetail(singerId) {
@@ -3324,6 +3473,8 @@ function renderManageSingerDetail(singerId) {
   manageSingersEmpty.classList.add('hidden');
   manageSingersDetail.classList.remove('hidden');
   detailSingerName.textContent = singer.name;
+  const current = singerManager.getCurrentSinger();
+  el('detail-singing-chip').classList.toggle('hidden', !(current && current.id === singer.id && isAnythingPlaying()));
   renderDetailQueueList(singer);
   renderDetailHistoryList(singer);
 }
@@ -3347,8 +3498,8 @@ detailEditNameBtn.addEventListener('click', async () => {
 
 function switchDetailTab(tab) {
   manageDetailTab = tab;
-  detailTabQueueBtn.classList.toggle('active', tab === 'queue');
-  detailTabHistoryBtn.classList.toggle('active', tab === 'history');
+  detailTabQueueBtn.classList.toggle('on', tab === 'queue');
+  detailTabHistoryBtn.classList.toggle('on', tab === 'history');
   detailQueuePanel.classList.toggle('hidden', tab !== 'queue');
   detailHistoryPanel.classList.toggle('hidden', tab !== 'history');
 }
@@ -3359,86 +3510,95 @@ function renderDetailQueueList(singer) {
   detailQueueList.innerHTML = '';
   if (singer.songs.length === 0) {
     const hint = document.createElement('p');
-    hint.className = 'empty-hint-small';
+    hint.className = 'empty-small';
     hint.textContent = window.i18n.t('manage_singers_queue_empty');
     detailQueueList.appendChild(hint);
   }
+  const loadedSongId = showTurn && showTurn.singerId === singer.id ? showTurn.song.id : null;
   singer.songs.forEach((song, i) => {
     const row = document.createElement('div');
-    row.className = 'detail-song-row';
+    row.className = 'ds detail-song-row' + (song.id === loadedSongId ? ' cur' : '');
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = String(i + 1);
     const info = document.createElement('div');
-    info.className = 'info';
+    info.style.minWidth = '0';
     const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = `${i + 1}. ${song.title}`;
+    title.className = 't';
+    title.textContent = song.title;
     const sub = document.createElement('div');
-    sub.className = 'sub';
-    sub.textContent = song.artist || song.format;
+    sub.className = 's';
+    const artist = document.createElement('span');
+    artist.textContent = song.artist || (song.type === 'youtube' ? song.channel : '') || '';
+    sub.appendChild(artist);
+    if (song.code) {
+      const code = document.createElement('span');
+      code.className = 'code';
+      code.textContent = song.code;
+      sub.appendChild(code);
+    }
+    sub.appendChild(createFormatChip(song));
     info.appendChild(title);
     info.appendChild(sub);
 
-    const reorderMini = document.createElement('div');
-    reorderMini.className = 'reorder-mini';
-    const upBtn = document.createElement('button');
-    upBtn.textContent = '▲';
-    upBtn.disabled = i === 0;
-    upBtn.title = window.i18n.t('move_up_title');
-    upBtn.addEventListener('click', () => {
+    // Tom salvo da música (YouTube não tem ajuste de tom).
+    const tone = document.createElement('div');
+    if (song.type !== 'youtube') {
+      tone.className = 'mini-pitch';
+      const st = song.savedSemitones || 0;
+      const minus = document.createElement('button');
+      minus.type = 'button';
+      minus.textContent = '−';
+      minus.title = window.i18n.t('pitch_down_title');
+      minus.addEventListener('click', () => {
+        song.savedSemitones = Math.max(-12, (song.savedSemitones || 0) - 1);
+        persistSingers();
+        renderDetailQueueList(singer);
+      });
+      const val = document.createElement('span');
+      val.textContent = `${st > 0 ? '+' : ''}${st}`;
+      const plus = document.createElement('button');
+      plus.type = 'button';
+      plus.textContent = '+';
+      plus.title = window.i18n.t('pitch_up_title');
+      plus.addEventListener('click', () => {
+        song.savedSemitones = Math.min(12, (song.savedSemitones || 0) + 1);
+        persistSingers();
+        renderDetailQueueList(singer);
+      });
+      tone.appendChild(minus);
+      tone.appendChild(val);
+      tone.appendChild(plus);
+    }
+
+    const reorder = document.createElement('div');
+    reorder.className = 'acts';
+    reorder.appendChild(rowActionBtn(ICON_UP, window.i18n.t('move_up_title'), i === 0, () => {
       singerManager.reorderSongInSinger(singer.id, i, i - 1);
       renderDetailQueueList(singer);
       renderSingerRoundView();
-    });
-    const downBtn = document.createElement('button');
-    downBtn.textContent = '▼';
-    downBtn.disabled = i === singer.songs.length - 1;
-    downBtn.title = window.i18n.t('move_down_title');
-    downBtn.addEventListener('click', () => {
+    }));
+    reorder.appendChild(rowActionBtn(ICON_DOWN, window.i18n.t('move_down_title'), i === singer.songs.length - 1, () => {
       singerManager.reorderSongInSinger(singer.id, i, i + 2);
       renderDetailQueueList(singer);
       renderSingerRoundView();
-    });
-    reorderMini.appendChild(upBtn);
-    reorderMini.appendChild(downBtn);
-
-    const toneControls = document.createElement('div');
-    toneControls.className = 'tone-controls';
-    const minus = document.createElement('button');
-    minus.textContent = '−';
-    minus.addEventListener('click', () => {
-      song.savedSemitones = Math.max(-12, (song.savedSemitones || 0) - 1);
-      persistSingers();
-      renderDetailQueueList(singer);
-    });
-    const toneVal = document.createElement('span');
-    toneVal.className = 'tone-val';
-    const st = song.savedSemitones || 0;
-    toneVal.textContent = `${st > 0 ? '+' : ''}${st}`;
-    const plus = document.createElement('button');
-    plus.textContent = '+';
-    plus.addEventListener('click', () => {
-      song.savedSemitones = Math.min(12, (song.savedSemitones || 0) + 1);
-      persistSingers();
-      renderDetailQueueList(singer);
-    });
-    toneControls.appendChild(minus);
-    toneControls.appendChild(toneVal);
-    toneControls.appendChild(plus);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-song-btn';
-    removeBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
-    removeBtn.addEventListener('click', () => {
+    }));
+    const remove = document.createElement('div');
+    remove.className = 'acts';
+    const removeBtn = rowActionBtn(ICON_X, window.i18n.t('remove_from_queue_title'), false, () => {
       singerManager.removeSongFromSinger(singer.id, i);
       renderDetailQueueList(singer);
       renderManageSingersList();
       renderSingerRoundView();
     });
+    removeBtn.classList.add('remove-song-btn');
+    remove.appendChild(removeBtn);
 
-    if (song.type === 'youtube') toneControls.replaceChildren(createOnlineBadge()); // sem ajuste de tom
+    row.appendChild(n);
     row.appendChild(info);
-    row.appendChild(reorderMini);
-    row.appendChild(toneControls);
-    row.appendChild(removeBtn);
+    row.appendChild(tone);
+    row.appendChild(reorder);
+    row.appendChild(remove);
     detailQueueList.appendChild(row);
   });
 }
@@ -3447,25 +3607,32 @@ function renderDetailHistoryList(singer) {
   detailHistoryList.innerHTML = '';
   if (singer.history.length === 0) {
     const hint = document.createElement('p');
-    hint.className = 'empty-hint-small';
+    hint.className = 'empty-small';
     hint.textContent = window.i18n.t('manage_singers_history_empty');
     detailHistoryList.appendChild(hint);
     return;
   }
   singer.history.slice().reverse().forEach(h => {
     const row = document.createElement('div');
-    row.className = 'detail-song-row';
+    row.className = 'hist';
+    const tm = document.createElement('span');
+    tm.className = 'tm';
+    tm.textContent = h.timestamp ? new Date(h.timestamp).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '';
     const info = document.createElement('div');
-    info.className = 'info';
     const title = document.createElement('div');
-    title.className = 'title';
+    title.className = 't';
     title.textContent = h.title;
     const sub = document.createElement('div');
-    sub.className = 'sub';
-    sub.textContent = `${h.artist || ''} · ${window.i18n.t('history_pitch_label')} ${h.semitone > 0 ? '+' : ''}${h.semitone}`;
+    sub.className = 's';
+    sub.textContent = h.artist || '';
     info.appendChild(title);
     info.appendChild(sub);
+    const pitch = document.createElement('span');
+    pitch.className = 'fmt';
+    pitch.textContent = `${window.i18n.t('history_pitch_label')} ${h.semitone > 0 ? '+' : ''}${h.semitone || 0}`;
+    row.appendChild(tm);
     row.appendChild(info);
+    row.appendChild(pitch);
     detailHistoryList.appendChild(row);
   });
 }
@@ -3478,51 +3645,94 @@ detailAddSongBtn.addEventListener('click', () => {
 });
 
 let detailSearchGeneration = 0;
-detailSongSearchInput.addEventListener('input', async () => {
+let detailSource = 'device';
+
+/** Adiciona uma música na fila do cantor aberto no Gerenciar Cantores. */
+function addSongToManagedSinger(song) {
+  singerManager.addSongToSinger(selectedManageSingerId, false, song);
+  detailAddSongSearch.classList.add('hidden');
+  renderManageSingerDetail(selectedManageSingerId);
+  renderManageSingersList();
+  renderSingerRoundView();
+}
+
+function showDetailMessage(key, warn) {
+  detailSongSearchResults.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'res-msg' + (warn ? ' warn' : '');
+  p.textContent = window.i18n.t(key);
+  detailSongSearchResults.appendChild(p);
+}
+
+function setDetailSource(source) {
+  detailSource = source;
+  el('detail-source-device-btn').classList.toggle('on', source === 'device');
+  el('detail-source-online-btn').classList.toggle('on', source === 'online');
+  detailSongSearchInput.placeholder = window.i18n.t(source === 'online' ? 'online_placeholder' : 'manage_singers_search_placeholder');
+  detailSongSearchResults.innerHTML = '';
+  detailSearchGeneration++;
+  if (source === 'device' && detailSongSearchInput.value.trim()) renderDetailDeviceResults();
+  detailSongSearchInput.focus();
+}
+el('detail-source-device-btn').addEventListener('click', () => setDetailSource('device'));
+el('detail-source-online-btn').addEventListener('click', () => setDetailSource('online'));
+if (!onlineSearch.isConfigured()) el('detail-source-toggle').classList.add('hidden');
+
+async function renderDetailDeviceResults() {
   const q = detailSongSearchInput.value;
   const gen = ++detailSearchGeneration;
   if (!q.trim()) { detailSongSearchResults.innerHTML = ''; return; }
   const results = await library.search(q);
   if (gen !== detailSearchGeneration) return;
   detailSongSearchResults.innerHTML = '';
+  if (!results.length) { showDetailMessage(library.getConnectedFolders().length ? 'library_no_results' : 'library_no_folders_search'); return; }
   results.forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'search-result';
-    const meta = document.createElement('div');
-    meta.className = 'sr-meta';
-    const t = document.createElement('div');
-    t.className = 'sr-title';
-    t.textContent = item.title;
-    const s = document.createElement('div');
-    s.className = 'sr-sub';
-    s.textContent = [item.artist, item.code].filter(Boolean).join(' · ');
-    meta.appendChild(t);
-    meta.appendChild(s);
-    const addBtn = document.createElement('div');
-    addBtn.className = 'sr-add';
-    addBtn.innerHTML = '+';
-    row.appendChild(meta);
-    row.appendChild(addBtn);
-    row.addEventListener('click', async () => {
-      try {
-        const file = await library.getFileForItem(item);
-        const song = {
-          id: 'track_' + (++playlistIdCounter),
-          file, code: item.code, artist: item.artist, title: item.title,
-          format: item.format, type: item.type, savedSemitones: 0,
-          librarySource: libraryItemSource(item),
-        };
-        singerManager.addSongToSinger(selectedManageSingerId, false, song);
-        detailAddSongSearch.classList.add('hidden');
-        renderManageSingerDetail(selectedManageSingerId);
-        renderManageSingersList();
-        renderSingerRoundView();
-      } catch (err) {
-        showError(err.message || window.i18n.t('err_load_generic'));
-      }
-    });
-    detailSongSearchResults.appendChild(row);
+    detailSongSearchResults.appendChild(searchResultRow({
+      title: item.title,
+      sub: [item.artist, item.code].filter(Boolean).join(' · '),
+      chip: createFormatChip(item),
+      onPick: async () => {
+        try {
+          const file = await library.getFileForItem(item);
+          addSongToManagedSinger({
+            id: 'track_' + (++playlistIdCounter),
+            file, code: item.code, artist: item.artist, title: item.title,
+            format: item.format, type: item.type, savedSemitones: 0,
+            librarySource: libraryItemSource(item),
+          });
+        } catch (err) {
+          showError(err.message || window.i18n.t('err_load_generic'));
+        }
+      },
+    }));
   });
+}
+
+async function runDetailOnlineSearch() {
+  const q = detailSongSearchInput.value.trim();
+  if (!q) return;
+  const gen = ++detailSearchGeneration;
+  showDetailMessage('online_searching');
+  try {
+    const results = await onlineSearch.search(q);
+    if (gen !== detailSearchGeneration) return;
+    detailSongSearchResults.innerHTML = '';
+    if (!results.length) { showDetailMessage('online_no_results'); return; }
+    results.forEach(r => detailSongSearchResults.appendChild(searchResultRow({
+      title: r.title, sub: r.channel, chip: createFormatChip({ type: 'youtube' }), thumb: r.thumbnail || '',
+      onPick: () => {
+        try { addSongToManagedSinger(buildOnlineItem(r)); } catch (err) { showError(err.message); }
+      },
+    })));
+  } catch (err) {
+    if (gen !== detailSearchGeneration) return;
+    showDetailMessage('online_err_' + (err && err.code ? err.code : 'server'), true);
+  }
+}
+
+detailSongSearchInput.addEventListener('input', () => { if (detailSource === 'device') renderDetailDeviceResults(); });
+detailSongSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && detailSource === 'online') runDetailOnlineSearch();
 });
 
 // Upload direto de arquivo(s) do computador, pra adicionar na fila do
@@ -3590,6 +3800,8 @@ function openShowReport() {
   const duration = Date.now() - start;
 
   reportDuration.textContent = formatShowDuration(duration);
+  const hm = (ms) => new Date(ms).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
+  el('report-subtitle').textContent = `${new Date(start).toLocaleDateString(getLocale())} · ${hm(start)} – ${hm(Date.now())}`;
   reportTotalSongs.textContent = String(showHistory.length);
 
   const uniqueSingers = new Set(showHistory.map(h => h.cantor));
@@ -3647,7 +3859,7 @@ exportCsvBtn.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `play-karaoke-show-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `playkaraoke-show-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -3661,7 +3873,6 @@ newShowBtn.addEventListener('click', () => {
     localStorage.removeItem(PLAYLIST_STORAGE_KEY);
     localStorage.removeItem(SHOW_START_KEY);
     localStorage.removeItem('playkaraoke-session-start'); // chave antiga (versões anteriores)
-    sessionStorage.removeItem('playkaraoke_auth');
   } catch (err) {}
   window.location.reload();
 });
@@ -3777,46 +3988,124 @@ const appReady = library.restoreSavedFolders().then(async () => {
   }
 });
 
-// ---------- Redimensionar a sidebar (arrastando a borda) ----------
+// ---------- Pads (efeitos sonoros avulsos) ----------
 
-const SIDEBAR_WIDTH_KEY = 'playkaraoke-sidebar-width';
+const pads = window.createPads({
+  onError: (key) => showError(window.i18n.t(key)),
+  getVolume: () => Number(volumeSlider.value) / 100,
+});
+const padsGrid = el('pads-grid');
+const padsSettingsList = el('pads-settings-list');
+const padFileInput = el('pad-file-input');
+let padFileTarget = -1;
 
-(function setupSidebarResize() {
-  const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-  if (savedWidth) {
-    sidebar.style.width = savedWidth + 'px';
-  }
+/** Nome do pad: o dado pelo operador, o padrão (traduzido) ou o do arquivo. */
+function padLabel(pad) {
+  if (pad.name) return pad.name;
+  if (pad.defaultKey) return window.i18n.t(pad.defaultKey);
+  return pad.fileName ? pad.fileName.replace(/\.[^.]+$/, '').slice(0, 24) : '';
+}
 
-  let dragging = false;
-
-  sidebarResizeHandle.addEventListener('mousedown', (e) => {
-    dragging = true;
-    sidebarResizeHandle.classList.add('resizing');
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'col-resize';
-    e.preventDefault();
+function renderPads() {
+  padsGrid.innerHTML = '';
+  pads.getPads().forEach((pad, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pad' + (pad.hasSound ? '' : ' empty');
+    const k = document.createElement('span');
+    k.className = 'k';
+    k.textContent = String(i + 1);
+    b.appendChild(k);
+    b.append(pad.hasSound ? padLabel(pad) : window.i18n.t('pads_load'));
+    b.addEventListener('click', () => {
+      if (pad.hasSound) firePad(i);
+      else { padFileTarget = i; padFileInput.click(); }
+    });
+    padsGrid.appendChild(b);
   });
+  renderPadsSettings();
+}
 
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const min = 220, max = 600;
-    const newWidth = Math.max(min, Math.min(max, e.clientX));
-    sidebar.style.width = newWidth + 'px';
-  });
+/** Toca o pad (do começo, mesmo se já estiver tocando) e pisca o botão. */
+function firePad(i) {
+  if (!pads.fire(i)) return;
+  const b = padsGrid.children[i];
+  if (!b) return;
+  b.classList.remove('fire');
+  void b.offsetWidth; // reinicia a animação
+  b.classList.add('fire');
+  clearTimeout(b._fireTimer);
+  b._fireTimer = setTimeout(() => b.classList.remove('fire'), 350);
+}
 
-  window.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    sidebarResizeHandle.classList.remove('resizing');
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
-    try {
-      localStorage.setItem(SIDEBAR_WIDTH_KEY, parseInt(sidebar.style.width, 10));
-    } catch (err) { /* não é crítico se não salvar */ }
+function renderPadsSettings() {
+  padsSettingsList.innerHTML = '';
+  pads.getPads().forEach((pad, i) => {
+    const row = document.createElement('div');
+    row.className = 'pad-row';
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = String(i + 1);
+    const name = document.createElement('input');
+    name.className = 'txt';
+    name.value = padLabel(pad);
+    name.placeholder = window.i18n.t('pads_name_placeholder');
+    name.maxLength = 24;
+    name.addEventListener('change', () => { pads.rename(i, name.value); renderPads(); });
+    const file = document.createElement('span');
+    file.className = 'file' + (pad.hasSound ? '' : ' none');
+    file.textContent = pad.hasSound ? (pad.fileName || window.i18n.t('pads_default_sound')) : window.i18n.t('pads_no_sound');
+    file.title = file.textContent;
+    const load = document.createElement('button');
+    load.type = 'button';
+    load.className = 'btn sm';
+    load.textContent = window.i18n.t(pad.hasSound ? 'pads_replace' : 'pads_load_btn');
+    load.addEventListener('click', () => { padFileTarget = i; padFileInput.click(); });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'icon-btn';
+    clear.title = window.i18n.t('pads_clear');
+    clear.innerHTML = ICON_X;
+    clear.disabled = !pad.hasSound;
+    clear.addEventListener('click', async () => { await pads.clear(i); renderPads(); });
+    row.appendChild(n);
+    row.appendChild(name);
+    row.appendChild(file);
+    row.appendChild(load);
+    row.appendChild(clear);
+    padsSettingsList.appendChild(row);
   });
-})();
+}
+
+padFileInput.addEventListener('change', async () => {
+  const file = padFileInput.files && padFileInput.files[0];
+  padFileInput.value = '';
+  if (!file || padFileTarget < 0) return;
+  await pads.setSound(padFileTarget, file);
+  padFileTarget = -1;
+  renderPads();
+});
+el('pads-restore-btn').addEventListener('click', async () => {
+  if (!await showConfirmModal(window.i18n.t('pads_restore_confirm'))) return;
+  await pads.restoreDefaults();
+  renderPads();
+});
+pads.restore().then(renderPads);
+renderPads();
 
 // ---------- Atalhos de teclado ----------
+//
+// Desligados por padrão (um esbarrão no teclado não pode atrapalhar o
+// show) — liga em Configurações › Atalhos. Nunca valem enquanto se digita
+// ou com alguma janela aberta.
+
+const shortcutsToggle = el('shortcuts-toggle');
+const SHORTCUTS_KEY = 'playkaraoke-shortcuts';
+try { shortcutsToggle.checked = localStorage.getItem(SHORTCUTS_KEY) === 'true'; } catch (err) {}
+syncToggleIndicator(el('shortcuts-toggle-indicator'), shortcutsToggle);
+shortcutsToggle.addEventListener('change', () => {
+  try { localStorage.setItem(SHORTCUTS_KEY, String(shortcutsToggle.checked)); } catch (err) {}
+});
 
 /** Atalhos ficam desligados enquanto se digita ou com algum modal aberto
  * (senão o Espaço num modal de confirmação dava play/pause por trás). */
@@ -3826,22 +4115,41 @@ function shortcutsBlocked() {
   return !!document.querySelector('[id$="-backdrop"]:not(.hidden)');
 }
 
+function nudgeVolume(delta) {
+  volumeSlider.value = String(Math.max(0, Math.min(100, Number(volumeSlider.value) + delta)));
+  volumeSlider.dispatchEvent(new Event('input'));
+}
+
 window.addEventListener('keydown', (e) => {
-  if (shortcutsBlocked()) return;
-  if (e.code === 'Space') {
+  if (!shortcutsToggle.checked || e.repeat && e.code === 'Space' || shortcutsBlocked()) return;
+  const mod = e.ctrlKey || e.metaKey;
+  const press = (btn) => { e.preventDefault(); if (!btn.disabled) btn.click(); };
+
+  if (!mod && !e.altKey && e.code === 'Space') {
     e.preventDefault();
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); // evita o Espaço "clicar" também o botão focado
-    playBtn.click();
+    if (!playBtn.disabled) playBtn.click();
+    return;
   }
-  // Ctrl/Cmd + Seta Direita = próxima música. Clicar no botão (em vez
-  // de chamar playNextInQueue direto) reaproveita o estado de
-  // habilitado/desabilitado que já existe — em modo cantores o botão
-  // fica sempre desabilitado (não existe "próxima" manual lá), então o
-  // atalho vira um no-op seguro nesse modo, sem precisar checar nada.
-  if ((e.ctrlKey || e.metaKey) && e.code === 'ArrowRight') {
-    e.preventDefault();
-    nextBtn.click();
+  if (mod && !e.altKey) {
+    if (e.shiftKey && e.code === 'ArrowUp') { e.preventDefault(); nudgeVolume(5); return; }
+    if (e.shiftKey && e.code === 'ArrowDown') { e.preventDefault(); nudgeVolume(-5); return; }
+    if (e.shiftKey) return;
+    // Clicar nos botões (em vez de chamar as funções direto) reaproveita o
+    // habilitado/desabilitado de cada um — no Modo Show o "Próxima" encerra
+    // a apresentação (com confirmação), só depois que ela começou.
+    if (e.code === 'ArrowLeft') return press(restartBtn);
+    if (e.code === 'ArrowRight') return press(nextBtn);
+    if (e.code === 'Period') return press(stopBtn);
+    if (e.code === 'ArrowUp') return press(pitchUpBtn);
+    if (e.code === 'ArrowDown') return press(pitchDownBtn);
+    if (e.code === 'Digit0' || e.code === 'Numpad0') return press(pitchResetBtn);
+    return;
   }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const digit = /^(Digit|Numpad)([1-6])$/.exec(e.code);
+  if (digit) { e.preventDefault(); firePad(Number(digit[2]) - 1); return; }
+  if (e.key === '/') { e.preventDefault(); searchInput.focus(); searchInput.select(); }
 });
 
 // Estado inicial
@@ -3859,27 +4167,41 @@ renderPlaylist();
 restoreShowHistory();
 updateShowModeBtnDisplay();
 restoreCountdownSettings();
+// (depois de restaurar: os switches já nascem mostrando o valor salvo)
+syncToggleIndicator(el('cd-show-upcoming-indicator'), cdShowUpcomingToggle);
+syncToggleIndicator(el('cd-show-titles-indicator'), cdShowTitlesToggle);
+syncToggleIndicator(el('cd-show-counter-indicator'), cdShowCounterToggle);
 
 // ---------- Idioma (i18n) ----------
-languageSelect.value = window.i18n.getCurrentLang();
+const languageSeg = el('language-seg');
+function updateLanguageSeg() {
+  languageSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.lang === window.i18n.getCurrentLang()));
+}
+languageSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => window.i18n.setLanguage(b.dataset.lang)));
 window.i18n.applyTranslations();
-languageSelect.addEventListener('change', () => {
-  window.i18n.setLanguage(languageSelect.value);
-});
+updateLanguageSeg();
+applyTheme(currentTheme());
 window.i18n.onLanguageChange(() => {
   // Alguns textos são gerados dinamicamente (não têm data-i18n no HTML
   // estático) — precisam ser re-renderizados manualmente quando o
   // idioma muda, senão ficam "presos" no idioma anterior até a próxima
   // ação do usuário atualizar aquele pedaço da tela.
+  document.documentElement.lang = window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en';
+  updateLanguageSeg();
+  updateHelpLink();
   renderPlaylist();
   updateAutoplayIndicator();
   updateApplauseIndicator();
   updateAmbientIndicator();
+  updateShowModeBtnDisplay();
   if (singerModeEnabled) renderSingerRoundView();
-  if (mode === null) updateMetaBar(null);
+  updateMetaBar(mode === null ? null : playlist[currentIndex] || null);
   renderAmbientSource();
+  renderLibraryFolders();
+  renderPads();
   updateNextBtnState();
   updatePitchButtonTitles();
-  librarySearchInput.placeholder = window.i18n.t(librarySource === 'online' ? 'online_placeholder' : 'library_search_placeholder');
-  if (librarySource === 'device' && librarySearchInput.value.trim()) renderLibraryResults();
+  updateSearchPlaceholder();
+  if (searchSource === 'device' && searchInput.value.trim() && !searchResults.classList.contains('hidden')) renderDeviceResults();
 });
+document.documentElement.lang = window.i18n.getCurrentLang() === 'pt' ? 'pt-BR' : 'en';

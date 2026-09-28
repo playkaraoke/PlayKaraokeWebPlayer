@@ -66,7 +66,7 @@ test('Configurações: botões de fonte da música ambiente', async () => {
   $('ambient-source-custom-btn').click();
   await flush();
   assert.equal($('ambient-custom-row').classList.contains('hidden'), false);
-  assert.equal($('ambient-source-custom-btn').classList.contains('active'), true);
+  assert.equal($('ambient-source-custom-btn').classList.contains('on'), true);
   $('ambient-source-builtin-btn').click();
   assert.equal($('ambient-custom-row').classList.contains('hidden'), true);
 });
