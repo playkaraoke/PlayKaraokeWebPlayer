@@ -16,6 +16,10 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   /* =====================================================================
+     SEM backdrop-filter (desfoque de vidro): com ele, montar a tela custava
+     ~12x mais a cada quadro da letra/vídeo e travava computadores antigos
+     (medido na 3.0.1). Os fundos foram escolhidos pra parecer igual sem ele.
+     ---------------------------------------------------------------------
      PlayKaraoke Player 3.0 — tema "grafite + vidro sutil", destaque
      violeta → rosa. Cores só por variáveis: o tema claro redefine as
      variáveis em html[data-theme=light].
@@ -83,7 +87,7 @@
   .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   .label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-2); }
   .label em{ font-style:normal; color:var(--text-3); margin-left:6px; }
-  .panel{ background:var(--glass); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(14px); }
+  .panel{ background:var(--glass); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }
 
   .btn{ height:38px; padding:0 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; background:var(--glass-2); border:1px solid var(--line-2); }
   .btn:hover:not(:disabled){ background:var(--glass-3); }
@@ -119,7 +123,7 @@
   .app{ height:100vh; display:grid; grid-template-rows:60px 1fr; }
 
   /* ================= Topo ================= */
-  .top{ position:relative; z-index:30; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid var(--line); background:var(--top-bg); backdrop-filter:blur(12px); }
+  .top{ position:relative; z-index:30; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid var(--line); background:var(--top-bg); }
   .logo{ display:flex; align-items:center; gap:9px; flex-shrink:0; }
   .logo img{ height:28px; width:auto; display:block; }
   html[data-theme=light] .logo img, html[data-theme=light] .brand-logo{ filter:invert(1) brightness(0.25); }
@@ -134,7 +138,7 @@
   #search-clear-btn:hover{ color:var(--text); background:var(--glass-2); }
   #search-clear-btn svg{ width:14px; height:14px; }
   .results{ position:absolute; top:46px; left:0; right:0; z-index:40; padding:8px; max-height:min(460px, 70vh); overflow:auto;
-    background:var(--pop-bg); backdrop-filter:blur(16px); border:1px solid var(--line-2); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.3); }
+    background:var(--pop-bg); border:1px solid var(--line-2); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.3); }
   .res-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); padding:6px 8px; }
   .res{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; cursor:pointer; }
   .res:hover{ background:var(--glass-2); }
@@ -232,7 +236,7 @@
   #idle-logo{ width:min(38%, 280px); opacity:.55; }
   #idle-custom-image{ position:absolute; inset:0; background-size:cover; background-position:center; }
   #banners{ position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:6; display:flex; flex-direction:column; gap:6px; width:min(560px, 90%); pointer-events:none; }
-  .banner{ padding:10px 14px; border-radius:11px; font-size:13px; font-weight:500; text-align:center; backdrop-filter:blur(10px); box-shadow:0 8px 24px rgba(0,0,0,.35); pointer-events:auto; }
+  .banner{ padding:10px 14px; border-radius:11px; font-size:13px; font-weight:500; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.35); pointer-events:auto; }
   .banner.error{ background:rgba(127,29,29,0.92); color:#fff; border:1px solid rgba(255,107,107,.5); }
   .banner.loading{ background:var(--pop-bg); border:1px solid var(--line-2); color:var(--text); }
 
@@ -312,8 +316,8 @@
   @media (max-height: 760px){ .pad{ height:44px; } .pads{ padding:10px 14px 12px; } .pads-grid{ margin-top:8px; } }
 
   /* ================= Modais ================= */
-  .modal-back{ position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(8,8,12,0.66); backdrop-filter:blur(6px); padding:20px; }
-  html[data-theme=light] .modal-back{ background:rgba(40,32,70,0.25); }
+  .modal-back{ position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(8,8,12,0.8); padding:20px; }
+  html[data-theme=light] .modal-back{ background:rgba(40,32,70,0.4); }
   .dlg{ background:var(--pop-bg); border:1px solid var(--line-2); border-radius:20px; box-shadow:0 30px 80px rgba(0,0,0,0.35);
     width:min(460px,100%); max-height:100%; display:flex; flex-direction:column; overflow:hidden; }
   .dlg.wide{ width:min(980px,100%); height:min(640px,100%); }
@@ -487,8 +491,8 @@
   .about-foot{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-3); line-height:1.6; padding:2px 2px 0; }
 
   /* Soltar arquivo em qualquer lugar */
-  #drop-overlay{ position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; background:rgba(12,11,16,0.78); backdrop-filter:blur(6px); pointer-events:none; }
-  html[data-theme=light] #drop-overlay{ background:rgba(241,239,246,0.82); }
+  #drop-overlay{ position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; background:rgba(12,11,16,0.88); pointer-events:none; }
+  html[data-theme=light] #drop-overlay{ background:rgba(241,239,246,0.92); }
   #drop-overlay div{ border:2px dashed rgba(196,160,255,0.7); border-radius:24px; padding:40px 60px; font-family:'Montserrat',sans-serif; font-size:22px; font-weight:600; }
 </style>
 </head>
@@ -808,7 +812,7 @@
     <button type="button" data-sec="shortcuts"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.2"/><path stroke-linecap="round" d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9"/></svg><span data-i18n="settings_sec_shortcuts">Shortcuts</span></button>
     <button type="button" data-sec="about"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg><span data-i18n="settings_sec_about">About</span></button>
     <a id="help-link" href="help.html" target="_blank" rel="noopener"><svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg><span data-i18n="help_link">Help &amp; manual</span><span style="margin-left:auto;opacity:.6">↗</span></a>
-    <div id="version-tag">PlayKaraoke Player v3.0</div>
+    <div id="version-tag">PlayKaraoke Player v3.0.1</div>
   </nav>
   <div class="s-main">
     <div class="s-head"><h4 id="settings-title" data-i18n="settings_sec_general">General</h4><button class="close-x" id="settings-close-btn" type="button"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
@@ -915,7 +919,7 @@
           <a class="about-btn" href="https://github.com/playkaraoke/PlayKaraokeWebPlayer" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>GitHub</a>
           <a class="about-btn" href="https://br.linkedin.com/in/jorgedomecildes" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.23 0H1.77C.8 0 0 .77 0 1.73v20.54C0 23.23.8 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.2 0 22.23 0Z"/></svg>LinkedIn</a>
         </div>
-        <div class="about-foot">PlayKaraoke Player v3.0 · © 2015–2026 Jorge Domecildes · <span data-i18n="about_license">Free for personal, noncommercial use</span> · contatoplaykaraoke@gmail.com</div>
+        <div class="about-foot">PlayKaraoke Player v3.0.1 · © 2015–2026 Jorge Domecildes · <span data-i18n="about_license">Free for personal, noncommercial use</span> · contatoplaykaraoke@gmail.com</div>
       </section>
 
     </div>

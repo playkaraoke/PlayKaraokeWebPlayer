@@ -160,3 +160,11 @@ test('Modo Show: lista vira rodízio, rodapé troca pros botões de cantor e o c
   assert.equal($('meta-singer-field').classList.contains('hidden'), false);
   assert.equal($('next-btn').title, 'End performance (next singer)');
 });
+
+test('sem desfoque de vidro (backdrop-filter) nas telas do player — travava computadores antigos', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['index.html', 'second-screen.html']) {
+    const css = readFileSync(new URL('../' + f, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.equal(/backdrop-filter\s*:/.test(css), false, f + ' voltou a usar backdrop-filter');
+  }
+});
