@@ -33,7 +33,7 @@
 | **Formats** | `.zip` with `.cdg` + audio (MP3+G) and `.mp4` video |
 | **Key change** | ±12 semitones in real time, without changing speed, for CDG **and** MP4 |
 | **Queue** | Drop files anywhere, drag to reorder, per-song key preset, autoplay with countdown, restart button. The next song is always preloaded |
-| **Show Mode** | Singer rotation (up to 5 songs each) with a searchable singer picker, "Change song" for the singer up next, "Manage singers" panel, end-of-night report and CSV export |
+| **Show Mode** | Singer rotation (up to 5 songs each) with a searchable singer picker, "Change song" for the current singer (before or mid-song), "Manage singers" panel, end-of-night report and CSV export |
 | **Second screen** | Clean lyrics/video window for a TV or projector. While open, it becomes the main video player, halving the work on the operator's computer |
 | **Search** | One search box for your **devices** (index local folders or external drives, accent-insensitive, instant) and **YouTube** |
 | **Pads** | Six sound-effect buttons (applause, laughter, drum roll, horn…), with your own sounds and names |

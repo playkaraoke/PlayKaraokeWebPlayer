@@ -138,7 +138,7 @@ test('cantor da vez já cantando: mexer na fila dele não interrompe a apresenta
   assert.equal(t.engine.loadedBuffers.length, loadsBefore);
 });
 
-test('botão "Trocar música" do cantor da vez: troca pela escolhida e recarrega; some quando começa a cantar', async () => {
+test('botão "Trocar música" do cantor da vez: troca pela escolhida e recarrega', async () => {
   const { win, t, $ } = await showWith3Singers();
   const btn = () => $('singer-list-full').querySelector('.singer-swap-btn');
   assert.ok(btn(), 'botão deveria aparecer na linha do cantor da vez');
@@ -155,6 +155,41 @@ test('botão "Trocar música" do cantor da vez: troca pela escolhida e recarrega
   assert.deepEqual(titles(ana), ['Nova', 'Musica2']);
   assert.equal($('swap-song-backdrop').classList.contains('hidden'), true);
   assert.equal(t.playlist[0].title, 'Nova');
+});
+
+test('"Trocar música" no meio da apresentação (cantor desistiu): para, não conta como cantada, carrega a nova', async () => {
+  const { win, t, $ } = await showWith3Singers();
   await t.engine.play();
-  assert.equal(btn().classList.contains('hidden'), true, 'com a apresentação em andamento o botão some');
+  await flush();
+  const btn = $('singer-list-full').querySelector('.singer-swap-btn');
+  assert.equal(btn.classList.contains('hidden'), false, 'botão tem que continuar visível com a música tocando');
+  btn.click();
+  assert.match($('swap-song-current').textContent, /Musica1/);
+  const input = $('swap-song-file-input');
+  Object.defineProperty(input, 'files', { configurable: true, value: [fakeFile(win, 'Ana - Nova.zip')] });
+  input.dispatchEvent(new win.Event('change'));
+  await flush(); await flush();
+  const ana = t.singerManager.getAllSingers()[0];
+  assert.deepEqual(titles(ana), ['Nova', 'Musica2']);
+  assert.equal(current(t), 'Ana', 'a vez continua com quem trocou');
+  assert.equal(t.showHistory.length, 0, 'música abandonada não vai pro histórico');
+  assert.equal(t.playlist[0].title, 'Nova');
+  assert.equal(t.engine.loadedBuffers.at(-1).name, 'Ana - Nova.zip');
+  assert.equal(t.engine.isPlaying(), false, 'nova fica carregada e pausada');
+  assert.equal($('play-btn').disabled, false);
+});
+
+test('"Trocar música" no meio, depois de reordenar a fila: a nova entra na frente e a abandonada sai', async () => {
+  const { win, t, $ } = await showWith3Singers();
+  await t.engine.play();
+  const ana = t.singerManager.getAllSingers()[0];
+  t.singerManager.reorderSongInSinger(ana.id, 1, 0); // Musica2 sobe enquanto Musica1 toca
+  await flush();
+  $('singer-list-full').querySelector('.singer-swap-btn').click();
+  const input = $('swap-song-file-input');
+  Object.defineProperty(input, 'files', { configurable: true, value: [fakeFile(win, 'Ana - Nova.zip')] });
+  input.dispatchEvent(new win.Event('change'));
+  await flush(); await flush();
+  assert.deepEqual(titles(ana), ['Nova', 'Musica2']);
+  assert.equal(t.playlist[0].title, 'Nova');
 });

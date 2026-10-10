@@ -2752,11 +2752,11 @@ function renderSingerRoundView() {
     row.appendChild(meta);
 
     if (isActive) {
-      // "Trocar música": só antes de o cantor da vez começar (pedido comum
-      // de quem chega na hora de cantar e quer outra música).
+      // "Trocar música": antes de começar ou no meio (cantor que desiste da
+      // música e pede outra) — aí a atual para e não conta como cantada.
       const swapBtn = document.createElement('button');
       swapBtn.type = 'button';
-      swapBtn.className = 'singer-swap-btn' + (performanceStarted() ? ' hidden' : '');
+      swapBtn.className = 'singer-swap-btn';
       swapBtn.textContent = window.i18n.t('swap_song_btn');
       swapBtn.title = window.i18n.t('swap_song_btn_title');
       swapBtn.addEventListener('click', (e) => { e.stopPropagation(); openSwapSongModal(s.id); });
@@ -2831,8 +2831,6 @@ function updateSingerNowPlayingBadge() {
   // Enquanto ninguém canta, "a seguir" é o próprio cantor da vez.
   const nextChip = singerListFull.querySelector('.upnext-chip');
   if (nextChip) nextChip.classList.toggle('hidden', !isAnythingPlaying());
-  const swapBtn = singerListFull.querySelector('.singer-swap-btn');
-  if (swapBtn) swapBtn.classList.toggle('hidden', performanceStarted());
 }
 
 /** A música carregada já começou (tocando, ou pausada no meio)? */
@@ -2857,7 +2855,10 @@ function openSwapSongModal(singerId) {
   if (!singer) return;
   swapSingerId = singerId;
   el('swap-song-title').textContent = window.i18n.t('swap_song_title', { name: singer.name });
-  const current = singer.songs[0];
+  // Se ele já está cantando, "atual" é a que está tocando (o operador pode
+  // ter reordenado a fila dele no meio da apresentação).
+  const playing = performanceStarted() && showTurn && showTurn.singerId === singerId ? showTurn.song : null;
+  const current = playing || singer.songs[0];
   el('swap-song-current').textContent = current
     ? window.i18n.t('swap_song_current', { song: [current.artist, current.title].filter(Boolean).join(' — ') })
     : window.i18n.t('swap_song_none');
@@ -2941,17 +2942,34 @@ async function runSwapOnlineSearch() {
   }
 }
 
-/** Troca a 1ª música do cantor pela escolhida. A recarga no player é
- * automática (scheduleShowTurnSync, no onChange da rodada). */
+/** Troca a música do cantor pela escolhida. Antes de começar, a recarga
+ * no player é automática (scheduleShowTurnSync, no onChange da rodada).
+ * No meio da apresentação (cantor desistiu e pediu outra), a que está
+ * tocando para, sai da fila sem ir pro histórico, e a nova fica carregada
+ * (pausada) pro operador dar Play. */
 function applySwap(song) {
   if (!swapSingerId) return;
+  const singerId = swapSingerId;
+  const interrupting = performanceStarted() && showTurn && showTurn.singerId === singerId;
   try {
-    singerManager.replaceSong(swapSingerId, 0, song);
+    if (interrupting) {
+      // Tira a abandonada (se ainda estiver na fila) e a nova entra na frente.
+      const singer = singerManager.getAllSingers().find(s => s.id === singerId);
+      const idx = singer ? singer.songs.findIndex(s => s.id === showTurn.song.id) : -1;
+      if (idx !== -1) singerManager.removeSongFromSinger(singerId, idx);
+      singerManager.replaceSong(singerId, -1, song);
+    } else {
+      singerManager.replaceSong(singerId, 0, song);
+    }
   } catch (err) {
     showError(err.message);
     return;
   }
   closeSwapSongModal();
+  if (interrupting) {
+    stopCurrentMedia();
+    loadCurrentSingerTurn(false);
+  }
 }
 
 swapSourceDeviceBtn.addEventListener('click', () => setSwapSource('device'));

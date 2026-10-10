@@ -21,7 +21,7 @@ const TRANSLATIONS = {
 
     // Library
     remote_playing_hint: 'Playing on the second screen',
-    swap_song_btn_title: "Change this singer's song before they start",
+    swap_song_btn_title: "Change this singer's song (if they're already singing, the current song stops and doesn't count as sung)",
     swap_song_title: "Change {name}'s song",
     swap_song_current: 'Current: {song}',
     swap_song_none: 'No song in queue yet',
@@ -320,7 +320,7 @@ const TRANSLATIONS = {
     queue_empty_hint: 'Sua fila aparece aqui. Carregue um ou mais arquivos pra começar.',
 
     remote_playing_hint: 'Tocando na segunda tela',
-    swap_song_btn_title: 'Trocar a música deste cantor antes de ele começar',
+    swap_song_btn_title: 'Trocar a música deste cantor (se ele já estiver cantando, a atual para e não conta como cantada)',
     swap_song_title: 'Trocar a música de {name}',
     swap_song_current: 'Atual: {song}',
     swap_song_none: 'Ainda sem música na fila',
