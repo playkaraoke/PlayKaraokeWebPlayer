@@ -171,3 +171,15 @@ test('sem desfoque de vidro (backdrop-filter) nas telas do player — travava co
     assert.equal(/backdrop-filter\s*:/.test(css), false, f + ' voltou a usar backdrop-filter');
   }
 });
+
+test('scripts com ?v= igual à versão do rodapé (navegador não usa arquivo velho do cache)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const read = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  const version = read('index.html').match(/id="version-tag">PlayKaraoke Player v([\d.]+)</)[1];
+  for (const f of ['index.html', 'second-screen.html']) {
+    const srcs = [...read(f).matchAll(/src="(js\/[^"]+)"/g)].map(m => m[1]);
+    assert.ok(srcs.length > 0);
+    for (const src of srcs) assert.ok(src.endsWith('?v=' + version), `${f}: ${src} sem ?v=${version}`);
+  }
+  assert.match(read('js/app.js'), new RegExp(`from './audio-engine\\.js\\?v=${version.replace(/\./g, '\\.')}'`));
+});

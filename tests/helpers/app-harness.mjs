@@ -153,7 +153,7 @@ export async function createApp(opts = {}) {
   if (opts.beforeApp) opts.beforeApp(win);
 
   const appSrc = read('js/app.js').replace(
-    /^import \{ AudioEngine \} from '\.\/audio-engine\.js';$/m,
+    /^import \{ AudioEngine \} from '\.\/audio-engine\.js(\?v=[\d.]+)?';$/m,
     'const AudioEngine = window.AudioEngine;'
   );
   const testHook = `
