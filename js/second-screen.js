@@ -230,6 +230,7 @@
         row.appendChild(nameBadge);
         if (display.titles && s.song) {
           const songText = document.createElement('span');
+          songText.className = 'song-info';
           songText.textContent = [s.song.title, s.song.artist].filter(Boolean).join(' - ');
           row.appendChild(songText);
         }

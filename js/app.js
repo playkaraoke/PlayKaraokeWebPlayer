@@ -1451,7 +1451,7 @@ function startSingerCountdown() {
     type: 'countdown-start', delay, remaining: countdownRemaining, nextTitle: nextTitleText,
     singerMode: true,
     singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
-    upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
+    upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
     display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
     labels: getCountdownLabels(),
   });
@@ -1777,7 +1777,7 @@ function updateIdleOverlay() {
           type: 'countdown-start', delay: 0, remaining: 0,
           singerMode: true, timerless: true,
           singer: { name: singer.name, song: singer.songs[0] || null, position: getSingerPosition(singer.id) },
-          upcoming: singerManager.getUpcomingSingers(3).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
+          upcoming: singerManager.getUpcomingSingers(2).map(s => ({ name: s.name, song: s.songs[0] || null, position: getSingerPosition(s.id) })),
           display: { upcoming: cdShowUpcomingToggle.checked, titles: cdShowTitlesToggle.checked, counter: cdShowCounterToggle.checked },
           labels: getCountdownLabels(),
         });
@@ -3359,7 +3359,7 @@ function renderRichCountdown(singer) {
   cdUpcomingList.innerHTML = '';
   cdUpcomingSection.classList.toggle('hidden', !showUpcoming);
   if (showUpcoming) {
-    const upcoming = singerManager.getUpcomingSingers(3);
+    const upcoming = singerManager.getUpcomingSingers(2);
     upcoming.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'cd-upcoming-row';

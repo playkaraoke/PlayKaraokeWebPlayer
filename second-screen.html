@@ -96,21 +96,24 @@
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:min(2.2vh, 18px);
+    gap:3.2vh;
     z-index:5;
   }
+  /* Tamanhos em vh: crescem junto com a TV (antes tinham teto em px e
+     ficavam pequenos numa tela grande). */
+  #countdown-timer-parts{ display:flex; align-items:center; justify-content:center; gap:2.5vh; flex-wrap:wrap; }
   #countdown-overlay .cd-label{
     font-family:'JetBrains Mono',monospace;
-    font-size:15px;
-    letter-spacing:0.08em;
+    font-size:2.8vh;
+    letter-spacing:0.12em;
     text-transform:uppercase;
     color:#b9b3cf;
   }
   #countdown-overlay .cd-number{
     font-family:'Montserrat',sans-serif;
     font-weight:700;
-    font-size:min(18vw, 140px);
-    line-height:1;
+    font-size:22vh;
+    line-height:0.9;
     background:linear-gradient(135deg, #8b5cf6, #ec4899);
     -webkit-background-clip:text;
     background-clip:text;
@@ -119,66 +122,66 @@
   #countdown-overlay .cd-next{
     font-family:'Montserrat',sans-serif;
     font-weight:600;
-    font-size:min(4vw, 28px);
+    font-size:5vh;
     color:#eeecf2;
     text-align:center;
     padding:0 20px;
   }
   #cd-singer-highlight{
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    width:100%; max-width:70vw;
+    display:flex; flex-direction:column; align-items:center; gap:1.6vh;
+    width:100%; max-width:82vw;
   }
-  .cd-a-seguir-label{
+  .cd-a-seguir-label, .cd-proximas-label{
     font-family:'JetBrains Mono',monospace;
-    font-size:min(2vw,14px);
-    letter-spacing:0.1em;
+    font-size:2.8vh;
+    letter-spacing:0.12em;
     text-transform:uppercase;
     color:#b9b3cf;
   }
   #cd-singer-card{
     background:#ffffff;
-    box-shadow:0 12px 50px rgba(139,92,246,0.40);
-    border-radius:16px;
-    padding:20px 32px;
-    display:flex; flex-direction:column; align-items:center; gap:4px;
+    box-shadow:0 1.5vh 6vh rgba(139,92,246,0.45);
+    border-radius:2.6vh;
+    padding:3.4vh 5vh;
+    display:flex; flex-direction:column; align-items:center; gap:1vh;
     width:100%;
   }
   #cd-singer-name-display{
     font-family:'Montserrat',sans-serif;
     font-weight:700;
-    font-size:min(5vw,32px);
+    font-size:10vh;
+    line-height:1.05;
     color:#15131c;
     text-align:center;
+    max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   #cd-singer-song-display{
-    font-size:min(2.4vw,16px);
+    font-size:4.4vh;
     font-weight:600;
     color:#4b4760;
     text-align:center;
+    max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:70vw; }
-  .cd-proximas-label{
-    font-family:'JetBrains Mono',monospace;
-    font-size:min(2vw,14px);
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    color:#b9b3cf;
-  }
-  #cd-upcoming-list{ display:flex; flex-direction:column; gap:8px; width:100%; }
+  #cd-upcoming-section{ display:flex; flex-direction:column; align-items:center; gap:2vh; width:100%; max-width:82vw; }
+  #cd-upcoming-list{ display:flex; flex-direction:column; gap:2vh; width:100%; }
   .cd-upcoming-row{
-    display:flex; align-items:center; gap:10px;
-    font-size:min(2.2vw,15px);
+    display:flex; align-items:center; gap:2vh; min-width:0;
+    font-size:3.2vh; font-weight:500;
     color:#cfcadf;
   }
   .cd-upcoming-row .pos-badge{
-    font-family:'Inter',sans-serif; font-weight:700; font-size:12px;
-    color:#111111; background:#ffffff; border-radius:999px;
-    width:24px;height:24px; display:flex;align-items:center;justify-content:center; flex-shrink:0;
+    font-family:'Inter',sans-serif; font-weight:700; font-size:3.4vh;
+    color:#111111; background:#ffffff; border-radius:50%;
+    width:6.8vh;height:6.8vh; display:flex;align-items:center;justify-content:center; flex-shrink:0;
   }
   .cd-upcoming-row .name-badge{
-    font-family:'Inter',sans-serif; font-weight:700; font-size:min(2.2vw,14px);
-    color:#111111; background:#ffffff; border-radius:999px; padding:5px 14px; flex-shrink:0;
+    font-family:'Inter',sans-serif; font-weight:700; font-size:5.6vh;
+    color:#111111; background:#ffffff; border-radius:999px; padding:0.6vh 3.4vh; flex-shrink:0;
+    max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+  .cd-upcoming-row .song-info{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -215,7 +218,7 @@
     </div>
   </div>
   <div id="cd-upcoming-section">
-    <span class="cd-proximas-label">Upcoming songs:</span>
+    <span class="cd-proximas-label">Upcoming singers:</span>
     <div id="cd-upcoming-list"></div>
   </div>
 </div>
