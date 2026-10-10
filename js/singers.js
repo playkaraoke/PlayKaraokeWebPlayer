@@ -169,6 +169,15 @@ function createSingerManager({ onChange }) {
     notify();
   }
 
+  /** Pula a vez do cantor atual (foi embora, não está na hora, etc.): a
+   * vez passa pro próximo sem consumir música nem registrar histórico. O
+   * cantor continua na rodada. */
+  function skipTurn() {
+    if (currentSingerId === null || singers.length < 2) return;
+    currentSingerId = getNextActiveSingerId(currentSingerId);
+    notify();
+  }
+
   /** Lista os próximos N cantores a partir do atual (não inclui o atual). */
   function getUpcomingSingers(count) {
     const result = [];
@@ -205,7 +214,7 @@ function createSingerManager({ onChange }) {
   return {
     addSinger, renameSinger, removeSinger, reorderSinger,
     addSongToSinger, removeSongFromSinger, reorderSongInSinger, replaceSong,
-    getCurrentSinger, completeTurn,
+    getCurrentSinger, completeTurn, skipTurn,
     getUpcomingSingers, getNextActiveSingerId,
     getAllSingers: () => singers,
     nameExists,

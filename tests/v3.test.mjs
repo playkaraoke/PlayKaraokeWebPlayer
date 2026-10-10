@@ -158,6 +158,9 @@ test('Modo Show: lista vira rodízio, rodapé troca pros botões de cantor e o c
   assert.match($('playlist-count').textContent, /Singer rotation/);
   assert.equal($('meta-singer').textContent, 'Ana');
   assert.equal($('meta-singer-field').classList.contains('hidden'), false);
+  assert.match($('next-btn').title, /^Skip/, 'antes de começar: pular a vez');
+  assert.equal($('next-btn').disabled, true, 'só 1 cantor: nada pra pular');
+  await t.engine.play();
   assert.equal($('next-btn').title, 'End performance (next singer)');
 });
 

@@ -911,12 +911,18 @@ function getCurrentPosition() {
   return 0;
 }
 
-/** O botão "Próxima" muda de papel no Modo Show: lá ele encerra a
- * apresentação atual (só depois que ela começou) e passa a vez. */
+/** O botão "Próxima" muda de papel no Modo Show: depois que a
+ * apresentação começou, encerra e passa a vez; antes disso (cantor sem
+ * música, ou que foi embora), pula a vez dele. */
 function updateNextBtnState() {
   if (singerModeEnabled) {
-    nextBtn.disabled = !(showTurn && mode !== null && (isAnythingPlaying() || getCurrentPosition() > 0));
-    nextBtn.title = window.i18n.t('end_performance_title');
+    if (showTurn && performanceStarted()) {
+      nextBtn.disabled = false;
+      nextBtn.title = window.i18n.t('end_performance_title');
+    } else {
+      nextBtn.disabled = singerManager.getAllSingers().length < 2 || !singerManager.getCurrentSinger();
+      nextBtn.title = window.i18n.t('skip_turn_title');
+    }
   } else {
     nextBtn.disabled = !hasNext();
     nextBtn.title = window.i18n.t('next_btn_title');
@@ -934,8 +940,26 @@ async function endCurrentPerformance() {
   await handleSingerModeSongEnded({ elapsedSec });
 }
 
+/** Modo Show: pula a vez do cantor da vez antes de ele começar. Nada
+ * vai pro histórico; ele continua na rodada com as músicas dele. */
+async function skipCurrentSingerTurn() {
+  const singer = singerManager.getCurrentSinger();
+  if (!singer) return;
+  const confirmed = await showConfirmModal(window.i18n.t('confirm_skip_turn', { name: singer.name }));
+  if (!confirmed || performanceStarted()) return;
+  if (countdownTimerId || singerCountdownActive) cancelCountdown();
+  stopCurrentMedia();
+  showTurn = null;
+  singerManager.skipTurn();
+  await loadCurrentSingerTurn(false);
+  updateNextBtnState();
+}
+
 nextBtn.addEventListener('click', () => {
-  if (singerModeEnabled) endCurrentPerformance();
+  if (singerModeEnabled) {
+    if (showTurn && performanceStarted()) endCurrentPerformance();
+    else skipCurrentSingerTurn();
+  }
   else playNextInQueue();
 });
 
@@ -2586,6 +2610,7 @@ const SINGERS_STORAGE_KEY = 'playkaraoke-singers-v1';
 const singerManager = window.createSingerManager({
   onChange: () => {
     renderSingerRoundView(); persistSingers(); scheduleShowTurnSync();
+    if (singerModeEnabled) updateNextBtnState();
     if (singerModeEnabled && playlistRestoreDone) updateIdleOverlay(); // cartão "A seguir" acompanha a rodada
   },
 });

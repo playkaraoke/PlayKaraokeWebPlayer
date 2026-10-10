@@ -193,3 +193,35 @@ test('"Trocar música" no meio, depois de reordenar a fila: a nova entra na fren
   assert.deepEqual(titles(ana), ['Nova', 'Musica2']);
   assert.equal(t.playlist[0].title, 'Nova');
 });
+
+test('cantor da vez sem música (foi embora): Próxima fica ativo e pula a vez sem registrar nada', async () => {
+  const { t, $ } = await showWith3Singers();
+  const ana = t.singerManager.getAllSingers()[0];
+  t.singerManager.removeSongFromSinger(ana.id, 0);
+  t.singerManager.removeSongFromSinger(ana.id, 0);
+  await flush();
+  assert.equal(t.mode, null);
+  const next = $('next-btn');
+  assert.equal(next.disabled, false, 'Próxima tem que permitir pular quem está sem música');
+  next.click();
+  await flush();
+  $('generic-confirm-ok-btn').click();
+  await flush(); await flush();
+  assert.equal(current(t), 'Bia');
+  assert.equal(t.showHistory.length, 0);
+  assert.deepEqual(names(t), ['Ana', 'Bia', 'Caio'], 'Ana continua no rodízio');
+  assert.equal(t.playlist[0].artist, 'Bia', 'música da Bia fica carregada');
+  assert.equal(t.engine.isPlaying(), false);
+});
+
+test('cantor da vez com música carregada mas sem começar: Próxima pula a vez e a música dele fica na fila', async () => {
+  const { t, $ } = await showWith3Singers();
+  $('next-btn').click();
+  await flush();
+  $('generic-confirm-ok-btn').click();
+  await flush(); await flush();
+  assert.equal(current(t), 'Bia');
+  assert.deepEqual(titles(t.singerManager.getAllSingers()[0]), ['Musica1', 'Musica2']);
+  assert.equal(t.showHistory.length, 0);
+  assert.equal(t.playlist[0].artist, 'Bia');
+});
